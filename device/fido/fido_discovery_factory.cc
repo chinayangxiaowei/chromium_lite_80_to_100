@@ -25,6 +25,10 @@
 #include "device/fido/mac/discovery.h"
 #endif  // defined(OSMACOSX)
 
+#if defined(OS_CHROMEOS)
+#include "device/fido/cros/discovery.h"
+#endif  // defined(OS_CHROMEOS)
+
 namespace device {
 
 namespace {
@@ -43,10 +47,6 @@ std::unique_ptr<FidoDiscoveryBase> CreateUsbFidoDiscovery() {
 FidoDiscoveryFactory::FidoDiscoveryFactory() = default;
 FidoDiscoveryFactory::~FidoDiscoveryFactory() = default;
 
-void FidoDiscoveryFactory::ResetRequestState() {
-  request_state_ = {};
-}
-
 std::unique_ptr<FidoDiscoveryBase> FidoDiscoveryFactory::Create(
     FidoTransportProtocol transport) {
   switch (transport) {
@@ -55,27 +55,21 @@ std::unique_ptr<FidoDiscoveryBase> FidoDiscoveryFactory::Create(
     case FidoTransportProtocol::kBluetoothLowEnergy:
       return std::make_unique<FidoBleDiscovery>();
     case FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy:
-      if (request_state_.cable_data_.has_value() ||
-          request_state_.qr_generator_key_.has_value()) {
+      if (cable_data_.has_value() || qr_generator_key_.has_value()) {
         return std::make_unique<FidoCableDiscovery>(
-            request_state_.cable_data_.value_or(
-                std::vector<CableDiscoveryData>()),
-            request_state_.qr_generator_key_,
-            request_state_.cable_pairing_callback_);
+            cable_data_.value_or(std::vector<CableDiscoveryData>()),
+            qr_generator_key_, cable_pairing_callback_);
       }
       return nullptr;
     case FidoTransportProtocol::kNearFieldCommunication:
       // TODO(https://crbug.com/825949): Add NFC support.
       return nullptr;
     case FidoTransportProtocol::kInternal:
-#if defined(OS_MACOSX)
-      return mac_touch_id_config_
-                 ? std::make_unique<fido::mac::FidoTouchIdDiscovery>(
-                       *mac_touch_id_config_)
-                 : nullptr;
+#if defined(OS_MACOSX) || defined(OS_CHROMEOS)
+      return MaybeCreatePlatformDiscovery();
 #else
       return nullptr;
-#endif  // defined(OS_MACOSX)
+#endif
   }
   NOTREACHED() << "Unhandled transport type";
   return nullptr;
@@ -84,14 +78,14 @@ std::unique_ptr<FidoDiscoveryBase> FidoDiscoveryFactory::Create(
 void FidoDiscoveryFactory::set_cable_data(
     std::vector<CableDiscoveryData> cable_data,
     base::Optional<QRGeneratorKey> qr_generator_key) {
-  request_state_.cable_data_ = std::move(cable_data);
-  request_state_.qr_generator_key_ = std::move(qr_generator_key);
+  cable_data_ = std::move(cable_data);
+  qr_generator_key_ = std::move(qr_generator_key);
 }
 
 void FidoDiscoveryFactory::set_cable_pairing_callback(
     base::RepeatingCallback<void(std::unique_ptr<CableDiscoveryData>)>
         pairing_callback) {
-  request_state_.cable_pairing_callback_.emplace(std::move(pairing_callback));
+  cable_pairing_callback_.emplace(std::move(pairing_callback));
 }
 
 #if defined(OS_WIN)
@@ -117,7 +111,23 @@ FidoDiscoveryFactory::MaybeCreateWinWebAuthnApiDiscovery() {
 }
 #endif  // defined(OS_WIN)
 
-FidoDiscoveryFactory::RequestState::RequestState() = default;
-FidoDiscoveryFactory::RequestState::~RequestState() = default;
+#if defined(OS_MACOSX)
+std::unique_ptr<FidoDiscoveryBase>
+FidoDiscoveryFactory::MaybeCreatePlatformDiscovery() const {
+  return mac_touch_id_config_
+             ? std::make_unique<fido::mac::FidoTouchIdDiscovery>(
+                   *mac_touch_id_config_)
+             : nullptr;
+}
+#endif
+
+#if defined(OS_CHROMEOS)
+std::unique_ptr<FidoDiscoveryBase>
+FidoDiscoveryFactory::MaybeCreatePlatformDiscovery() const {
+  return base::FeatureList::IsEnabled(kWebAuthCrosPlatformAuthenticator)
+             ? std::make_unique<FidoChromeOSDiscovery>()
+             : nullptr;
+}
+#endif
 
 }  // namespace device

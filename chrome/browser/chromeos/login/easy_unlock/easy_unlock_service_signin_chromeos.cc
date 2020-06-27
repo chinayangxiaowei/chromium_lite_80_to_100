@@ -175,8 +175,7 @@ EasyUnlockServiceSignin::EasyUnlockServiceSignin(
     : EasyUnlockService(profile, secure_channel_client),
       account_id_(EmptyAccountId()),
       user_pod_last_focused_timestamp_(base::TimeTicks::Now()),
-      remote_device_cache_(
-          multidevice::RemoteDeviceCache::Factory::Get()->BuildInstance()) {}
+      remote_device_cache_(multidevice::RemoteDeviceCache::Factory::Create()) {}
 
 EasyUnlockServiceSignin::~EasyUnlockServiceSignin() {}
 
@@ -341,16 +340,6 @@ bool EasyUnlockServiceSignin::IsChromeOSLoginEnabled() const {
 
 void EasyUnlockServiceSignin::OnSuspendDoneInternal() {
   // Ignored.
-}
-
-void EasyUnlockServiceSignin::OnBluetoothAdapterPresentChanged() {
-  // Because the BluetoothAdapter state change may change whether EasyUnlock is
-  // allowed, we want to treat the user pod as though it were focused for the
-  // first time. This allows the correct flow (loading cryptohome keys,
-  // initializing ProximityAuthSystem, etc.) to take place.
-  AccountId current_account_id = account_id_;
-  account_id_ = AccountId();
-  OnFocusedUserChanged(current_account_id);
 }
 
 void EasyUnlockServiceSignin::OnScreenDidLock(

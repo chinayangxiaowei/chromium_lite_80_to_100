@@ -222,7 +222,7 @@ class WebcamPrivateSetHomeFunction : public ExtensionFunction {
 class WebcamPrivateRestoreCameraPresetFunction : public ExtensionFunction {
  public:
   WebcamPrivateRestoreCameraPresetFunction();
-  DECLARE_EXTENSION_FUNCTION("webcamPrivate.restoreCameraPreset",
+  DECLARE_EXTENSION_FUNCTION("webcamPrivate.callCameraPreset",
                              WEBCAMPRIVATE_RESTORE_CAMERA_PRESET)
 
  protected:

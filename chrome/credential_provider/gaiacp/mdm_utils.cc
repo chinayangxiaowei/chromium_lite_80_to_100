@@ -232,39 +232,6 @@ HRESULT ExtractRegistrationData(const base::Value& registration_data,
   return S_OK;
 }
 
-// Gets localalized name for builtin administrator account. Extracting
-// localized name for builtin administrator account requires DomainSid
-// to be passed onto the CreateWellKnownSid function unlike any other
-// WellKnownSid as per microsoft documentation. Thats why we need to first
-// extract the DomainSid (even for local accounts) and pass it as a
-// parameter to the CreateWellKnownSid function call.
-HRESULT GetLocalizedNameBuiltinAdministratorAccount(
-    base::string16* builtin_localized_admin_name) {
-  LSA_HANDLE PolicyHandle;
-  static LSA_OBJECT_ATTRIBUTES oa = {sizeof(oa)};
-  NTSTATUS status =
-      LsaOpenPolicy(0, &oa, POLICY_VIEW_LOCAL_INFORMATION, &PolicyHandle);
-  if (status >= 0) {
-    PPOLICY_ACCOUNT_DOMAIN_INFO ppadi;
-    status = LsaQueryInformationPolicy(
-        PolicyHandle, PolicyAccountDomainInformation, (void**)&ppadi);
-    if (status >= 0) {
-      BYTE well_known_sid[SECURITY_MAX_SID_SIZE];
-      DWORD size_local_users_group_sid = base::size(well_known_sid);
-      if (CreateWellKnownSid(::WinAccountAdministratorSid, ppadi->DomainSid,
-                             well_known_sid, &size_local_users_group_sid)) {
-        return LookupLocalizedNameBySid(well_known_sid,
-                                        builtin_localized_admin_name);
-      } else {
-        status = GetLastError();
-      }
-      LsaFreeMemory(ppadi);
-    }
-    LsaClose(PolicyHandle);
-  }
-  return status >= 0 ? S_OK : E_FAIL;
-}
-
 HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
                                            const base::Value& properties) {
   // Make sure all the needed data is present in the dictionary.
@@ -334,6 +301,13 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
   registration_data.SetStringKey("builtin_administrator_name",
                                  builtin_administrator_name);
   registration_data.SetStringKey(kKeyIsAdJoinedUser, is_ad_joined_user);
+
+  // Send device resource ID if available as part of the enrollment payload.
+  // Enrollment backend should not assume that this will always be available.
+  base::string16 user_device_resource_id = GetUserDeviceResourceId(sid);
+  if (!user_device_resource_id.empty()) {
+    registration_data.SetStringKey("resource_id", user_device_resource_id);
+  }
 
   std::string registration_data_str;
   if (!base::JSONWriter::Write(registration_data, &registration_data_str)) {
@@ -440,6 +414,18 @@ base::string16 GetUserPasswordLsaStoreKey(const base::string16& sid) {
   DCHECK(sid.size());
 
   return kUserPasswordLsaStoreKeyPrefix + sid;
+}
+
+base::string16 GetUserDeviceResourceId(const base::string16& sid) {
+  wchar_t known_resource_id[512];
+  ULONG known_resource_id_size = base::size(known_resource_id);
+  HRESULT hr = GetUserProperty(sid, kRegUserDeviceResourceId, known_resource_id,
+                               &known_resource_id_size);
+
+  if (SUCCEEDED(hr) && known_resource_id_size > 0)
+    return base::string16(known_resource_id, known_resource_id_size - 1);
+
+  return base::string16();
 }
 
 // GoogleMdmEnrollmentStatusForTesting ////////////////////////////////////////

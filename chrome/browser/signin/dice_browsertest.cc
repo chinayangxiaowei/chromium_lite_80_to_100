@@ -827,7 +827,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, EnableSyncAfterToken) {
 
   // Signin using the Chrome Sync endpoint.
   browser()->signin_view_controller()->ShowSignin(
-      profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN, browser(),
+      profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN,
       signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
 
   // Receive token.
@@ -879,7 +879,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, EnableSyncBeforeToken) {
 
   // Signin using the Chrome Sync endpoint.
   browser()->signin_view_controller()->ShowSignin(
-      profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN, browser(),
+      profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN,
       signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
 
   // Receive ENABLE_SYNC.
@@ -1015,8 +1015,9 @@ IN_PROC_BROWSER_TEST_F(DiceManageAccountBrowserTest,
       prefs::kSigninAllowedOnNextStartup, false);
 }
 
+// TODO(https://crbug.com/1075896) disabling test due to flakiness
 IN_PROC_BROWSER_TEST_F(DiceManageAccountBrowserTest,
-                       ClearManagedProfileOnStartup) {
+                       DISABLED_ClearManagedProfileOnStartup) {
   // Initial profile should have been deleted as sign-in and sign out were no
   // longer allowed.
   PrefService* local_state = g_browser_process->local_state();

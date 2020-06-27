@@ -181,7 +181,8 @@ MultipleDisplayState DisplayChangeObserver::GetStateForDisplayIds(
                             [](const DisplaySnapshot* display_state) {
                               return display_state->display_id();
                             });
-  return display_manager_->ShouldSetMirrorModeOn(list)
+  return display_manager_->ShouldSetMirrorModeOn(
+             list, /*should_check_hardware_mirrorring=*/true)
              ? MULTIPLE_DISPLAY_STATE_MULTI_MIRROR
              : MULTIPLE_DISPLAY_STATE_MULTI_EXTENDED;
 }
@@ -335,8 +336,13 @@ ManagedDisplayInfo DisplayChangeObserver::CreateManagedDisplayInfo(
       snapshot->is_aspect_preserving_scaling());
   if (dpi)
     new_info.set_device_dpi(dpi);
-  new_info.set_color_space(snapshot->color_space());
+
+  // TODO(crbug.com/1012846): This should configure the HDR color spaces.
+  gfx::DisplayColorSpaces display_color_spaces(
+      snapshot->color_space(), DisplaySnapshot::PrimaryFormat());
+  new_info.set_display_color_spaces(display_color_spaces);
   new_info.set_bits_per_channel(snapshot->bits_per_channel());
+
   // TODO(crbug.com/1012846): Remove this flag and provision when HDR is fully
   // supported on ChromeOS.
 #if defined(OS_CHROMEOS)
@@ -364,7 +370,7 @@ ManagedDisplayInfo DisplayChangeObserver::CreateManagedDisplayInfo(
 // static
 float DisplayChangeObserver::FindDeviceScaleFactor(float dpi) {
   for (size_t i = 0; i < base::size(kThresholdTableForInternal); ++i) {
-    if (dpi > kThresholdTableForInternal[i].dpi)
+    if (dpi >= kThresholdTableForInternal[i].dpi)
       return kThresholdTableForInternal[i].device_scale_factor;
   }
   return 1.0f;
