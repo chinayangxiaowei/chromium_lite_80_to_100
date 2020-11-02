@@ -112,6 +112,7 @@
 <translation id="1771761307086386028">Cuộn sang phải</translation>
 <translation id="1781173782405573156">Phím truyền qua</translation>
 <translation id="1787176709638001873">Văn bản chỉnh sửa mật khẩu</translation>
+<translation id="180203835522132923">Nhấn tổ hợp phím Tìm kiếm + O, sau đó nhấn W</translation>
 <translation id="1810107444790159527">Hộp danh sách</translation>
 <translation id="1812527064848182527">ngang</translation>
 <translation id="1829244130665387512">Tìm trong trang</translation>
@@ -256,6 +257,7 @@
 <translation id="297825089465017871">Vuốt sang trái bằng hai ngón tay</translation>
 <translation id="2998131015536248178">Ký tự trước</translation>
 <translation id="2999559350546931576">Giảm độ cao</translation>
+<translation id="3009352964623081324">Nhấn tổ hợp phím Tìm kiếm + O, sau đó nhấn S. Dùng để cài đặt, quản lý và tùy chỉnh giọng nói.</translation>
 <translation id="3014130421870723208">@sửa trường 8 chấm</translation>
 <translation id="3030432017085518523">Nút radio mục menu</translation>
 <translation id="3037392361165431467">{COUNT,plural, =1{dấu nháy đơn}other{# dấu nháy đơn}}</translation>
@@ -454,6 +456,7 @@
 <translation id="4505167975768625962">Chèn</translation>
 <translation id="4511186779140817916">Màu cam nâu nhạt</translation>
 <translation id="451510441928265982">Không có tiêu đề cấp 2 nào trước đó</translation>
+<translation id="4515799157838123044">Làm phai màu của nội dung trong nền</translation>
 <translation id="4517854969512651305">Tăng giá trị</translation>
 <translation id="4532633738839459153">{COUNT,plural, =1{dấu gạch chéo}other{# dấu gạch chéo}}</translation>
 <translation id="4537277403911487429">Mục tương tự tiếp theo</translation>
@@ -705,6 +708,7 @@
 <translation id="6628427060004938651">Phần</translation>
 <translation id="6637586476836377253">nhật ký</translation>
 <translation id="6657128831881431364">Thanh tiến độ</translation>
+<translation id="6660819301598582123">Lươn ngắn lại chê trạch dài.</translation>
 <translation id="667999046851023355">Tài liệu</translation>
 <translation id="6688209025607531203">Thông báo phi thể thức</translation>
 <translation id="6689672606256159458">Màu hồng cam đậm</translation>
@@ -740,7 +744,6 @@
 <translation id="6951482098621102657">Không có tiêu đề cấp 5 nào tiếp theo</translation>
 <translation id="6955705049214951590">Màu hồng sương</translation>
 <translation id="696356426651109308">Chuyển đến phần đầu</translation>
-<translation id="699159175332639490">Tìm kiếm + O + W</translation>
 <translation id="6994042831499278539">Tham chiếu bảng thuật ngữ</translation>
 <translation id="6996566555547746822">Hộp kết hợp tiếp theo</translation>
 <translation id="6997224546856374593">Khi đọc các chữ cái viết hoa:</translation>
@@ -809,6 +812,7 @@
 <translation id="743783356331413498">Ví dụ</translation>
 <translation id="7439060726180460871">Thư mục</translation>
 <translation id="744163271241493234">pwded</translation>
+<translation id="7484805699335881122">Thay đổi cao độ khi nói các loại thành phần và văn bản được trích dẫn, bị xóa, được in đậm, nằm trong ngoặc đơn hoặc viết hoa.</translation>
 <translation id="7491962110804786152">thẻ</translation>
 <translation id="7505149250476994901">Nói "hoa" sau chữ cái</translation>
 <translation id="7518543783849163354">Để ChromeVox tạm thời ngừng nói, nhấn phím Control.</translation>

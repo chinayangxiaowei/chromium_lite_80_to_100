@@ -116,8 +116,7 @@ public class ReengagementNotificationController {
         NotificationMetadata metadata =
                 new NotificationMetadata(notificationUmaType, NOTIFICATION_TAG, NOTIFICATION_ID);
         ChromeNotificationBuilder builder =
-                NotificationBuilderFactory
-                        .createChromeNotificationBuilder(
+                NotificationBuilderFactory.createChromeNotificationBuilder(
                         /* preferCompat = */ true, ChannelId.UPDATES,
                         /* remoteAppPackageName = */ null, metadata);
 

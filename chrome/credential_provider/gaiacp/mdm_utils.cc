@@ -25,10 +25,12 @@
 #include "base/win/wmi.h"
 #include "build/branding_buildflags.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
+#include "chrome/credential_provider/gaiacp/device_policies_manager.h"
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
+#include "chrome/credential_provider/gaiacp/user_policies_manager.h"
 #include "third_party/re2/src/re2/re2.h"
 
 namespace credential_provider {
@@ -49,7 +51,10 @@ constexpr wchar_t kRegDeviceDetailsUploadStatus[] =
 constexpr wchar_t kRegDeviceDetailsUploadFailures[] =
     L"device_details_upload_failures";
 constexpr wchar_t kRegGlsPath[] = L"gls_path";
+constexpr wchar_t kRegUpdateCredentialsOnChange[] =
+    L"update_credentials_on_change";
 constexpr wchar_t kRegUserDeviceResourceId[] = L"device_resource_id";
+constexpr wchar_t kRegUseShorterAccountName[] = L"use_shorter_account_name";
 constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     L"Chrome-GCPW-";
@@ -58,6 +63,8 @@ constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
 #endif
 const char kErrorKeyInRequestResult[] = "error";
 constexpr int kMaxNumConsecutiveUploadDeviceFailures = 3;
+const base::TimeDelta kMaxTimeDeltaSinceLastUserPolicyRefresh =
+    base::TimeDelta::FromDays(1);
 
 // Overridden in tests to force the MDM enrollment to either succeed or fail.
 enum class EnrollmentStatus {
@@ -112,25 +119,6 @@ T GetMdmFunctionPointer(const base::ScopedNativeLibrary& library,
 
 #define GET_MDM_FUNCTION_POINTER(library, name) \
   GetMdmFunctionPointer<decltype(&::name)>(library, #name)
-
-base::string16 GetMdmUrl() {
-  DWORD enable_dm_enrollment;
-  base::string16 enrollment_url = L"";
-
-  HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
-  if (SUCCEEDED(hr)) {
-    if (enable_dm_enrollment)
-      enrollment_url = kDefaultMdmUrl;
-  } else {
-    // Fallback to using the older flag to control mdm url.
-    enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
-  }
-  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
-  if (!dev.empty())
-    enrollment_url = GetDevelopmentUrl(enrollment_url, dev);
-
-  return enrollment_url;
-}
 
 bool IsEnrolledWithGoogleMdm(const base::string16& mdm_url) {
   switch (g_enrolled_status) {
@@ -244,39 +232,6 @@ HRESULT ExtractRegistrationData(const base::Value& registration_data,
   return S_OK;
 }
 
-// Gets localalized name for builtin administrator account. Extracting
-// localized name for builtin administrator account requires DomainSid
-// to be passed onto the CreateWellKnownSid function unlike any other
-// WellKnownSid as per microsoft documentation. Thats why we need to first
-// extract the DomainSid (even for local accounts) and pass it as a
-// parameter to the CreateWellKnownSid function call.
-HRESULT GetLocalizedNameBuiltinAdministratorAccount(
-    base::string16* builtin_localized_admin_name) {
-  LSA_HANDLE PolicyHandle;
-  static LSA_OBJECT_ATTRIBUTES oa = {sizeof(oa)};
-  NTSTATUS status =
-      LsaOpenPolicy(0, &oa, POLICY_VIEW_LOCAL_INFORMATION, &PolicyHandle);
-  if (status >= 0) {
-    PPOLICY_ACCOUNT_DOMAIN_INFO ppadi;
-    status = LsaQueryInformationPolicy(
-        PolicyHandle, PolicyAccountDomainInformation, (void**)&ppadi);
-    if (status >= 0) {
-      BYTE well_known_sid[SECURITY_MAX_SID_SIZE];
-      DWORD size_local_users_group_sid = base::size(well_known_sid);
-      if (CreateWellKnownSid(::WinAccountAdministratorSid, ppadi->DomainSid,
-                             well_known_sid, &size_local_users_group_sid)) {
-        return LookupLocalizedNameBySid(well_known_sid,
-                                        builtin_localized_admin_name);
-      } else {
-        status = GetLastError();
-      }
-      LsaFreeMemory(ppadi);
-    }
-    LsaClose(PolicyHandle);
-  }
-  return status >= 0 ? S_OK : E_FAIL;
-}
-
 HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
                                            const base::Value& properties) {
   // Make sure all the needed data is present in the dictionary.
@@ -387,9 +342,20 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
       email.c_str(), mdm_url.c_str(), base::UTF8ToWide(data_encoded).c_str());
 }
 
+bool IsUserAllowedToEnrollWithMdm(const base::string16& sid) {
+  UserPolicies policies;
+  UserPoliciesManager::Get()->GetUserPolicies(sid, &policies);
+  return policies.enable_dm_enrollment;
+}
+
 }  // namespace
 
-bool NeedsToEnrollWithMdm() {
+bool NeedsToEnrollWithMdm(const base::string16& sid) {
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    if (!IsUserAllowedToEnrollWithMdm(sid))
+      return false;
+  }
+
   base::string16 mdm_url = GetMdmUrl();
   return !mdm_url.empty() && !IsEnrolledWithGoogleMdm(mdm_url);
 }
@@ -422,8 +388,38 @@ bool UploadDeviceDetailsNeeded(const base::string16& sid) {
 }
 
 bool MdmEnrollmentEnabled() {
+  if (DevicePoliciesManager::Get()->CloudPoliciesEnabled()) {
+    DevicePolicies policies;
+    DevicePoliciesManager::Get()->GetDevicePolicies(&policies);
+    return policies.enable_dm_enrollment;
+  }
+
   base::string16 mdm_url = GetMdmUrl();
   return !mdm_url.empty();
+}
+
+base::string16 GetMdmUrl() {
+  base::string16 enrollment_url = L"";
+
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
+  } else {
+    DWORD enable_dm_enrollment;
+    HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
+    if (SUCCEEDED(hr)) {
+      if (enable_dm_enrollment)
+        enrollment_url = kDefaultMdmUrl;
+    } else {
+      // Fallback to using the older flag to control mdm url.
+      enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
+    }
+  }
+
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+  if (!dev.empty())
+    enrollment_url = GetDevelopmentUrl(enrollment_url, dev);
+
+  return enrollment_url;
 }
 
 GURL EscrowServiceUrl() {
@@ -484,6 +480,12 @@ bool IsOnlineLoginEnforced(const base::string16& sid) {
 
 HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
   LOGFN(VERBOSE);
+
+  if (UserPoliciesManager::Get()->CloudPoliciesEnabled()) {
+    base::string16 sid = GetDictString(properties, kKeySID);
+    if (!IsUserAllowedToEnrollWithMdm(sid))
+      return S_OK;
+  }
 
   // Only enroll with MDM if configured.
   base::string16 mdm_url = GetMdmUrl();

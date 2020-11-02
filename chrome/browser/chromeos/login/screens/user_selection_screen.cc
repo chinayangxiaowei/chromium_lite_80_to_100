@@ -493,6 +493,7 @@ class UserSelectionScreen::TpmLockedChecker {
 UserSelectionScreen::UserSelectionScreen(const std::string& display_type)
     : BaseScreen(UserBoardView::kScreenId, OobeScreenPriority::DEFAULT),
       display_type_(display_type) {
+  session_manager::SessionManager::Get()->AddObserver(this);
   if (display_type_ != OobeUI::kLoginDisplay)
     return;
   allowed_input_methods_subscription_ =
@@ -508,6 +509,7 @@ UserSelectionScreen::~UserSelectionScreen() {
   ui::UserActivityDetector* activity_detector = ui::UserActivityDetector::Get();
   if (activity_detector && activity_detector->HasObserver(this))
     activity_detector->RemoveObserver(this);
+  session_manager::SessionManager::Get()->RemoveObserver(this);
 }
 
 void UserSelectionScreen::InitEasyUnlock() {
@@ -820,6 +822,14 @@ void UserSelectionScreen::CheckUserStatus(const AccountId& account_id) {
 }
 
 void UserSelectionScreen::HandleFocusPod(const AccountId& account_id) {
+  DCHECK(!pending_focused_account_id_.has_value());
+  const session_manager::SessionState session_state =
+      session_manager::SessionManager::Get()->session_state();
+  if (session_state == session_manager::SessionState::ACTIVE) {
+    // Wait for the session state change before actual work.
+    pending_focused_account_id_ = account_id;
+    return;
+  }
   proximity_auth::ScreenlockBridge::Get()->SetFocusedUser(account_id);
   if (focused_pod_account_id_ == account_id)
     return;
@@ -960,6 +970,16 @@ void UserSelectionScreen::AttemptEasySignin(const AccountId& account_id,
   }
 }
 
+void UserSelectionScreen::OnSessionStateChanged() {
+  if (!pending_focused_account_id_.has_value())
+    return;
+  DCHECK(session_manager::SessionManager::Get()->IsUserSessionBlocked());
+
+  AccountId focused_pod(pending_focused_account_id_.value());
+  pending_focused_account_id_.reset();
+  HandleFocusPod(focused_pod);
+}
+
 void UserSelectionScreen::ShowImpl() {}
 
 void UserSelectionScreen::HideImpl() {}
@@ -1049,6 +1069,15 @@ UserSelectionScreen::UpdateAndReturnUserListForAsh() {
     ash::LoginUserInfo user_info;
     user_info.basic_user_info.type = user->GetType();
     user_info.basic_user_info.account_id = user->GetAccountId();
+
+    if (!user_manager::known_user::GetBooleanPref(
+            account_id, ::prefs::kUse24HourClock,
+            &user_info.use_24hour_clock)) {
+      // Fallback to system default in case pref was not found.
+      user_info.use_24hour_clock =
+          base::GetHourClockType() == base::k24HourClock;
+    }
+
     user_info.basic_user_info.display_name =
         base::UTF16ToUTF8(user->GetDisplayName());
     user_info.basic_user_info.display_email = user->display_email();
