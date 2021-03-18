@@ -24,7 +24,7 @@
 
 namespace mojo {
 
-using ReceiverId = uint64_t;
+using ReceiverId = size_t;
 
 template <typename ReceiverType>
 struct ReceiverSetTraits;
@@ -359,11 +359,11 @@ class ReceiverSetBase {
                      Context context,
                      scoped_refptr<base::SequencedTaskRunner> task_runner) {
     ReceiverId id = next_receiver_id_++;
+    DCHECK_GE(next_receiver_id_, 0u);
     auto entry =
         std::make_unique<Entry>(std::move(impl), std::move(receiver), this, id,
                                 std::move(context), std::move(task_runner));
-    auto result = receivers_.insert(std::make_pair(id, std::move(entry)));
-    CHECK(result.second) << "ReceiverId overflow with collision";
+    receivers_.insert(std::make_pair(id, std::move(entry)));
     return id;
   }
 

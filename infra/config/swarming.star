@@ -8,7 +8,7 @@ They are actually shared with a bunch other projects.
 """
 
 load("//lib/swarming.star", "swarming")
-load("//project.star", "ACTIVE_MILESTONES")
+load("//project.star", "ACTIVE_BRANCHES")
 
 # Set up permissions that apply to all Chromium pools.
 swarming.root_permissions()
@@ -58,7 +58,7 @@ swarming.task_triggerers(
 # projects).
 swarming.pool_realm(
     name = "pools/ci",
-    projects = [details.project for details in ACTIVE_MILESTONES.values()],
+    projects = ["chromium-%s" % m for m, _ in ACTIVE_BRANCHES],
 )
 
 # Realm with bots that run try builds.
@@ -66,7 +66,7 @@ swarming.pool_realm(
 # The tasks here are also triggered via Buildbucket. See comment above.
 swarming.pool_realm(
     name = "pools/try",
-    projects = [details.project for details in ACTIVE_MILESTONES.values()],
+    projects = ["chromium-%s" % m for m, _ in ACTIVE_BRANCHES],
 )
 
 # LED users that can trigger try builds via LED.

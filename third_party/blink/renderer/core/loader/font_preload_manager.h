@@ -20,8 +20,9 @@ class ResourceFinishObserver;
 // API) and notifies the relevant document, so that it can manage the first
 // rendering timing to work with preloaded fonts.
 // Design doc: https://bit.ly/36E8UKB
-class CORE_EXPORT FontPreloadManager final
-    : public GarbageCollected<FontPreloadManager> {
+class CORE_EXPORT FontPreloadManager final {
+  DISALLOW_NEW();
+
  public:
   explicit FontPreloadManager(Document&);
   ~FontPreloadManager() = default;

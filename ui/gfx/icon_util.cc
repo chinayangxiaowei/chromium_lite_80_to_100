@@ -116,9 +116,13 @@ bool ConvertImageFamilyToBitmaps(
     DCHECK_LE(image.Height(), IconUtil::kLargeIconSize);
 
     SkBitmap bitmap = image.AsBitmap();
-    CHECK_EQ(bitmap.colorType(), kN32_SkColorType);
-    if (bitmap.isNull())
+
+    // Only 32 bit ARGB bitmaps are supported. We also make sure the bitmap has
+    // been properly initialized.
+    if ((bitmap.colorType() != kN32_SkColorType) ||
+        (bitmap.getPixels() == NULL)) {
       return false;
+    }
 
     // Special case: Icons exactly 256x256 are stored in PNG format.
     if (image.Width() == IconUtil::kLargeIconSize &&

@@ -12,6 +12,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/features.h"
+#import "components/signin/ios/browser/features.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/ukm/ios/features.h"
@@ -253,12 +254,14 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
   }
   [model addItem:self.accountItem
       toSectionWithIdentifier:IdentitySectionIdentifier];
-  TableViewImageItem* manageGoogleAccount =
-      [[TableViewImageItem alloc] initWithType:ManageGoogleAccountItemType];
-  manageGoogleAccount.title =
-      GetNSString(IDS_IOS_MANAGE_YOUR_GOOGLE_ACCOUNT_TITLE);
-  [model addItem:manageGoogleAccount
-      toSectionWithIdentifier:IdentitySectionIdentifier];
+  if (signin::IsSSOEditingEnabled()) {
+    TableViewImageItem* manageGoogleAccount =
+        [[TableViewImageItem alloc] initWithType:ManageGoogleAccountItemType];
+    manageGoogleAccount.title =
+        GetNSString(IDS_IOS_MANAGE_YOUR_GOOGLE_ACCOUNT_TITLE);
+    [model addItem:manageGoogleAccount
+        toSectionWithIdentifier:IdentitySectionIdentifier];
+  }
 }
 
 // Creates, removes or updates the identity section as needed. And notifies the
@@ -573,8 +576,7 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 #pragma mark - Properties
 
 - (BOOL)isAuthenticated {
-  return self.authService->IsAuthenticated() &&
-         self.authService->GetAuthenticatedIdentity();
+  return self.authService->IsAuthenticated();
 }
 
 - (BOOL)isSyncSettingsConfirmed {
@@ -714,6 +716,8 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
   managedItem.detailText = GetNSString(detailStringID);
   managedItem.statusText = status ? l10n_util::GetNSString(IDS_IOS_SETTING_ON)
                                   : l10n_util::GetNSString(IDS_IOS_SETTING_OFF);
+  managedItem.accessibilityHint =
+      l10n_util::GetNSString(IDS_IOS_TOGGLE_SETTING_MANAGED_ACCESSIBILITY_HINT);
   return managedItem;
 }
 

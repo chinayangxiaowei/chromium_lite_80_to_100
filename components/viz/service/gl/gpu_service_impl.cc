@@ -429,44 +429,22 @@ GpuServiceImpl::~GpuServiceImpl() {
   GetLogMessageManager()->ShutdownLogging();
 
   // Destroy the receiver on the IO thread.
-  {
-    base::WaitableEvent wait;
-    auto destroy_receiver_task = base::BindOnce(
-        [](mojo::Receiver<mojom::GpuService>* receiver,
-           base::WaitableEvent* wait) {
-          receiver->reset();
-          wait->Signal();
-        },
-        &receiver_, base::Unretained(&wait));
-    if (io_runner_->PostTask(FROM_HERE, std::move(destroy_receiver_task)))
-      wait.Wait();
-  }
+  base::WaitableEvent wait;
+  auto destroy_receiver_task = base::BindOnce(
+      [](mojo::Receiver<mojom::GpuService>* receiver,
+         base::WaitableEvent* wait) {
+        receiver->reset();
+        wait->Signal();
+      },
+      &receiver_, &wait);
+  if (io_runner_->PostTask(FROM_HERE, std::move(destroy_receiver_task)))
+    wait.Wait();
 
   if (watchdog_thread_)
     watchdog_thread_->OnGpuProcessTearDown();
 
   media_gpu_channel_manager_.reset();
   gpu_channel_manager_.reset();
-
-  // Destroy |gpu_memory_buffer_factory_| on the IO thread since its weakptrs
-  // are checked there.
-  {
-    base::WaitableEvent wait;
-    auto destroy_gmb_factory = base::BindOnce(
-        [](std::unique_ptr<gpu::GpuMemoryBufferFactory> gmb_factory,
-           base::WaitableEvent* wait) {
-          gmb_factory.reset();
-          wait->Signal();
-        },
-        std::move(gpu_memory_buffer_factory_), base::Unretained(&wait));
-
-    if (io_runner_->PostTask(FROM_HERE, std::move(destroy_gmb_factory))) {
-      // |gpu_memory_buffer_factory_| holds a raw pointer to
-      // |vulkan_context_provider_|. Waiting here enforces the correct order
-      // of destruction.
-      wait.Wait();
-    }
-  }
 
   // Scheduler must be destroyed before sync point manager is destroyed.
   scheduler_.reset();
@@ -670,7 +648,8 @@ void GpuServiceImpl::CreateArcVideoDecodeAcceleratorOnMainThread(
   DCHECK(main_runner_->BelongsToCurrentThread());
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<arc::GpuArcVideoDecodeAccelerator>(
-          gpu_preferences_, protected_buffer_manager_),
+          gpu_preferences_, gpu_channel_manager_->gpu_driver_bug_workarounds(),
+          protected_buffer_manager_),
       std::move(vda_receiver));
 }
 
@@ -678,7 +657,8 @@ void GpuServiceImpl::CreateArcVideoEncodeAcceleratorOnMainThread(
     mojo::PendingReceiver<arc::mojom::VideoEncodeAccelerator> vea_receiver) {
   DCHECK(main_runner_->BelongsToCurrentThread());
   mojo::MakeSelfOwnedReceiver(
-      std::make_unique<arc::GpuArcVideoEncodeAccelerator>(gpu_preferences_),
+      std::make_unique<arc::GpuArcVideoEncodeAccelerator>(
+          gpu_preferences_, gpu_channel_manager_->gpu_driver_bug_workarounds()),
       std::move(vea_receiver));
 }
 
@@ -726,14 +706,10 @@ void GpuServiceImpl::CreateVideoEncodeAcceleratorProvider(
     mojo::PendingReceiver<media::mojom::VideoEncodeAcceleratorProvider>
         vea_provider_receiver) {
   DCHECK(io_runner_->BelongsToCurrentThread());
-
-  gpu::GpuDriverBugWorkarounds gpu_workarounds(
-      gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
-
   media::MojoVideoEncodeAcceleratorProvider::Create(
       std::move(vea_provider_receiver),
       base::BindRepeating(&media::GpuVideoEncodeAcceleratorFactory::CreateVEA),
-      gpu_preferences_, gpu_workarounds);
+      gpu_preferences_, gpu_channel_manager_->gpu_driver_bug_workarounds());
 }
 
 void GpuServiceImpl::CreateGpuMemoryBuffer(

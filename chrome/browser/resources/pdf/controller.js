@@ -7,11 +7,20 @@ import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_t
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.m.js';
 
-import {Point, SaveRequestType} from './constants.js';
-import {PartialPoint, Viewport} from './viewport.js';
+import {NamedDestinationMessageData, Point, SaveRequestType} from './constants.js';
+import {PartialPoint, PinchPhase, Viewport} from './viewport.js';
 
 /** @typedef {{type: string, messageId: (string|undefined)}} */
 export let MessageData;
+
+/**
+ * @typedef {{
+ *   type: string,
+ *   dataToSave: Array,
+ *   messageId: string,
+ * }}
+ */
+let SaveAttachmentDataMessageData;
 
 /**
  * @typedef {{
@@ -32,6 +41,15 @@ let SaveDataMessageData;
  * }}
  */
 export let PrintPreviewParams;
+
+/**
+ * @typedef {{
+ *   imageData: !ArrayBuffer,
+ *   width: number,
+ *   height: number,
+ * }}
+ */
+let ThumbnailMessageData;
 
 /**
  * Creates a cryptographically secure pseudorandom 128-bit token.
@@ -90,6 +108,14 @@ export class ContentController {
    * @abstract
    */
   save(requestType) {}
+
+  /**
+   * Requests that the attachment at a certain index be saved.
+   * @param {number} index The index of the attachment to be saved.
+   * @return {Promise<{type: string, dataToSave: Array, messageId: string}>}
+   * @abstract
+   */
+  saveAttachment(index) {}
 
   /**
    * Loads PDF document from `data` activates UI.
@@ -179,7 +205,7 @@ export class PluginController extends ContentController {
   beforeZoom() {
     this.postMessage_({type: 'stopScrolling'});
 
-    if (this.viewport_.pinchPhase === Viewport.PinchPhase.PINCH_START) {
+    if (this.viewport_.pinchPhase === PinchPhase.PINCH_START) {
       const position = this.viewport_.position;
       const zoom = this.viewport_.getZoom();
       const pinchPhase = this.viewport_.pinchPhase;
@@ -289,6 +315,20 @@ export class PluginController extends ContentController {
     return this.postMessageWithReply_({type: 'getSelectedText'});
   }
 
+  /**
+   * Post a thumbnail request message to the plugin.
+   * @param {number} page
+   * @return {!Promise<!ThumbnailMessageData>} A promise holding the thumbnail
+   *     response from the plugin.
+   */
+  requestThumbnail(page) {
+    return this.postMessageWithReply_({
+      type: 'getThumbnail',
+      // The plugin references pages using zero-based indices.
+      page: page - 1,
+    });
+  }
+
   /** @param {!PrintPreviewParams} printPreviewParams */
   resetPrintPreviewMode(printPreviewParams) {
     this.postMessage_({
@@ -325,7 +365,11 @@ export class PluginController extends ContentController {
     this.postMessage_({type: 'getPasswordComplete', password: password});
   }
 
-  /** @param {string} destination */
+  /**
+   * @param {string} destination
+   * @return {!Promise<!NamedDestinationMessageData>}
+   *     A promise holding the named destination information from the plugin.
+   */
   getNamedDestination(destination) {
     return this.postMessageWithReply_({
       type: 'getNamedDestination',
@@ -344,6 +388,14 @@ export class PluginController extends ContentController {
       saveRequestType: requestType,
     });
     return resolver.promise;
+  }
+
+  /** @override */
+  saveAttachment(index) {
+    return this.postMessageWithReply_({
+      type: 'saveAttachment',
+      attachmentIndex: index,
+    });
   }
 
   /** @override */

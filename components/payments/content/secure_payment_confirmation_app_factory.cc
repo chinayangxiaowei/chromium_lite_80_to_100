@@ -74,7 +74,7 @@ void SecurePaymentConfirmationAppFactory::
         mojom::SecurePaymentConfirmationRequestPtr request,
         std::unique_ptr<autofill::InternalAuthenticator> authenticator,
         bool is_available) {
-  if (!delegate)
+  if (!delegate || !delegate->GetWebContents())
     return;
 
   if (!is_available && !base::FeatureList::IsEnabled(
@@ -135,8 +135,9 @@ void SecurePaymentConfirmationAppFactory::Create(
 
       std::unique_ptr<autofill::InternalAuthenticator> authenticator =
           delegate->CreateInternalAuthenticator();
+      auto* authenticator_ptr = authenticator.get();
 
-      authenticator->IsUserVerifyingPlatformAuthenticatorAvailable(
+      authenticator_ptr->IsUserVerifyingPlatformAuthenticatorAvailable(
           base::BindOnce(&SecurePaymentConfirmationAppFactory::
                              OnIsUserVerifyingPlatformAuthenticatorAvailable,
                          weak_ptr_factory_.GetWeakPtr(), delegate,
@@ -239,7 +240,7 @@ void SecurePaymentConfirmationAppFactory::OnAppIconDecoded(
           std::move(icon), instrument->label,
           std::move(instrument->credential_id),
           url::Origin::Create(request->delegate->GetTopOrigin()),
-          request->delegate->GetSpec()->details().total->amount,
+          request->delegate->GetSpec()->AsWeakPtr(),
           std::move(request->mojo_request), std::move(request->authenticator)));
 
   request->delegate->OnDoneCreatingPaymentApps();

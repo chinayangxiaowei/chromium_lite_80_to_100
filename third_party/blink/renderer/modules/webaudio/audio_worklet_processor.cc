@@ -106,13 +106,8 @@ bool AudioWorkletProcessor::Process(
   DCHECK(!params_.IsEmpty());
   DCHECK(params_.NewLocal(isolate)->IsObject());
 
-  // Copies |param_value_map| to the internal |params_| object. This operation
-  // could fail if the getter of parameterDescriptors is overridden by user code
-  // and returns incompatible data. (crbug.com/1151069)
-  if (!CopyParamValueMapToObject(isolate, context, param_value_map, params_)) {
-    SetErrorState(AudioWorkletProcessorErrorState::kProcessError);
-    return false;
-  }
+  // Copies |param_value_map| to the internal |params_| object;
+  CopyParamValueMapToObject(isolate, context, param_value_map, params_);
 
   // Performs the user-defined AudioWorkletProcessor.process() function.
   v8::TryCatch try_catch(isolate);
@@ -180,14 +175,11 @@ bool AudioWorkletProcessor::PortTopologyMatches(
   if (audio_port_2.IsEmpty())
     return false;
 
+  // Two AudioPorts are supposed to have the same length because the number of
+  // inputs and outputs of AudioNode cannot change after construction.
   v8::Local<v8::Array> port_2_local = audio_port_2.NewLocal(isolate);
   DCHECK(port_2_local->IsArray());
-
-  // Two audio ports may have a different number of inputs or outputs. See
-  // crbug.com/1202060
-  if (audio_port_1.size() != port_2_local->Length()) {
-    return false;
-  }
+  DCHECK_EQ(audio_port_1.size(), port_2_local->Length());
 
   v8::TryCatch try_catch(isolate);
 
@@ -451,7 +443,6 @@ bool AudioWorkletProcessor::CloneParamValueMapToObject(
         break;
       }
     }
-    DCHECK(array_size == 1 || array_size == param_float_array->size());
 
     v8::Local<v8::ArrayBuffer> array_buffer =
         v8::ArrayBuffer::New(isolate, array_size * sizeof(float));
@@ -490,23 +481,18 @@ bool AudioWorkletProcessor::CopyParamValueMapToObject(
 
     v8::Local<v8::Value> param_array_value;
     if (!params_object->Get(context, V8String(isolate, param_name))
-                      .ToLocal(&param_array_value) ||
-        !param_array_value->IsFloat32Array()) {
+                      .ToLocal(&param_array_value)) {
       return false;
     }
-
+    DCHECK(param_array_value->IsFloat32Array());
     v8::Local<v8::Float32Array> float32_array =
         param_array_value.As<v8::Float32Array>();
-    size_t array_length = float32_array->Length();
 
-    // The |float32_array| is neither 1 nor 128 frames, or the array buffer is
-    // trasnferred/detached, do not proceed.
-    if ((array_length != 1 && array_length != param_array->size()) ||
-        float32_array->Buffer()->ByteLength() == 0)
-      return false;
-
+    // The Float32Array is either 1 or 128 frames, but it always should be
+    // less than equal to the size of the given AudioFloatArray.
+    DCHECK_LE(float32_array->Length(), param_array->size());
     memcpy(float32_array->Buffer()->GetContents().Data(), param_array->Data(),
-           array_length * sizeof(float));
+           float32_array->Length() * sizeof(float));
   }
 
   return true;

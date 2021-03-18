@@ -85,7 +85,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) ThrottlingNetworkTransaction
       net::ResponseHeadersCallback callback) override;
   int ResumeNetworkStart() override;
   void GetConnectionAttempts(net::ConnectionAttempts* out) const override;
-  void CloseConnectionOnDestruction() override;
 
  protected:
   friend class ThrottlingControllerTestHelper;

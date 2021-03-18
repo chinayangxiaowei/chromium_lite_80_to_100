@@ -4,8 +4,6 @@
 
 #include "chrome/browser/ui/tabs/existing_base_sub_menu_model.h"
 
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-
 ExistingBaseSubMenuModel::ExistingBaseSubMenuModel(
     ui::SimpleMenuModel::Delegate* parent_delegate,
     TabStripModel* model,
@@ -14,7 +12,7 @@ ExistingBaseSubMenuModel::ExistingBaseSubMenuModel(
     : SimpleMenuModel(this),
       parent_delegate_(parent_delegate),
       model_(model),
-      context_contents_(model->GetWebContentsAt(context_index)),
+      context_index_(context_index),
       min_command_id_(min_command_id) {}
 
 bool ExistingBaseSubMenuModel::GetAcceleratorForCommandId(
@@ -86,7 +84,3 @@ void ExistingBaseSubMenuModel::Build(
 void ExistingBaseSubMenuModel::ExecuteNewCommand(int event_flags) {}
 
 void ExistingBaseSubMenuModel::ExecuteExistingCommand(int command_index) {}
-
-int ExistingBaseSubMenuModel::GetContextIndex() const {
-  return model_->GetIndexOfWebContents(context_contents_);
-}

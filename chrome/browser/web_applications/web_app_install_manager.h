@@ -80,7 +80,6 @@ class WebAppInstallManager final : public InstallManager,
   void UpdateWebAppFromInfo(
       const AppId& app_id,
       std::unique_ptr<WebApplicationInfo> web_application_info,
-      bool redownload_app_icons,
       OnceInstallCallback callback) override;
 
   // For the new USS-based system only. SyncInstallDelegate:

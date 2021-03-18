@@ -60,7 +60,7 @@ ExistingTabGroupSubMenuModel::GetOrderedTabGroupsInSubMenu() {
     base::Optional<tab_groups::TabGroupId> new_group =
         model()->GetTabGroupForTab(i);
     if (new_group.has_value() && new_group != current_group &&
-        ShouldShowGroup(model(), GetContextIndex(), new_group.value())) {
+        ShouldShowGroup(model(), context_index(), new_group.value())) {
       ordered_groups.push_back(new_group.value());
     }
     current_group = new_group;
@@ -85,14 +85,11 @@ void ExistingTabGroupSubMenuModel::ExecuteNewCommand(int event_flags) {
 }
 
 void ExistingTabGroupSubMenuModel::ExecuteExistingCommand(int command_index) {
+  DCHECK_LT(size_t{command_index},
+            model()->group_model()->ListTabGroups().size());
   base::RecordAction(base::UserMetricsAction("TabContextMenu_NewTabInGroup"));
-
-  if (size_t{command_index} >= model()->group_model()->ListTabGroups().size())
-    return;
-  if (!model()->ContainsIndex(GetContextIndex()))
-    return;
   model()->ExecuteAddToExistingGroupCommand(
-      GetContextIndex(), GetOrderedTabGroupsInSubMenu()[command_index]);
+      context_index(), GetOrderedTabGroupsInSubMenu()[command_index]);
 }
 
 // static

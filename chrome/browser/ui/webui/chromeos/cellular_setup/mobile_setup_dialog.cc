@@ -62,7 +62,9 @@ void MobileSetupDialog::ShowByNetworkId(const std::string& network_id) {
 MobileSetupDialog::MobileSetupDialog(const NetworkState& network)
     : SystemWebDialogDelegate(
           GetURL(network),
-          l10n_util::GetStringUTF16(IDS_MOBILE_SETUP_TITLE)) {}
+          l10n_util::GetStringUTF16(IDS_MOBILE_SETUP_TITLE)) {
+  set_can_resize(true);
+}
 
 MobileSetupDialog::~MobileSetupDialog() {
   dialog_instance = nullptr;
@@ -70,10 +72,6 @@ MobileSetupDialog::~MobileSetupDialog() {
 
 void MobileSetupDialog::GetDialogSize(gfx::Size* size) const {
   size->SetSize(kMobileSetupDialogWidth, kMobileSetupDialogHeight);
-}
-
-bool MobileSetupDialog::CanResizeDialog() const {
-  return true;
 }
 
 std::string MobileSetupDialog::GetDialogArgs() const {
@@ -95,7 +93,7 @@ void MobileSetupDialog::OnCloseContents(content::WebContents* source,
     return;
   }
 
-  *out_close_dialog = chrome::ShowQuestionMessageBoxSync(
+  *out_close_dialog = chrome::ShowQuestionMessageBox(
       dialog_window(), l10n_util::GetStringUTF16(IDS_MOBILE_SETUP_TITLE),
       l10n_util::GetStringUTF16(IDS_MOBILE_CANCEL_ACTIVATION));
 }

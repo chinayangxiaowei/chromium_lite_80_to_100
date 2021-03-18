@@ -94,7 +94,6 @@ class ManifestUpdateTask final
     kPendingIconDownload,
     kPendingIconReadFromDisk,
     kPendingWindowsClosed,
-    kPendingMaybeReadExistingIcons,
     kPendingInstallation,
   };
 
@@ -112,7 +111,6 @@ class ManifestUpdateTask final
       const ShortcutsMenuIconsBitmaps& disk_shortcuts_menu_icons) const;
   void UpdateAfterWindowsClose();
   void OnAllAppWindowsClosed();
-  void OnExistingIconsRead(IconBitmaps icon_bitmaps);
   void OnInstallationComplete(
       const AppId& app_id,
       InstallResultCode code);

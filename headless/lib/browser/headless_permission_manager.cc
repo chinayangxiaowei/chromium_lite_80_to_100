@@ -71,16 +71,15 @@ HeadlessPermissionManager::GetPermissionStatusForFrame(
   return blink::mojom::PermissionStatus::ASK;
 }
 
-HeadlessPermissionManager::SubscriptionId
-HeadlessPermissionManager::SubscribePermissionStatusChange(
+int HeadlessPermissionManager::SubscribePermissionStatusChange(
     content::PermissionType permission,
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     base::RepeatingCallback<void(blink::mojom::PermissionStatus)> callback) {
-  return SubscriptionId();
+  return content::PermissionController::kNoPendingOperation;
 }
 
 void HeadlessPermissionManager::UnsubscribePermissionStatusChange(
-    SubscriptionId subscription_id) {}
+    int subscription_id) {}
 
 }  // namespace headless

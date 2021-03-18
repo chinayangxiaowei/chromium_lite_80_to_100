@@ -50,14 +50,12 @@ class MockPermissionManager : public PermissionControllerDelegate {
                        const GURL& requesting_origin,
                        const GURL& embedding_origin) override {}
   MOCK_METHOD4(SubscribePermissionStatusChange,
-               SubscriptionId(
-                   PermissionType permission,
+               int(PermissionType permission,
                    RenderFrameHost* render_frame_host,
                    const GURL& requesting_origin,
                    base::RepeatingCallback<void(blink::mojom::PermissionStatus)>
                        callback));
-  MOCK_METHOD1(UnsubscribePermissionStatusChange,
-               void(SubscriptionId subscription_id));
+  MOCK_METHOD1(UnsubscribePermissionStatusChange, void(int subscription_id));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockPermissionManager);

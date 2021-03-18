@@ -11,6 +11,7 @@
 
 #include "content/browser/process_internals/process_internals.mojom.h"
 #include "content/common/frame.mojom.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui_controller.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 
@@ -20,12 +21,12 @@ namespace content {
 // TODO(nasko): Change the inheritance of this class to be from
 // MojoWebUIController, so the registry_ can be removed and properly
 // inherited from common base class for Mojo WebUIs.
-class ProcessInternalsUI : public WebUIController {
+class ProcessInternalsUI : public WebUIController, public WebContentsObserver {
  public:
   explicit ProcessInternalsUI(WebUI* web_ui);
   ~ProcessInternalsUI() override;
 
-  // WebUIController overrides:
+  // content::WebContentsObserver implementation.
   void RenderFrameCreated(RenderFrameHost* render_frame_host) override;
 
   void BindProcessInternalsHandler(

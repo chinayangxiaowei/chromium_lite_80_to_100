@@ -16,6 +16,7 @@
 #include "base/numerics/ranges.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -26,8 +27,10 @@
 #include "chrome/browser/resource_coordinator/tab_helper.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_desktop_util.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
+#include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/read_later/reading_list_model_factory.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -40,6 +43,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/reading_list/core/reading_list_model.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -615,7 +619,11 @@ int TabStripModel::MoveWebContentsAt(int index,
 
   DCHECK(ContainsIndex(index));
 
-  to_position = ConstrainMoveIndex(to_position, IsTabPinned(index));
+  // Ensure pinned and non-pinned tabs do not mix.
+  const int first_non_pinned_tab = IndexOfFirstNonPinnedTab();
+  to_position = IsTabPinned(index)
+                    ? std::min(first_non_pinned_tab - 1, to_position)
+                    : std::max(first_non_pinned_tab, to_position);
 
   if (index == to_position)
     return to_position;
@@ -859,16 +867,14 @@ void TabStripModel::ExtendSelectionTo(int index) {
                /*triggered_by_other_operation=*/false);
 }
 
-bool TabStripModel::ToggleSelectionAt(int index) {
-  if (!delegate()->CanHighlightTabs())
-    return false;
+void TabStripModel::ToggleSelectionAt(int index) {
   DCHECK(ContainsIndex(index));
   ui::ListSelectionModel new_model = selection_model();
   if (selection_model_.IsSelected(index)) {
     if (selection_model_.size() == 1) {
       // One tab must be selected and this tab is currently selected so we can't
       // unselect it.
-      return false;
+      return;
     }
     new_model.RemoveIndexFromSelection(index);
     new_model.set_anchor(index);
@@ -882,7 +888,6 @@ bool TabStripModel::ToggleSelectionAt(int index) {
   }
   SetSelection(std::move(new_model), TabStripModelObserver::CHANGE_REASON_NONE,
                /*triggered_by_other_operation=*/false);
-  return true;
 }
 
 void TabStripModel::AddSelectionFromAnchorTo(int index) {
@@ -1048,11 +1053,6 @@ void TabStripModel::AddToExistingGroup(const std::vector<int>& indices,
                                        const tab_groups::TabGroupId& group) {
   ReentrancyCheck reentrancy_check(&reentrancy_guard_);
 
-  // Ensure that the indices are sorted and unique.
-  DCHECK(std::adjacent_find(indices.begin(), indices.end()) == indices.end());
-  DCHECK(ContainsIndex(*(indices.begin())));
-  DCHECK(ContainsIndex(*(indices.rbegin())));
-
   AddToExistingGroupImpl(indices, group);
 }
 
@@ -1121,6 +1121,25 @@ void TabStripModel::RemoveFromGroup(const std::vector<int>& indices) {
     MoveTabsAndSetGroupImpl(right_of_group, tabs_in_group.back() + 1,
                             base::nullopt);
   }
+}
+
+bool TabStripModel::IsReadLaterSupportedForAny(const std::vector<int> indices) {
+  ReadingListModel* model =
+      ReadingListModelFactory::GetForBrowserContext(profile_);
+  if (!model || !model->loaded())
+    return false;
+  for (int index : indices) {
+    if (model->IsUrlSupported(
+            chrome::GetURLToBookmark(GetWebContentsAt(index))))
+      return true;
+  }
+  return false;
+}
+
+void TabStripModel::AddToReadLater(const std::vector<int>& indices) {
+  ReentrancyCheck reentrancy_check(&reentrancy_guard_);
+
+  AddToReadLaterImpl(indices);
 }
 
 void TabStripModel::CreateTabGroup(const tab_groups::TabGroupId& group) {
@@ -1216,6 +1235,9 @@ bool TabStripModel::IsContextMenuCommandEnabled(
       return true;
 
     case CommandSendTabToSelfSingleTarget:
+      return true;
+
+    case CommandAddToReadLater:
       return true;
 
     case CommandAddToNewGroup:
@@ -1371,6 +1393,11 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       break;
     }
 
+    case CommandAddToReadLater: {
+      AddToReadLater(GetIndicesForCommand(context_index));
+      break;
+    }
+
     case CommandAddToNewGroup: {
       base::RecordAction(UserMetricsAction("TabContextMenu_AddToNewGroup"));
 
@@ -1413,17 +1440,12 @@ void TabStripModel::ExecuteAddToExistingGroupCommand(
     const tab_groups::TabGroupId& group) {
   base::RecordAction(UserMetricsAction("TabContextMenu_AddToExistingGroup"));
 
-  if (!ContainsIndex(context_index))
-    return;
   AddToExistingGroup(GetIndicesForCommand(context_index), group);
 }
 
 void TabStripModel::ExecuteAddToExistingWindowCommand(int context_index,
                                                       int browser_index) {
   base::RecordAction(UserMetricsAction("TabContextMenu_AddToExistingWindow"));
-
-  if (!ContainsIndex(context_index))
-    return;
   delegate()->MoveToExistingWindow(GetIndicesForCommand(context_index),
                                    browser_index);
 }
@@ -1565,17 +1587,10 @@ bool TabStripModel::ShouldRunUnloadListenerBeforeClosing(
          delegate_->ShouldRunUnloadListenerBeforeClosing(contents);
 }
 
-int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) const {
+int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) {
   return pinned_tab
              ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab())
              : base::ClampToRange(index, IndexOfFirstNonPinnedTab(), count());
-}
-
-int TabStripModel::ConstrainMoveIndex(int index, bool pinned_tab) const {
-  return pinned_tab
-             ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab() - 1)
-             : base::ClampToRange(index, IndexOfFirstNonPinnedTab(),
-                                  count() - 1);
 }
 
 std::vector<int> TabStripModel::GetIndicesForCommand(int index) const {
@@ -2070,6 +2085,28 @@ void TabStripModel::MoveAndSetGroup(
 
   if (index != new_index)
     MoveWebContentsAtImpl(index, new_index, false);
+}
+
+void TabStripModel::AddToReadLaterImpl(const std::vector<int>& indices) {
+  ReadingListModel* model =
+      ReadingListModelFactory::GetForBrowserContext(profile_);
+  std::vector<WebContents*> closing_contents;
+  if (!model || !model->loaded())
+    return;
+
+  for (int index : indices) {
+    WebContents* contents = GetWebContentsAt(index);
+    GURL url;
+    base::string16 title;
+    chrome::GetURLAndTitleToBookmark(contents, &url, &title);
+    if (model->IsUrlSupported(url)) {
+      model->AddEntry(url, base::UTF16ToUTF8(title),
+                      reading_list::EntrySource::ADDED_VIA_CURRENT_APP);
+      closing_contents.push_back(contents);
+    }
+  }
+  InternalCloseTabs(closing_contents,
+                    CLOSE_CREATE_HISTORICAL_TAB | CLOSE_USER_GESTURE);
 }
 
 base::Optional<tab_groups::TabGroupId> TabStripModel::UngroupTab(int index) {

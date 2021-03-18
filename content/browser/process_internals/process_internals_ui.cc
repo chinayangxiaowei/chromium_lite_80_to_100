@@ -10,9 +10,9 @@
 
 #include "base/bind.h"
 #include "base/macros.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/browser/process_internals/process_internals.mojom.h"
 #include "content/browser/process_internals/process_internals_handler_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/grit/dev_ui_content_resources.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -26,7 +26,7 @@
 namespace content {
 
 ProcessInternalsUI::ProcessInternalsUI(WebUI* web_ui)
-    : WebUIController(web_ui) {
+    : WebUIController(web_ui), WebContentsObserver(web_ui->GetWebContents()) {
   // This WebUI does not require any process bindings, so disable it early in
   // initialization time.
   web_ui->SetBindings(0);
@@ -44,7 +44,7 @@ ProcessInternalsUI::ProcessInternalsUI(WebUI* web_ui)
       network::mojom::CSPDirectiveName::TrustedTypes,
       "trusted-types cr-ui-tree-js-static;");
 
-  WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(), source);
+  WebUIDataSource::Add(web_contents()->GetBrowserContext(), source);
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(ProcessInternalsUI)

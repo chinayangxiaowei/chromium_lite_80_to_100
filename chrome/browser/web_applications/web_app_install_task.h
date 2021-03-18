@@ -16,10 +16,10 @@
 #include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/web_applications/components/install_finalizer.h"
 #include "chrome/browser/web_applications/components/install_manager.h"
+#include "chrome/browser/web_applications/components/os_integration_manager.h"
 #include "chrome/browser/web_applications/components/web_app_id.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "chrome/browser/web_applications/components/web_app_url_loader.h"
-#include "chrome/browser/web_applications/os_integration_manager.h"
 #include "chrome/common/web_application_info.h"
 #include "content/public/browser/web_contents_observer.h"
 
@@ -139,13 +139,12 @@ class WebAppInstallTask : content::WebContentsObserver {
       content::WebContents* web_contents,
       const AppId& app_id,
       std::unique_ptr<WebApplicationInfo> web_application_info,
-      bool redownload_app_icons,
       InstallManager::OnceInstallCallback callback);
 
-  // Obtains WebApplicationInfo about web app located at |app_url|, fallbacks to
-  // title/favicon if manifest is not present.
+  // Obtains WebApplicationInfo about web app located at |start_url|, fallbacks
+  // to title/favicon if manifest is not present.
   void LoadAndRetrieveWebApplicationInfoWithIcons(
-      const GURL& app_url,
+      const GURL& start_url,
       WebAppUrlLoader* url_loader,
       RetrieveWebApplicationInfoWithIconsCallback callback);
 
@@ -159,7 +158,7 @@ class WebAppInstallTask : content::WebContentsObserver {
 
  private:
   void CheckInstallPreconditions();
-  void RecordInstallEvent(ForInstallableSite for_installable_site);
+  void RecordInstallEvent();
 
   // Calling the callback may destroy |this| task. Callers shouldn't work with
   // any |this| class members after calling it.
@@ -222,7 +221,6 @@ class WebAppInstallTask : content::WebContentsObserver {
       IconsMap icons_map);
   void OnIconsRetrievedFinalizeUpdate(
       std::unique_ptr<WebApplicationInfo> web_app_info,
-      bool redownload_app_icons,
       IconsMap icons_map);
   void OnDialogCompleted(ForInstallableSite for_installable_site,
                          bool user_accepted,

@@ -570,10 +570,6 @@ void MockNetworkTransaction::GetConnectionAttempts(
   NOTIMPLEMENTED();
 }
 
-void MockNetworkTransaction::CloseConnectionOnDestruction() {
-  NOTIMPLEMENTED();
-}
-
 void MockNetworkTransaction::CallbackLater(CompletionOnceCallback callback,
                                            int result) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(

@@ -206,9 +206,7 @@ void ProcessingInstruction::NotifyFinished(Resource* resource) {
     auto* parser_context = MakeGarbageCollected<CSSParserContext>(
         GetDocument(), style_resource->GetResponse().ResponseUrl(),
         style_resource->GetResponse().IsCorsSameOrigin(),
-        Referrer(style_resource->GetResponse().ResponseUrl(),
-                 style_resource->GetReferrerPolicy()),
-        style_resource->Encoding());
+        style_resource->GetReferrerPolicy(), style_resource->Encoding());
     if (style_resource->GetResourceRequest().IsAdResource())
       parser_context->SetIsAdRelated();
 

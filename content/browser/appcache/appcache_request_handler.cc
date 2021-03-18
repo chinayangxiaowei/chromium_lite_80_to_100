@@ -9,7 +9,6 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "content/browser/appcache/appcache.h"
 #include "content/browser/appcache/appcache_backend_impl.h"
 #include "content/browser/appcache/appcache_host.h"
@@ -17,9 +16,9 @@
 #include "content/browser/appcache/appcache_request.h"
 #include "content/browser/appcache/appcache_subresource_url_factory.h"
 #include "content/browser/appcache/appcache_url_loader.h"
-#include "content/browser/frame_host/frame_tree_node.h"
-#include "content/browser/frame_host/navigation_request.h"
 #include "content/browser/navigation_subresource_loader_params.h"
+#include "content/browser/renderer_host/frame_tree_node.h"
+#include "content/browser/renderer_host/navigation_request.h"
 #include "content/public/common/content_client.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "third_party/blink/public/common/features.h"
@@ -28,12 +27,6 @@
 #include "third_party/blink/public/mojom/loader/resource_load_info.mojom-shared.h"
 
 namespace content {
-
-// If this feature is enabled, we behave as if all manifests include a
-// NETWORK: * line, indicating that all requests should fall back to the
-// network.
-const base::Feature kAppCacheAlwaysFallbackToNetwork{
-    "AppCacheAlwaysFallbackToNetwork", base::FEATURE_ENABLED_BY_DEFAULT};
 
 namespace {
 
@@ -159,8 +152,7 @@ AppCacheURLLoader* AppCacheRequestHandler::MaybeLoadFallbackForRedirect(
     DeliverAppCachedResponse(found_fallback_entry_, found_cache_id_,
                              found_manifest_url_, true,
                              found_namespace_entry_url_);
-  } else if (!found_network_namespace_ &&
-             !base::FeatureList::IsEnabled(kAppCacheAlwaysFallbackToNetwork)) {
+  } else if (!found_network_namespace_) {
     // 7.9.6, step 6: Fail the resource load.
     loader = CreateLoader(network_delegate);
     DeliverErrorResponse();
@@ -445,6 +437,8 @@ void AppCacheRequestHandler::RunLoaderCallbackForMainResource(
               ContentBrowserClient::URLLoaderFactoryType::kNavigation,
               url::Origin(),
               frame_tree_node->navigation_request()->GetNavigationId(),
+              base::UkmSourceId::FromInt64(frame_tree_node->navigation_request()
+                                               ->GetNextPageUkmSourceId()),
               &factory_receiver, nullptr /* header_client */,
               nullptr /* bypass_redirect_checks */,
               nullptr /* disable_secure_dns */, nullptr /* factory_override */);
@@ -519,8 +513,7 @@ void AppCacheRequestHandler::ContinueMaybeLoadSubResource() {
     return;
   }
 
-  if (found_network_namespace_ ||
-      base::FeatureList::IsEnabled(kAppCacheAlwaysFallbackToNetwork)) {
+  if (found_network_namespace_) {
     // Step 3 and 5: Fetch the resource normally.
     DCHECK(!found_entry_.has_response_id() &&
            !found_fallback_entry_.has_response_id());

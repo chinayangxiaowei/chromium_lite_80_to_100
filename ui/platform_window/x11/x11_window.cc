@@ -864,17 +864,15 @@ int X11Window::UpdateDrag(const gfx::Point& screen_point) {
     suggested_operations |= DragDropTypes::DRAG_COPY;
   }
 
-  XDragDropClient* source_client =
-      XDragDropClient::GetForWindow(target_current_context->source_window());
   if (!notified_enter_) {
-    drop_handler->OnDragEnter(gfx::PointF(screen_point), std::move(data),
-                              suggested_operations,
-                              GetKeyModifiers(source_client));
+    drop_handler->OnDragEnter(
+        gfx::PointF(screen_point), std::move(data), suggested_operations,
+        GetKeyModifiers(target_current_context->source_client()));
     notified_enter_ = true;
   }
-  drag_operation_ = drop_handler->OnDragMotion(gfx::PointF(screen_point),
-                                               suggested_operations,
-                                               GetKeyModifiers(source_client));
+  drag_operation_ = drop_handler->OnDragMotion(
+      gfx::PointF(screen_point), suggested_operations,
+      GetKeyModifiers(target_current_context->source_client()));
   return drag_operation_;
 }
 
@@ -885,8 +883,8 @@ void X11Window::UpdateCursor(
 }
 
 void X11Window::OnBeginForeignDrag(x11::Window window) {
-  source_window_events_ =
-      std::make_unique<ui::XScopedEventSelector>(window, PropertyChangeMask);
+  source_window_events_ = std::make_unique<ui::XScopedEventSelector>(
+      window, x11::EventMask::PropertyChange);
 }
 
 void X11Window::OnEndForeignDrag() {
@@ -912,8 +910,8 @@ int X11Window::PerformDrop() {
   // should have it since then.
   auto* target_current_context = drag_drop_client_->target_current_context();
   DCHECK(target_current_context);
-  drop_handler->OnDragDrop({}, GetKeyModifiers(XDragDropClient::GetForWindow(
-                                   target_current_context->source_window())));
+  drop_handler->OnDragDrop(
+      {}, GetKeyModifiers(target_current_context->source_client()));
   notified_enter_ = false;
   return drag_operation_;
 }

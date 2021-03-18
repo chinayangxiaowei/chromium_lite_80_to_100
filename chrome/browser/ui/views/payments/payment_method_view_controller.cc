@@ -54,7 +54,7 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
   // Does not take ownership of |app|, which should not be null and should
   // outlive this object. |list| is the PaymentRequestItemList object that will
   // own this.
-  PaymentMethodListItem(base::WeakPtr<PaymentApp> app,
+  PaymentMethodListItem(PaymentApp* app,
                         base::WeakPtr<PaymentRequestSpec> spec,
                         base::WeakPtr<PaymentRequestState> state,
                         PaymentRequestItemList* list,
@@ -75,9 +75,6 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
 
  private:
   void ShowEditor() {
-    if (!app_)
-      return;
-
     switch (app_->type()) {
       case PaymentApp::Type::AUTOFILL:
         // Since we are a list item, we only care about the on_edited callback.
@@ -85,13 +82,11 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
             BackNavigationType::kPaymentSheet,
             static_cast<int>(PaymentMethodViewControllerTags::MAX_TAG),
             /*on_edited=*/
-            base::BindOnce(
-                &PaymentRequestState::SetSelectedApp, state()->AsWeakPtr(),
-                app_,
-                PaymentRequestState::SectionSelectionStatus::kEditedSelected),
+            base::BindOnce(&PaymentRequestState::SetSelectedApp,
+                           state()->AsWeakPtr(), app_),
             /*on_added=*/
             base::OnceCallback<void(const autofill::CreditCard&)>(),
-            static_cast<AutofillPaymentApp*>(app_.get())->credit_card());
+            static_cast<AutofillPaymentApp*>(app_)->credit_card());
         return;
       case PaymentApp::Type::UNDEFINED:
         // Intentionally fall through.
@@ -108,19 +103,16 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
 
   // PaymentRequestItemList::Item:
   std::unique_ptr<views::View> CreateExtraView() override {
-    return app_ ? CreateAppIconView(app_->icon_resource_id(),
-                                    app_->icon_bitmap(), app_->GetLabel())
-                : nullptr;
+    std::unique_ptr<views::ImageView> icon_view = CreateAppIconView(
+        app_->icon_resource_id(), app_->icon_bitmap(), app_->GetLabel());
+    return icon_view;
   }
 
   std::unique_ptr<views::View> CreateContentView(
       base::string16* accessible_content) override {
     DCHECK(accessible_content);
     auto card_info_container = std::make_unique<views::View>();
-    if (!app_)
-      return card_info_container;
-
-    card_info_container->set_can_process_events_within_subtree(false);
+    card_info_container->SetCanProcessEventsWithinSubtree(false);
 
     auto box_layout = std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical,
@@ -138,8 +130,8 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
     base::string16 missing_info;
     if (!app_->IsCompleteForPayment()) {
       missing_info = app_->GetMissingInfoLabel();
-      auto missing_info_label =
-          std::make_unique<views::Label>(missing_info, CONTEXT_BODY_TEXT_SMALL);
+      auto missing_info_label = std::make_unique<views::Label>(
+          missing_info, CONTEXT_DIALOG_BODY_TEXT_SMALL);
       missing_info_label->SetEnabledColor(
           missing_info_label->GetNativeTheme()->GetSystemColor(
               ui::NativeTheme::kColorId_LinkEnabled));
@@ -154,9 +146,8 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
   }
 
   void SelectedStateChanged() override {
-    if (app_ && selected()) {
-      state()->SetSelectedApp(
-          app_, PaymentRequestState::SectionSelectionStatus::kSelected);
+    if (selected()) {
+      state()->SetSelectedApp(app_);
       dialog_->GoBack();
     }
   }
@@ -170,14 +161,14 @@ class PaymentMethodListItem : public PaymentRequestItemList::Item {
     // PerformSelectionFallback is called, where the app can be made complete.
     // This applies only to AutofillPaymentApp, each one of which is a credit
     // card, so PerformSelectionFallback will open the card editor.
-    return app_ && app_->IsCompleteForPayment();
+    return app_->IsCompleteForPayment();
   }
 
   void PerformSelectionFallback() override { ShowEditor(); }
 
   void EditButtonPressed() override { ShowEditor(); }
 
-  base::WeakPtr<PaymentApp> app_;
+  PaymentApp* app_;
   base::WeakPtr<PaymentRequestDialogView> dialog_;
 
   DISALLOW_COPY_AND_ASSIGN(PaymentMethodListItem);
@@ -197,7 +188,7 @@ PaymentMethodViewController::PaymentMethodViewController(
       state->available_apps();
   for (const auto& app : available_apps) {
     auto item = std::make_unique<PaymentMethodListItem>(
-        app->AsWeakPtr(), spec, state, &payment_method_list_, dialog,
+        app.get(), spec, state, &payment_method_list_, dialog,
         app.get() == state->selected_app());
     payment_method_list_.AddItem(std::move(item));
   }

@@ -19,14 +19,15 @@ namespace content {
 class ConversionInternalsHandlerImpl;
 
 // WebUI which handles serving the chrome://conversion-internals page.
-class CONTENT_EXPORT ConversionInternalsUI : public WebUIController {
+class CONTENT_EXPORT ConversionInternalsUI : public WebUIController,
+                                             public WebContentsObserver {
  public:
   explicit ConversionInternalsUI(WebUI* web_ui);
   ConversionInternalsUI(const ConversionInternalsUI& other) = delete;
   ConversionInternalsUI& operator=(const ConversionInternalsUI& other) = delete;
   ~ConversionInternalsUI() override;
 
-  // WebUIController overrides:
+  // WebContentsObserver:
   void RenderFrameCreated(RenderFrameHost* render_frame_host) override;
 
   void BindInterface(

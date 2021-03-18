@@ -45,7 +45,7 @@ class NFCHost : public WebContentsObserver {
   mojo::Remote<device::mojom::NFCProvider> nfc_provider_;
 
   // Permission change subscription ID provided by |permission_controller_|.
-  PermissionController::SubscriptionId subscription_id_;
+  int subscription_id_ = PermissionController::kNoPendingOperation;
 
   DISALLOW_COPY_AND_ASSIGN(NFCHost);
 };

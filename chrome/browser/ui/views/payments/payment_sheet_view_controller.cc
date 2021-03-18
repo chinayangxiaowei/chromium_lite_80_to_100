@@ -50,6 +50,7 @@
 #include "ui/gfx/text_utils.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/md_text_button.h"
+#include "ui/views/controls/color_tracking_icon_view.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/styled_label.h"
@@ -190,14 +191,14 @@ std::unique_ptr<PaymentRequestRowView> CreatePaymentSheetRow(
   layout->AddView(std::move(name_label));
 
   if (content_view) {
-    content_view->set_can_process_events_within_subtree(false);
+    content_view->SetCanProcessEventsWithinSubtree(false);
     layout->AddView(std::move(content_view));
   } else {
     layout->SkipColumns(1);
   }
 
   if (extra_content_view) {
-    extra_content_view->set_can_process_events_within_subtree(false);
+    extra_content_view->SetCanProcessEventsWithinSubtree(false);
     layout->AddView(std::move(extra_content_view));
   } else {
     layout->SkipColumns(1);
@@ -290,14 +291,10 @@ class PaymentSheetRowBuilder {
   std::unique_ptr<PaymentRequestRowView> CreateWithChevron(
       std::unique_ptr<views::View> content_view,
       std::unique_ptr<views::View> extra_content_view) {
-    std::unique_ptr<views::ImageView> chevron =
-        std::make_unique<views::ImageView>();
-    chevron->set_can_process_events_within_subtree(false);
-    std::unique_ptr<views::Label> label =
-        std::make_unique<views::Label>(section_name_);
-    chevron->SetImage(gfx::CreateVectorIcon(
+    auto chevron = std::make_unique<views::ColorTrackingIconView>(
         views::kSubmenuArrowIcon,
-        color_utils::DeriveDefaultIconColor(label->GetEnabledColor())));
+        gfx::GetDefaultSizeOfVectorIcon(views::kSubmenuArrowIcon));
+    chevron->SetCanProcessEventsWithinSubtree(false);
     std::unique_ptr<PaymentRequestRowView> section = CreatePaymentSheetRow(
         listener_, section_name_, accessible_content_, std::move(content_view),
         std::move(extra_content_view), std::move(chevron),
@@ -584,19 +581,6 @@ void PaymentSheetViewController::ButtonPressed(views::Button* sender,
     spec()->reset_retry_error_message();
     UpdateContentView();
   }
-}
-
-void PaymentSheetViewController::StyledLabelLinkClicked(
-    views::StyledLabel* label,
-    const gfx::Range& range,
-    int event_flags) {
-  if (!dialog()->IsInteractive())
-    return;
-
-  // The only thing that can trigger this is the user clicking on the "settings"
-  // link in the data attribution text.
-  chrome::ShowSettingsSubPageForProfile(dialog()->GetProfile(),
-                                        chrome::kPaymentsSubPage);
 }
 
 void PaymentSheetViewController::UpdatePayButtonState(bool enabled) {
@@ -1018,6 +1002,9 @@ std::unique_ptr<views::View> PaymentSheetViewController::CreateDataSourceRow() {
   // BEGIN_LINK and END_LINK. Find the beginning of the link range and the
   // length of the "settings" part, then remove the BEGIN_LINK and END_LINK
   // parts and linkify "settings".
+  // TODO(pkasting): Remove these BEGIN/END_LINK tags and use a substitution for
+  // "Settings", allowing this code to use the offset-returning versions of the
+  // l10n getters.
   base::string16 begin_tag = base::UTF8ToUTF16("BEGIN_LINK");
   base::string16 end_tag = base::UTF8ToUTF16("END_LINK");
   size_t link_begin = data_source.find(begin_tag);
@@ -1030,14 +1017,22 @@ std::unique_ptr<views::View> PaymentSheetViewController::CreateDataSourceRow() {
   data_source.erase(link_end, end_tag.size());
   data_source.erase(link_begin, begin_tag.size());
 
-  std::unique_ptr<views::StyledLabel> data_source_label =
-      std::make_unique<views::StyledLabel>(data_source, this);
+  auto data_source_label = std::make_unique<views::StyledLabel>();
+  data_source_label->SetText(data_source);
+
   data_source_label->SetBorder(views::CreateEmptyBorder(22, 0, 0, 0));
   data_source_label->SetID(static_cast<int>(DialogViewID::DATA_SOURCE_LABEL));
   data_source_label->SetDefaultTextStyle(views::style::STYLE_DISABLED);
 
   views::StyledLabel::RangeStyleInfo link_style =
-      views::StyledLabel::RangeStyleInfo::CreateForLink();
+      views::StyledLabel::RangeStyleInfo::CreateForLink(base::BindRepeating(
+          [](base::WeakPtr<PaymentRequestDialogView> dialog) {
+            if (dialog->IsInteractive()) {
+              chrome::ShowSettingsSubPageForProfile(dialog->GetProfile(),
+                                                    chrome::kPaymentsSubPage);
+            }
+          },
+          dialog()));
 
   // TODO(pbos): Investigate whether this override is necessary.
   link_style.override_color = gfx::kGoogleBlue700;

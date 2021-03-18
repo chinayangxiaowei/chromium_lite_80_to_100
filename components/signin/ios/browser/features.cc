@@ -13,4 +13,17 @@ bool ForceStartupSigninPromo() {
   return base::FeatureList::IsEnabled(kForceStartupSigninPromo);
 }
 
+const base::Feature kRestoreGaiaCookiesIfDeleted{
+    "RestoreGAIACookiesIfDeleted", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const char kDelayThresholdMinutesToUpdateGaiaCookie[] =
+    "minutes-delay-to-restore-gaia-cookies-if-deleted";
+
+const base::Feature kDisableSSOEditing{"DisableSSOEditing",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsSSOEditingEnabled() {
+  return !base::FeatureList::IsEnabled(signin::kDisableSSOEditing);
+}
+
 }  // namespace signin

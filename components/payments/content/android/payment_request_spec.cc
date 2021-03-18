@@ -81,6 +81,27 @@ void PaymentRequestSpec::Retry(
   spec_->Retry(std::move(validation_errors));
 }
 
+void PaymentRequestSpec::RecomputeSpecForDetails(JNIEnv* env) {
+  spec_->RecomputeSpecForDetails();
+}
+
+base::android::ScopedJavaLocalRef<jstring>
+PaymentRequestSpec::SelectedShippingOptionError(JNIEnv* env) {
+  return base::android::ConvertUTF16ToJavaString(
+      env, spec_->selected_shipping_option_error());
+}
+
+base::android::ScopedJavaLocalRef<jbyteArray>
+PaymentRequestSpec::GetPaymentDetails(JNIEnv* env) {
+  return base::android::ToJavaByteArray(
+      env, mojom::PaymentDetails::Serialize(&spec_->details_ptr()));
+}
+
+base::android::ScopedJavaLocalRef<jobjectArray>
+PaymentRequestSpec::GetMethodData(JNIEnv* env) {
+  return SerializeToJavaArrayOfByteArrays(env, spec_->method_data());
+}
+
 void PaymentRequestSpec::Destroy(JNIEnv* env) {
   delete this;
 }

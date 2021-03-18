@@ -13,6 +13,7 @@
 #include "ui/gfx/x/connection.h"
 #include "ui/gfx/x/x11_atom_cache.h"
 #include "ui/gfx/x/xproto.h"
+#include "ui/gfx/x/xproto_util.h"
 
 // Reading recommended for understanding the implementation in this file:
 //
@@ -309,11 +310,11 @@ void XDragDropClient::OnXdndEnter(const x11::ClientMessageEvent& event) {
       GetForWindow(static_cast<x11::Window>(event.data.data32[0]));
   DCHECK(!source_client || source_client->source_provider_);
   target_current_context_ = std::make_unique<XDragContext>(
-      xwindow_, event,
+      xwindow_, event, source_client,
       (source_client ? source_client->source_provider_->GetFormatMap()
                      : SelectionFormatMap()));
 
-  if (!source_client) {
+  if (!target_current_context()->source_client()) {
     // The window doesn't have a DesktopDragDropClientAuraX11, which means it's
     // created by some other process.  Listen for messages on it.
     delegate_->OnBeginForeignDrag(
@@ -484,9 +485,7 @@ void XDragDropClient::UpdateModifierState(int flags) {
 void XDragDropClient::ResetDragContext() {
   if (!target_current_context())
     return;
-  XDragDropClient* source_client =
-      GetForWindow(target_current_context()->source_window());
-  if (!source_client)
+  if (!target_current_context()->source_client())
     delegate_->OnEndForeignDrag();
 
   target_current_context_.reset();
@@ -625,7 +624,7 @@ void XDragDropClient::SendXClientEvent(x11::Window window,
   //
   // I'm unsure if I have to jump through those hoops, or if XSendEvent is
   // sufficient.
-  ui::SendEvent(xev, window, x11::EventMask::NoEvent);
+  x11::SendEvent(xev, window, x11::EventMask::NoEvent);
 }
 
 void XDragDropClient::SendXdndEnter(x11::Window dest_window,
@@ -673,7 +672,7 @@ void XDragDropClient::SendXdndLeave(x11::Window dest_window) {
 
 void XDragDropClient::SendXdndDrop(x11::Window dest_window) {
   auto xev = PrepareXdndClientMessage(kXdndDrop, dest_window);
-  xev.data.data32[2] = x11::CurrentTime;
+  xev.data.data32[2] = static_cast<uint32_t>(x11::Time::CurrentTime);
   SendXClientEvent(dest_window, xev);
 }
 

@@ -141,9 +141,9 @@ void BaseAudioContext::Initialize() {
 }
 
 void BaseAudioContext::Clear() {
-  destination_node_.Clear();
-  // Make a note that we've cleared out the context so that there's no pending
-  // activity.
+  // The audio rendering thread is dead.  Nobody will schedule AudioHandler
+  // deletion.  Let's do it ourselves.
+  GetDeferredTaskHandler().ClearHandlersToBeDeleted();
   is_cleared_ = true;
 }
 

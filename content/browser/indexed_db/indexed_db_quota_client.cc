@@ -77,9 +77,7 @@ IndexedDBQuotaClient::IndexedDBQuotaClient(
   DCHECK(indexed_db_context_.get());
 }
 
-IndexedDBQuotaClient::~IndexedDBQuotaClient() {
-  IndexedDBContextImpl::ReleaseOnIDBSequence(std::move(indexed_db_context_));
-}
+IndexedDBQuotaClient::~IndexedDBQuotaClient() = default;
 
 void IndexedDBQuotaClient::OnQuotaManagerDestroyed() {}
 

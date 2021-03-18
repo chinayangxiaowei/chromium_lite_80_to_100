@@ -275,19 +275,10 @@ class TabDragController::DraggedTabsClosedTracker
       TabStripModel* model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override {
-    switch (change.type()) {
-      case TabStripModelChange::Type::kRemoved:
-        for (const auto& contents : change.GetRemove()->contents)
-          parent_->OnActiveStripWebContentsRemoved(contents.contents);
-        break;
-      case TabStripModelChange::Type::kReplaced:
-        parent_->OnActiveStripWebContentsReplaced(
-            change.GetReplace()->old_contents,
-            change.GetReplace()->new_contents);
-        break;
-      default:
-        break;
-    }
+    if (change.type() != TabStripModelChange::Type::kRemoved)
+      return;
+    for (const auto& contents : change.GetRemove()->contents)
+      parent_->OnActiveStripWebContentsRemoved(contents.contents);
   }
 
  private:
@@ -715,20 +706,9 @@ void TabDragController::OnSourceTabStripEmpty() {
 void TabDragController::OnActiveStripWebContentsRemoved(
     content::WebContents* contents) {
   // Mark closed tabs as destroyed so we don't try to manipulate them later.
-  for (auto& drag_datum : drag_data_) {
-    if (drag_datum.contents == contents) {
-      drag_datum.contents = nullptr;
-      break;
-    }
-  }
-}
-
-void TabDragController::OnActiveStripWebContentsReplaced(
-    content::WebContents* previous,
-    content::WebContents* next) {
-  for (auto& drag_datum : drag_data_) {
-    if (drag_datum.contents == previous) {
-      drag_datum.contents = next;
+  for (auto it = drag_data_.begin(); it != drag_data_.end(); it++) {
+    if (it->contents == contents) {
+      it->contents = nullptr;
       break;
     }
   }
@@ -1628,16 +1608,6 @@ void TabDragController::RevertDrag() {
     }
   }
 
-  // If tabs were closed during this drag, the initial selection might include
-  // indices that are out of bounds for the tabstrip now. Reset the selection to
-  // include the stille-existing currently dragged WebContentses.
-  for (int selection : initial_selection_model_.selected_indices()) {
-    if (!source_context_->GetTabStripModel()->ContainsIndex(selection)) {
-      initial_selection_model_.Clear();
-      break;
-    }
-  }
-
   if (initial_selection_model_.empty())
     ResetSelection(source_context_->GetTabStripModel());
   else
@@ -1732,7 +1702,7 @@ void TabDragController::RevertDragAt(size_t drag_index) {
             ++target_index;
         }
       }
-      target_index = source_context_->GetTabStripModel()->MoveWebContentsAt(
+      source_context_->GetTabStripModel()->MoveWebContentsAt(
           index, target_index, false);
     }
   } else {
@@ -2314,14 +2284,11 @@ bool TabDragController::CanAttachTo(gfx::NativeWindow window) {
   if (other_browser->profile() != browser->profile())
     return false;
 
-  // Unless we allow Feature mix-browser-type-tabs, ensure that
-  // browser types and app names are the same.
-  if (!base::FeatureList::IsEnabled(features::kMixBrowserTypeTabs)) {
-    if (other_browser->type() != browser->type() ||
-        (browser->is_type_app() &&
-         browser->app_name() != other_browser->app_name())) {
-      return false;
-    }
+  // Ensure that browser types and app names are the same.
+  if (other_browser->type() != browser->type() ||
+      (browser->is_type_app() &&
+       browser->app_name() != other_browser->app_name())) {
+    return false;
   }
 
   return true;

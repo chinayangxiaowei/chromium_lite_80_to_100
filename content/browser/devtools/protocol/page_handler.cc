@@ -30,9 +30,9 @@
 #include "content/browser/devtools/protocol/devtools_mhtml_helper.h"
 #include "content/browser/devtools/protocol/emulation_handler.h"
 #include "content/browser/devtools/protocol/handler_helpers.h"
-#include "content/browser/frame_host/navigation_request.h"
-#include "content/browser/frame_host/navigator.h"
 #include "content/browser/manifest/manifest_manager_host.h"
+#include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/renderer_host/navigator.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -501,12 +501,7 @@ void PageHandler::Navigate(const std::string& url,
   params.referrer = Referrer(GURL(referrer.fromMaybe("")), policy);
   params.transition_type = type;
   params.frame_tree_node_id = frame_tree_node->frame_tree_node_id();
-  // Handler may be destroyed while navigating if the session
-  // gets disconnected as a result of access checks.
-  base::WeakPtr<PageHandler> weak_self = weak_factory_.GetWeakPtr();
   frame_tree_node->navigator().GetController()->LoadURLWithParams(params);
-  if (!weak_self)
-    return;
 
   base::UnguessableToken frame_token = frame_tree_node->devtools_frame_token();
   auto navigate_callback = navigate_callbacks_.find(frame_token);
@@ -983,14 +978,16 @@ void PageHandler::NotifyScreencastVisibility(bool visible) {
   frontend_->ScreencastVisibilityChanged(visible);
 }
 
+bool PageHandler::ShouldCaptureNextScreencastFrame() {
+  return frames_in_flight_ <= kMaxScreencastFramesInFlight &&
+         !(++frame_counter_ % capture_every_nth_frame_);
+}
+
 void PageHandler::InnerSwapCompositorFrame() {
   if (!host_)
     return;
 
-  if (frames_in_flight_ > kMaxScreencastFramesInFlight)
-    return;
-
-  if (++frame_counter_ % capture_every_nth_frame_)
+  if (!ShouldCaptureNextScreencastFrame())
     return;
 
   RenderWidgetHostViewBase* const view =
@@ -1033,6 +1030,9 @@ void PageHandler::OnFrameFromVideoConsumer(
   if (!host_)
     return;
 
+  if (!ShouldCaptureNextScreencastFrame())
+    return;
+
   RenderWidgetHostViewBase* const view =
       static_cast<RenderWidgetHostViewBase*>(host_->GetView());
   if (!view)
@@ -1064,6 +1064,7 @@ void PageHandler::OnFrameFromVideoConsumer(
   if (!page_metadata)
     return;
 
+  frames_in_flight_++;
   ScreencastFrameCaptured(std::move(page_metadata),
                           DevToolsVideoConsumer::GetSkBitmapFromFrame(frame));
 }

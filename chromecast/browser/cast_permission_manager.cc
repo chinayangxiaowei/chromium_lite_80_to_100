@@ -63,17 +63,17 @@ CastPermissionManager::GetPermissionStatusForFrame(
   return blink::mojom::PermissionStatus::GRANTED;
 }
 
-CastPermissionManager::SubscriptionId
-CastPermissionManager::SubscribePermissionStatusChange(
+int CastPermissionManager::SubscribePermissionStatusChange(
     content::PermissionType permission,
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     base::RepeatingCallback<void(blink::mojom::PermissionStatus)> callback) {
-  return SubscriptionId();
+  return content::PermissionController::kNoPendingOperation;
 }
 
 void CastPermissionManager::UnsubscribePermissionStatusChange(
-    SubscriptionId subscription_id) {}
+    int subscription_id) {
+}
 
 }  // namespace shell
 }  // namespace chromecast

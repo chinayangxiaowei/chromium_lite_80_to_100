@@ -14,7 +14,6 @@
 #include "chrome/browser/extensions/api/debugger/debugger_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
-#include "chrome/browser/extensions/extension_management_test_util.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
@@ -22,11 +21,9 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/infobars/core/infobar.h"
 #include "components/infobars/core/infobar_delegate.h"
-#include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "content/public/test/no_renderer_crashes_assertion.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
@@ -329,26 +326,13 @@ IN_PROC_BROWSER_TEST_F(DebuggerApiTest, InfoBar) {
   EXPECT_EQ(1u, service1->infobar_count());
 }
 
-// Tests that policy blocked hosts supersede the `debugger`
-// permission. Regression test for crbug.com/1139156.
-IN_PROC_BROWSER_TEST_F(DebuggerApiTest, TestDefaultPolicyBlockedHosts) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url("https://example.com");
-  EXPECT_TRUE(RunAttachFunction(url, std::string()));
-  policy::MockConfigurationPolicyProvider policy_provider;
-  ExtensionManagementPolicyUpdater pref(&policy_provider);
-  pref.AddPolicyBlockedHost("*", url.spec());
-  EXPECT_FALSE(
-      RunAttachFunction(url, manifest_errors::kCannotAccessExtensionUrl));
-}
-
 class DebuggerExtensionApiTest : public ExtensionApiTest {
  public:
   void SetUpOnMainThread() override {
     ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
     embedded_test_server()->ServeFilesFromSourceDirectory("chrome/test/data");
-    ASSERT_TRUE(embedded_test_server()->Start());
+    ASSERT_TRUE(StartEmbeddedTestServer());
   }
 };
 
@@ -376,17 +360,8 @@ IN_PROC_BROWSER_TEST_F(DebuggerExtensionApiTest,
       << message_;
 }
 
-// Tests that navigation to a forbidden URL is properly denied and
-// does not cause a crash.
-// This is a regression test for https://crbug.com/1188889.
-IN_PROC_BROWSER_TEST_F(DebuggerExtensionApiTest, DISABLED_NavigateToForbiddenUrl) {
-  content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
-  // We don't send a DevTools command callback before disconnecting the session,
-  // so the extension does not receive a callback either.
-  base::AutoReset<bool> ignore_did_respond(
-      &ExtensionFunction::ignore_all_did_respond_for_testing_do_not_use, true);
-  ASSERT_TRUE(RunExtensionTest("debugger_navigate_to_forbidden_url"))
-      << message_;
+IN_PROC_BROWSER_TEST_F(DebuggerExtensionApiTest, AttachToEmptyUrls) {
+  ASSERT_TRUE(RunExtensionTest("debugger_attach_to_empty_urls")) << message_;
 }
 
 class SitePerProcessDebuggerExtensionApiTest : public DebuggerExtensionApiTest {
@@ -435,6 +410,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessDebuggerExtensionApiTest,
   ASSERT_TRUE(RunExtensionTestWithArg("debugger_auto_attach_permissions",
                                       url.spec().c_str()))
       << message_;
+}
+
+IN_PROC_BROWSER_TEST_F(SitePerProcessDebuggerExtensionApiTest,
+                       DebuggerCheckInnerUrl) {
+  ASSERT_TRUE(RunExtensionTest("debugger_check_inner_url")) << message_;
 }
 
 }  // namespace extensions

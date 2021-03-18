@@ -72,19 +72,18 @@ class CONTENT_EXPORT PermissionControllerImpl : public PermissionController {
                        const GURL& requesting_origin,
                        const GURL& embedding_origin);
 
-  SubscriptionId SubscribePermissionStatusChange(
+  int SubscribePermissionStatusChange(
       PermissionType permission,
       RenderFrameHost* render_frame_host,
       const GURL& requesting_origin,
       const base::RepeatingCallback<void(blink::mojom::PermissionStatus)>&
           callback);
 
-  void UnsubscribePermissionStatusChange(SubscriptionId subscription_id);
+  void UnsubscribePermissionStatusChange(int subscription_id);
 
  private:
   struct Subscription;
-  using SubscriptionsMap =
-      base::IDMap<std::unique_ptr<Subscription>, SubscriptionId>;
+  using SubscriptionsMap = base::IDMap<std::unique_ptr<Subscription>>;
   using SubscriptionsStatusMap =
       base::flat_map<SubscriptionsMap::KeyType, blink::mojom::PermissionStatus>;
 
@@ -99,13 +98,7 @@ class CONTENT_EXPORT PermissionControllerImpl : public PermissionController {
       const base::Optional<url::Origin>& origin);
 
   DevToolsPermissionOverrides devtools_permission_overrides_;
-
-  // Note that SubscriptionId is distinct from
-  // PermissionControllerDelegate::SubscriptionId, and the concrete ID values
-  // may be different as well.
   SubscriptionsMap subscriptions_;
-  SubscriptionId::Generator subscription_id_generator_;
-
   BrowserContext* browser_context_;
 
   DISALLOW_COPY_AND_ASSIGN(PermissionControllerImpl);

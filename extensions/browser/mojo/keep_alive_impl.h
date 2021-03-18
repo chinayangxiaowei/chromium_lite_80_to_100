@@ -10,8 +10,6 @@
 #include "base/scoped_observer.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
-#include "extensions/browser/process_manager.h"
-#include "extensions/browser/process_manager_observer.h"
 #include "extensions/common/mojom/keep_alive.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -23,13 +21,10 @@ class RenderFrameHost;
 
 namespace extensions {
 class Extension;
-class ProcessManager;
 
 // An RAII mojo service implementation for extension keep alives. This adds a
 // keep alive on construction and removes it on destruction.
-class KeepAliveImpl : public KeepAlive,
-                      public ExtensionRegistryObserver,
-                      public ProcessManagerObserver {
+class KeepAliveImpl : public KeepAlive, public ExtensionRegistryObserver {
  public:
   // Create a keep alive for |extension| running in |context| and connect it to
   // |receiver|. When the receiver closes its pipe, the keep alive ends.
@@ -50,9 +45,6 @@ class KeepAliveImpl : public KeepAlive,
                            UnloadedExtensionReason reason) override;
   void OnShutdown(ExtensionRegistry* registry) override;
 
-  // ProcessManagerObserver overrides.
-  void OnProcessManagerShutdown(ProcessManager* manager) override;
-
   // Invoked when the mojo connection is disconnected.
   void OnDisconnected();
 
@@ -60,8 +52,6 @@ class KeepAliveImpl : public KeepAlive,
   const Extension* extension_;
   ScopedObserver<ExtensionRegistry, ExtensionRegistryObserver>
       extension_registry_observer_{this};
-  ScopedObserver<ProcessManager, ProcessManagerObserver>
-      process_manager_observation_{this};
   mojo::Receiver<KeepAlive> receiver_;
 
   DISALLOW_COPY_AND_ASSIGN(KeepAliveImpl);

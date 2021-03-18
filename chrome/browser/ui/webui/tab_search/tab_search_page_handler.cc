@@ -13,8 +13,10 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/favicon/favicon_utils.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -31,11 +33,13 @@ constexpr base::TimeDelta kTabsChangeDelay =
 TabSearchPageHandler::TabSearchPageHandler(
     mojo::PendingReceiver<tab_search::mojom::PageHandler> receiver,
     mojo::PendingRemote<tab_search::mojom::Page> page,
-    content::WebUI* web_ui)
+    content::WebUI* web_ui,
+    Delegate* delegate)
     : receiver_(this, std::move(receiver)),
       page_(std::move(page)),
       browser_(chrome::FindLastActive()),
       web_ui_(web_ui),
+      delegate_(delegate),
       debounce_timer_(std::make_unique<base::RetainingOneShotTimer>(
           FROM_HERE,
           kTabsChangeDelay,
@@ -59,22 +63,18 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
   if (!optional_details)
     return;
 
+  const TabDetails& details = optional_details.value();
+  bool tab_closed = details.tab_strip_model->CloseWebContentsAt(
+      details.index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
+
   ++num_tabs_closed_;
 
-  // CloseTab() can target the WebContents hosting Tab Search if the Tab Search
-  // WebUI is open in a chrome browser tab rather than its bubble. In this case
-  // CloseWebContentsAt() closes the WebContents hosting this
-  // TabSearchPageHandler object, causing it to be immediately destroyed. Ensure
-  // that no further actions are performed following the call to
-  // CloseWebContentsAt(). See (https://crbug.com/1175507).
-  auto* tab_strip_model = optional_details->tab_strip_model;
-  const int tab_index = optional_details->index;
-  tab_strip_model->CloseWebContentsAt(
-      tab_index, TabStripModel::CLOSE_CREATE_HISTORICAL_TAB);
-  // Do not add code past this point.
+  if (tab_closed)
+    NotifyTabsChanged();
 }
 
 void TabSearchPageHandler::GetProfileTabs(GetProfileTabsCallback callback) {
+  TRACE_EVENT0("browser", "TabSearchPageHandler::GetProfileTabs");
   auto profile_tabs = tab_search::mojom::ProfileTabs::New();
   Profile* profile = browser_->profile();
   for (auto* browser : *BrowserList::GetInstance()) {
@@ -154,6 +154,14 @@ void TabSearchPageHandler::SwitchToTab(
   details.browser->window()->Activate();
 }
 
+void TabSearchPageHandler::ShowUI() {
+  delegate_->ShowUI();
+}
+
+void TabSearchPageHandler::CloseUI() {
+  delegate_->CloseUI();
+}
+
 tab_search::mojom::TabPtr TabSearchPageHandler::GetTabData(
     TabStripModel* tab_strip_model,
     content::WebContents* contents,
@@ -177,13 +185,15 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTabData(
   if (tab_renderer_data.favicon.isNull()) {
     tab_data->is_default_favicon = true;
   } else {
-    tab_data->fav_icon_url = webui::EncodePNGAndMakeDataURI(
+    tab_data->favicon_url = webui::EncodePNGAndMakeDataURI(
         tab_renderer_data.favicon, web_ui_->GetDeviceScaleFactor());
     tab_data->is_default_favicon =
         tab_renderer_data.favicon.BackedBySameObjectAs(
             favicon::GetDefaultFavicon().AsImageSkia());
   }
+
   tab_data->show_icon = tab_renderer_data.show_icon;
+  tab_data->last_active_time_ticks = contents->GetLastActiveTime();
 
   return tab_data;
 }
@@ -192,7 +202,8 @@ void TabSearchPageHandler::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
-  ScheduleDebounce();
+  if (!browser_tab_strip_tracker_.is_processing_initial_browsers())
+    ScheduleDebounce();
 }
 
 void TabSearchPageHandler::TabChangedAt(content::WebContents* contents,
@@ -200,8 +211,13 @@ void TabSearchPageHandler::TabChangedAt(content::WebContents* contents,
                                         TabChangeType change_type) {
   // TODO(crbug.com/1112496): Support more values for TabChangeType and filter
   // out the changes we are not interested in.
-  if (change_type == TabChangeType::kAll)
-    ScheduleDebounce();
+  if (change_type != TabChangeType::kAll)
+    return;
+  Browser* browser = chrome::FindBrowserWithWebContents(contents);
+  if (!browser)
+    return;
+  TRACE_EVENT0("browser", "TabSearchPageHandler::TabChangedAt");
+  page_->TabUpdated(GetTabData(browser->tab_strip_model(), contents, index));
 }
 
 void TabSearchPageHandler::ScheduleDebounce() {
@@ -210,8 +226,7 @@ void TabSearchPageHandler::ScheduleDebounce() {
 }
 
 void TabSearchPageHandler::NotifyTabsChanged() {
-  if (!browser_tab_strip_tracker_.is_processing_initial_browsers())
-    page_->TabsChanged();
+  page_->TabsChanged();
   debounce_timer_->Stop();
 }
 

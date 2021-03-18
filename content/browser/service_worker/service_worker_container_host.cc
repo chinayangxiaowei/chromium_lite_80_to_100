@@ -25,6 +25,7 @@
 #include "content/public/common/origin_util.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/service_worker/service_worker_scope_match.h"
 
 namespace content {
 
@@ -148,7 +149,7 @@ ServiceWorkerContainerHost::~ServiceWorkerContainerHost() {
     FrameTreeNodeIdRegistry::GetInstance()->Remove(fetch_request_window_id_);
 
   if (IsContainerForClient() && controller_)
-    controller_->Uncontrol(client_uuid());
+    controller_->OnControlleeDestroyed(client_uuid());
 
   // Remove |this| as an observer of ServiceWorkerRegistrations.
   // TODO(falken): Use ScopedObserver instead of this explicit call.
@@ -455,7 +456,7 @@ void ServiceWorkerContainerHost::OnSkippedWaiting(
 void ServiceWorkerContainerHost::AddMatchingRegistration(
     ServiceWorkerRegistration* registration) {
   DCHECK_CURRENTLY_ON(ServiceWorkerContext::GetCoreThreadId());
-  DCHECK(ServiceWorkerUtils::ScopeMatches(registration->scope(), url_));
+  DCHECK(blink::ServiceWorkerScopeMatches(registration->scope(), url_));
   if (!IsContextSecureForServiceWorker())
     return;
   size_t key = registration->scope().spec().size();
@@ -1125,7 +1126,7 @@ void ServiceWorkerContainerHost::SyncMatchingRegistrations() {
   for (const auto& key_registration : registrations) {
     ServiceWorkerRegistration* registration = key_registration.second;
     if (!registration->is_uninstalled() &&
-        ServiceWorkerUtils::ScopeMatches(registration->scope(), url_)) {
+        blink::ServiceWorkerScopeMatches(registration->scope(), url_)) {
       AddMatchingRegistration(registration);
     }
   }
@@ -1235,7 +1236,7 @@ void ServiceWorkerContainerHost::UpdateController(
     }
   }
   if (previous_version)
-    previous_version->Uncontrol(client_uuid());
+    previous_version->RemoveControllee(client_uuid());
 
   // SetController message should be sent only for clients.
   DCHECK(IsContainerForClient());

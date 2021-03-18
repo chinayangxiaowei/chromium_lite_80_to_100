@@ -46,7 +46,7 @@
 #include "net/url_request/static_http_user_agent_settings.h"
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_storage.h"
-#include "net/url_request/url_request_job_factory_impl.h"
+#include "net/url_request/url_request_job_factory.h"
 #include "net/url_request/url_request_throttler_manager.h"
 #include "url/url_constants.h"
 
@@ -554,10 +554,6 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
 
   HttpNetworkSession::Context network_session_context;
   SetHttpNetworkSessionComponents(context.get(), &network_session_context);
-  // Unlike the other fields of HttpNetworkSession::Context,
-  // |client_socket_factory| is not mirrored in URLRequestContext.
-  network_session_context.client_socket_factory =
-      client_socket_factory_for_testing_;
 
   storage->set_http_network_session(std::make_unique<HttpNetworkSession>(
       http_network_session_params_, network_session_context));
@@ -610,8 +606,8 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
   }
   storage->set_http_transaction_factory(std::move(http_transaction_factory));
 
-  std::unique_ptr<URLRequestJobFactoryImpl> job_factory =
-      std::make_unique<URLRequestJobFactoryImpl>();
+  std::unique_ptr<URLRequestJobFactory> job_factory =
+      std::make_unique<URLRequestJobFactory>();
   // Adds caller-provided protocol handlers first so that these handlers are
   // used over the ftp handler below.
   for (auto& scheme_handler : protocol_handlers_) {

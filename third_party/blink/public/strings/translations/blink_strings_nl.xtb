@@ -13,9 +13,11 @@
 <translation id="1211441953136645838">eindnoot</translation>
 <translation id="1281252709823657822">dialoogvenster</translation>
 <translation id="1306460908038601864">Uit</translation>
+<translation id="1311894908970423688">Waarde moet <ph name="VALUE_DATE_OR_TIME" /> zijn.</translation>
 <translation id="1335095011850992622">bronvermelding</translation>
 <translation id="1342835525016946179">artikel</translation>
 <translation id="1359897965706325498">banner</translation>
+<translation id="145015347812617860"><ph name="COUNT" /> items</translation>
 <translation id="1480676835519562650">Meerdere selecties mogelijk. <ph name="SELECTED" /> van <ph name="COUNT" /> geselecteerd.</translation>
 <translation id="1589122976691792535">regio</translation>
 <translation id="1591562245178063882">Deze maand</translation>
@@ -45,6 +47,7 @@
 <translation id="2247351761944213033">Week <ph name="WEEKNUMBER" />, <ph name="YEAR" /></translation>
 <translation id="2277199496770840904">Track <ph name="NUMBER" /></translation>
 <translation id="2291999235780842123">selectievakje</translation>
+<translation id="2307576640803031502">in lijst, item <ph name="INDEX" /> van <ph name="COUNT" /></translation>
 <translation id="2311842470354187719">pagina-einde</translation>
 <translation id="2335594187091864976">datum- en tijdkiezer</translation>
 <translation id="2393030564806080191">Hexadecimale kleurwaarde</translation>
@@ -125,7 +128,7 @@
 <translation id="4950364064308314478">Kiezer voor lokale datum en tijd weergeven</translation>
 <translation id="4971739861736909480"><ph name="ACCNAME" /> geselecteerd</translation>
 <translation id="4975562563186953947"><ph name="SELECTED_COUNT" /> geselecteerd</translation>
-<translation id="4992066212339426712">Dempen opheffen</translation>
+<translation id="4992066212339426712">Geluid aanzetten</translation>
 <translation id="49969490063480558">Geef een adresgedeelte op na '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' is onvolledig.</translation>
 <translation id="5022314756875057021">rijgroep</translation>
 <translation id="5034860022980953847">voortgangsindicator</translation>
@@ -146,7 +149,7 @@
 <translation id="5468998798572797635">volledig scherm sluiten</translation>
 <translation id="5516424706154626233">datumkiezer</translation>
 <translation id="5537725057119320332">Cast</translation>
-<translation id="5546461542133609677">dempen opheffen</translation>
+<translation id="5546461542133609677">geluid aanzetten</translation>
 <translation id="5608153257855394627">markeren</translation>
 <translation id="561939826962581046">tijd</translation>
 <translation id="5630795885300617244">Dubbeltik links of rechts om 10 seconden over te slaan</translation>
@@ -154,10 +157,12 @@
 <translation id="5643186887447432888">knop</translation>
 <translation id="5677946354068040947">meer opties</translation>
 <translation id="576709008726043716">inleiding</translation>
-<translation id="57838592816432529">Dempen</translation>
+<translation id="57838592816432529">Geluid uitzetten</translation>
+<translation id="5860033963881614850">Uit</translation>
 <translation id="588258955323874662">Volledig scherm</translation>
 <translation id="5888666972993069672">Wordt nu gecast naar <ph name="DEVICE_FRIENDLY_NAME" /></translation>
 <translation id="591047860372322273">zoekvak</translation>
+<translation id="5916664084637901428">Aan</translation>
 <translation id="5939518447894949180">Resetten</translation>
 <translation id="5966707198760109579">Week</translation>
 <translation id="5987525920412732405">draaiknop</translation>
@@ -185,13 +190,14 @@
 <translation id="6643016212128521049">Wissen</translation>
 <translation id="668171684555832681">Anders...</translation>
 <translation id="6692633176391053278">stappenregelaar</translation>
+<translation id="6709093583001123835">Waarde moet <ph name="VALUE" /> zijn.</translation>
 <translation id="6709570249143506788">Slechte afspeelkwaliteit</translation>
 <translation id="6755330956360078551">knopinfo</translation>
 <translation id="6790428901817661496">Spelen</translation>
 <translation id="6820355525329141109">Kan plug-in niet laden.</translation>
 <translation id="6820615603175220800">bibliografiereferentie</translation>
 <translation id="6831465880655513317">Kleurenwiel met tweedimensionale schuifregelaar om verzadiging en lichtheid te selecteren</translation>
-<translation id="6843725295806269523">dempen</translation>
+<translation id="6843725295806269523">geluid uitzetten</translation>
 <translation id="6885760532393684712">directory</translation>
 <translation id="689129560213475294">colofon</translation>
 <translation id="6934078000481955284">blok met geciteerde tekst</translation>
@@ -285,6 +291,7 @@
 <translation id="9155987714137265666"><ph name="WEEK" />, die begint op <ph name="WEEK_START_DATE" /></translation>
 <translation id="916607977885256133">Scherm-in-scherm</translation>
 <translation id="9168329111483466115">voetnoot</translation>
+<translation id="945780513535800434">Gedeeltelijk aangevinkt</translation>
 <translation id="954003015749068518">scherm-in-scherm openen</translation>
 <translation id="966787709310836684">menu</translation>
 </translationbundle>

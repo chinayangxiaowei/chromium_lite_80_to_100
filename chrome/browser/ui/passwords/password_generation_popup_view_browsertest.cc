@@ -26,15 +26,9 @@ class TestPasswordGenerationPopupController
   explicit TestPasswordGenerationPopupController(
       content::WebContents* web_contents)
       : PasswordGenerationPopupControllerImpl(
-            gfx::RectF(web_contents->GetContainerBounds().x(),
-                       web_contents->GetContainerBounds().y(),
-                       10,
-                       10),
+            gfx::RectF(0, 0, 10, 10),
             autofill::password_generation::PasswordGenerationUIData(
-                /*bounds=*/gfx::RectF(web_contents->GetContainerBounds().x(),
-                                      web_contents->GetContainerBounds().y(),
-                                      10,
-                                      10),
+                /*bounds=*/gfx::RectF(0, 0, 10, 10),
                 /*max_length=*/10,
                 /*generation_element=*/base::string16(),
                 autofill::FieldRendererId(100),
@@ -76,9 +70,7 @@ IN_PROC_BROWSER_TEST_F(PasswordGenerationPopupViewTest,
       new autofill::TestPasswordGenerationPopupController(GetWebContents());
   controller_->Show(PasswordGenerationPopupController::kEditGeneratedPassword);
 
-  GetViewTester()->SimulateMouseMovementAt(
-      gfx::Point(GetWebContents()->GetContainerBounds().x() + 1,
-                 GetWebContents()->GetContainerBounds().y() + 1));
+  GetViewTester()->SimulateMouseMovementAt(gfx::Point(1, 1));
 
   // This hides the popup and destroys the controller.
   GetWebContents()->Close();

@@ -14,22 +14,22 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "components/download/public/common/download_url_parameters.h"
 #include "content/browser/child_process_security_policy_impl.h"
-#include "content/browser/frame_host/navigation_entry_impl.h"
-#include "content/browser/frame_host/navigator.h"
-#include "content/browser/frame_host/render_frame_host_impl.h"
-#include "content/browser/frame_host/render_frame_proxy_host.h"
 #include "content/browser/media/audio_stream_monitor.h"
 #include "content/browser/media/media_web_contents_observer.h"
+#include "content/browser/renderer_host/navigation_entry_impl.h"
+#include "content/browser/renderer_host/navigator.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/renderer_host/render_frame_proxy_host.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/webui/content_web_ui_controller_factory.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/common/frame.mojom.h"
 #include "content/common/frame_messages.h"
 #include "content/common/page_messages.h"
 #include "content/common/view_messages.h"
@@ -71,7 +71,6 @@
 #include "third_party/blink/public/common/input/synthetic_web_input_event_builders.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
-#include "third_party/blink/public/mojom/image_downloader/image_downloader.mojom.h"
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "url/url_constants.h"
@@ -249,58 +248,6 @@ class FakeWebContentsDelegate : public WebContentsDelegate {
   bool loading_state_changed_was_called_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeWebContentsDelegate);
-};
-
-class FakeImageDownloader : public blink::mojom::ImageDownloader {
- public:
-  FakeImageDownloader() = default;
-  ~FakeImageDownloader() override = default;
-
-  void Init(service_manager::InterfaceProvider* interface_provider) {
-    service_manager::InterfaceProvider::TestApi test_api(interface_provider);
-    test_api.SetBinderForName(blink::mojom::ImageDownloader::Name_,
-                              base::BindRepeating(&FakeImageDownloader::Bind,
-                                                  base::Unretained(this)));
-  }
-
-  void DownloadImage(const GURL& url,
-                     bool is_favicon,
-                     uint32_t preferred_size,
-                     uint32_t max_bitmap_size,
-                     bool bypass_cache,
-                     DownloadImageCallback callback) override {
-    if (!base::Contains(fake_response_data_per_url_, url)) {
-      // This could return a 404, but there is no test that currently relies on
-      // it.
-      return;
-    }
-
-    const FakeResponseData& response_data = fake_response_data_per_url_[url];
-    std::move(callback).Run(/*http_status_code=*/200, response_data.bitmaps,
-                            response_data.original_bitmap_sizes);
-  }
-
-  void SetFakeResponseData(
-      const GURL& url,
-      const std::vector<SkBitmap>& bitmaps,
-      const std::vector<gfx::Size>& original_bitmap_sizes) {
-    fake_response_data_per_url_[url] =
-        FakeResponseData{bitmaps, original_bitmap_sizes};
-  }
-
- private:
-  struct FakeResponseData {
-    std::vector<SkBitmap> bitmaps;
-    std::vector<gfx::Size> original_bitmap_sizes;
-  };
-
-  void Bind(mojo::ScopedMessagePipeHandle handle) {
-    receiver_.Bind(mojo::PendingReceiver<blink::mojom::ImageDownloader>(
-        std::move(handle)));
-  }
-
-  mojo::Receiver<blink::mojom::ImageDownloader> receiver_{this};
-  std::map<GURL, FakeResponseData> fake_response_data_per_url_;
 };
 
 }  // namespace
@@ -908,7 +855,7 @@ TEST_F(WebContentsImplTest, FindOpenerRVHWhenPending) {
   RenderFrameProxyHost* proxy =
       contents()->GetRenderManager()->GetRenderFrameProxyHost(instance);
   EXPECT_TRUE(proxy);
-  EXPECT_EQ(proxy->GetFrameToken(), opener_frame_token);
+  EXPECT_EQ(*opener_frame_token, proxy->GetFrameToken());
 
   // Ensure that committing the navigation removes the proxy.
   navigation->Commit();
@@ -2294,7 +2241,7 @@ TEST_F(WebContentsImplTestWithSiteIsolation, IsLoadingToDifferentDocument) {
                                        ui::PAGE_TRANSITION_AUTO_SUBFRAME);
   EXPECT_TRUE(contents()->IsLoading());
   EXPECT_FALSE(contents()->IsLoadingToDifferentDocument());
-  subframe->DidStopLoading();
+  static_cast<mojom::FrameHost*>(subframe)->DidStopLoading();
   EXPECT_FALSE(contents()->IsLoading());
 }
 
@@ -2333,7 +2280,7 @@ TEST_F(WebContentsImplTest, DISABLED_NoEarlyStop) {
   // navigation in the current RenderFrameHost. There should still be a pending
   // RenderFrameHost and the WebContents should still be loading.
   same_process_navigation->Commit();
-  current_rfh->DidStopLoading();
+  static_cast<mojom::FrameHost*>(current_rfh)->DidStopLoading();
   EXPECT_EQ(contents()->GetPendingMainFrame(), pending_rfh);
   EXPECT_TRUE(contents()->IsLoading());
 
@@ -2353,7 +2300,7 @@ TEST_F(WebContentsImplTest, DISABLED_NoEarlyStop) {
 
   // Simulate the new current RenderFrameHost DidStopLoading. The WebContents
   // should now have stopped loading.
-  new_current_rfh->DidStopLoading();
+  static_cast<mojom::FrameHost*>(new_current_rfh)->DidStopLoading();
   EXPECT_EQ(main_test_rfh(), new_current_rfh);
   EXPECT_FALSE(contents()->IsLoading());
 }
@@ -2698,54 +2645,6 @@ TEST_F(WebContentsImplTest, FaviconURLsResetWithNavigation) {
 
   contents()->NavigateAndCommit(GURL("https://example.com/navigation.html"));
   EXPECT_EQ(0u, contents()->GetFaviconURLs().size());
-}
-
-TEST_F(WebContentsImplTest, BadDownloadImageResponseFromRenderer) {
-  // Avoid using TestWebContents, which fakes image download logic without
-  // exercising the code in WebContentsImpl.
-  scoped_refptr<SiteInstance> instance =
-      SiteInstance::Create(GetBrowserContext());
-  instance->GetProcess()->Init();
-  WebContents::CreateParams create_params(GetBrowserContext(),
-                                          std::move(instance));
-  create_params.desired_renderer_state = WebContents::CreateParams::
-      CreateParams::kInitializeAndWarmupRendererProcess;
-  std::unique_ptr<WebContentsImpl> contents(
-      WebContentsImpl::CreateWithOpener(create_params, /*opener_rfh=*/nullptr));
-  ASSERT_FALSE(contents->GetMainFrame()->GetProcess()->ShutdownRequested());
-
-  // Set up the fake image downloader.
-  FakeImageDownloader fake_image_downloader;
-  fake_image_downloader.Init(contents->GetMainFrame()->GetRemoteInterfaces());
-
-  // For the purpose of this test, set up a malformed response with different
-  // vector sizes.
-  const GURL kImageUrl = GURL("https://example.com/favicon.ico");
-  fake_image_downloader.SetFakeResponseData(
-      kImageUrl,
-      /*bitmaps=*/{}, /*original_bitmap_sizes=*/{gfx::Size(16, 16)});
-
-  base::RunLoop run_loop;
-  contents->DownloadImage(
-      kImageUrl,
-      /*is_favicon=*/true,
-      /*preferred_size=*/16,
-      /*max_bitmap_size=*/32,
-      /*bypass_cache=*/false,
-      base::BindLambdaForTesting([&](int id, int http_status_code,
-                                     const GURL& image_url,
-                                     const std::vector<SkBitmap>& bitmaps,
-                                     const std::vector<gfx::Size>& sizes) {
-        EXPECT_EQ(400, http_status_code);
-        EXPECT_TRUE(bitmaps.empty());
-        EXPECT_TRUE(sizes.empty());
-        run_loop.Quit();
-      }));
-  run_loop.Run();
-
-  // The renderer process should have been killed due to
-  // WCI_INVALID_DOWNLOAD_IMAGE_RESULT.
-  EXPECT_TRUE(contents->GetMainFrame()->GetProcess()->ShutdownRequested());
 }
 
 }  // namespace content

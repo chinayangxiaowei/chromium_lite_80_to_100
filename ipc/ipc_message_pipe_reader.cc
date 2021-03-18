@@ -10,7 +10,6 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/containers/span.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -63,9 +62,7 @@ bool MessagePipeReader::Send(std::unique_ptr<Message> message) {
   if (!sender_)
     return false;
 
-  base::span<const uint8_t> bytes(static_cast<const uint8_t*>(message->data()),
-                                  message->size());
-  sender_->Receive(MessageView(bytes, std::move(handles)));
+  sender_->Receive(MessageView(*message, std::move(handles)));
   DVLOG(4) << "Send " << message->type() << ": " << message->size();
   return true;
 }
@@ -85,12 +82,11 @@ void MessagePipeReader::SetPeerPid(int32_t peer_pid) {
 }
 
 void MessagePipeReader::Receive(MessageView message_view) {
-  if (message_view.bytes().empty()) {
+  if (!message_view.size()) {
     delegate_->OnBrokenDataReceived();
     return;
   }
-  Message message(reinterpret_cast<const char*>(message_view.bytes().data()),
-                  message_view.bytes().size());
+  Message message(message_view.data(), message_view.size());
   if (!message.IsValid()) {
     delegate_->OnBrokenDataReceived();
     return;

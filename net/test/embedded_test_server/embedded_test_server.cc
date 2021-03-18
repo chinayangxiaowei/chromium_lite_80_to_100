@@ -828,10 +828,6 @@ void EmbeddedTestServer::AddDefaultHandlers(const base::FilePath& directory) {
   RegisterDefaultHandlers(this);
 }
 
-void EmbeddedTestServer::AddDefaultHandlers() {
-  RegisterDefaultHandlers(this);
-}
-
 void EmbeddedTestServer::RegisterRequestHandler(
     const HandleRequestCallback& callback) {
   DCHECK(!io_thread_)

@@ -895,10 +895,7 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
 
 void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
   background_fullscreen_hack_ = false;
-  auto ref = msg_handler_weak_factory_.GetWeakPtr();
   fullscreen_handler()->SetFullscreen(fullscreen);
-  if (!ref)
-    return;
 
   // Add the fullscreen window to the fullscreen window map which is used to
   // handle window activations.
@@ -1395,10 +1392,8 @@ void HWNDMessageHandler::ClientAreaSizeChanged() {
   // Ignore size changes due to fullscreen windows losing activation.
   if (background_fullscreen_hack_ && !sent_window_size_changing_)
     return;
-  auto ref = msg_handler_weak_factory_.GetWeakPtr();
-  delegate_->HandleClientSizeChanged(GetClientAreaBounds().size());
-  if (!ref)
-    return;
+  gfx::Size s = GetClientAreaBounds().size();
+  delegate_->HandleClientSizeChanged(s);
 
   current_window_size_message_++;
   sent_window_size_changing_ = false;
@@ -2801,7 +2796,10 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
         // window is maximized. We should take this into account.
         gfx::Insets client_area_insets;
         if (GetClientAreaInsets(&client_area_insets, monitor))
-          expected_maximized_bounds.Inset(client_area_insets.Scale(-1));
+          // Ceil the insets after scaling to make them exclude fractional parts
+          // after scaling, since the result is negative.
+          expected_maximized_bounds.Inset(
+              gfx::ScaleToCeiledInsets(client_area_insets, -1));
       }
       // Sometimes Windows incorrectly changes bounds of maximized windows after
       // attaching or detaching additional displays. In this case user can see
@@ -2914,11 +2912,8 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
 void HWNDMessageHandler::OnWindowPosChanged(WINDOWPOS* window_pos) {
   TRACE_EVENT0("ui", "HWNDMessageHandler::OnWindowPosChanged");
 
-  base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   if (DidClientAreaSizeChange(window_pos))
     ClientAreaSizeChanged();
-  if (!ref)
-    return;
   if (window_pos->flags & SWP_FRAMECHANGED)
     SetDwmFrameExtension(DwmFrameState::kOn);
   if (window_pos->flags & SWP_SHOWWINDOW) {

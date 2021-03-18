@@ -21,7 +21,6 @@
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/waitable_event.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/appcache/appcache.h"
@@ -65,7 +64,6 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
   // Test harness --------------------------------------------------
 
   AppCacheRequestHandlerTest() : host_(nullptr), request_(nullptr) {
-    feature_list_.InitAndEnableFeature(kAppCacheAlwaysFallbackToNetwork);
     AppCacheRequestHandler::SetRunningInTests(true);
   }
 
@@ -371,9 +369,7 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
 
   void SubResource_Miss_WithCacheSelected() {
     // A sub-resource load where the resource is not in an appcache, or
-    // in a network or fallback namespace, should result in a fallback to the
-    // network rather than an error, as we treat all network namespaces as
-    // including '*'.
+    // in a network or fallback namespace, should result in a failed request.
     host_->AssociateCompleteCache(MakeNewCache());
 
     CreateRequestAndHandler(GURL("http://blah/"), host_,
@@ -381,7 +377,8 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
     EXPECT_TRUE(handler_.get());
 
     SetAppCacheURLLoader(handler_->MaybeLoadResource(nullptr));
-    EXPECT_FALSE(loader());
+    EXPECT_TRUE(loader());
+    EXPECT_TRUE(loader()->IsDeliveringErrorResponse());
 
     SetAppCacheURLLoader(handler_->MaybeLoadFallbackForRedirect(
         nullptr, GURL("http://blah/redirect")));
@@ -409,7 +406,7 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
 
     host_->FinishCacheSelection(cache.get(), nullptr, base::DoNothing());
     EXPECT_FALSE(loader()->IsWaiting());
-    EXPECT_TRUE(loader()->IsDeliveringNetworkResponse());
+    EXPECT_TRUE(loader()->IsDeliveringErrorResponse());
 
     SetAppCacheURLLoader(handler_->MaybeLoadFallbackForRedirect(
         nullptr, GURL("http://blah/redirect")));
@@ -694,7 +691,7 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
   void OnBadMessage(const std::string& reason) { NOTREACHED(); }
 
   MockAppCacheStorage* mock_storage() {
-    return reinterpret_cast<MockAppCacheStorage*>(mock_service_->storage());
+    return static_cast<MockAppCacheStorage*>(mock_service_->storage());
   }
 
   void CreateRequestAndHandler(const GURL& url,
@@ -710,7 +707,6 @@ class AppCacheRequestHandlerTest : public ::testing::Test {
   }
 
   // Data members --------------------------------------------------
-  base::test::ScopedFeatureList feature_list_;
   BrowserTaskEnvironment task_environment_;
 
   base::OnceClosure test_finished_cb_;

@@ -260,7 +260,6 @@ enum BadMessageReason {
   RFH_RECEIVED_ASSOCIATED_MESSAGE_WHILE_BFCACHED = 232,
   RWH_CLOSE_PORTAL = 233,
   MSDH_INVALID_STREAM_TYPE = 234,
-  WCI_INVALID_DOWNLOAD_IMAGE_RESULT = 243,
 
   // Please add new elements here. The naming convention is abbreviated class
   // name (e.g. RenderFrameHost becomes RFH) plus a unique description of the
@@ -285,8 +284,8 @@ void ReceivedBadMessage(BrowserMessageFilter* filter, BadMessageReason reason);
 
 // Site isolation. These keys help debug renderer kills such as
 // https://crbug.com/773140.
-// Retuns a key named "requested_site_url".
-base::debug::CrashKeyString* GetRequestedSiteURLKey();
+// Retuns a key for logging a requested SiteInfo.
+base::debug::CrashKeyString* GetRequestedSiteInfoKey();
 
 }  // namespace bad_message
 }  // namespace content

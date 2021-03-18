@@ -39,9 +39,6 @@ const char kBadMessageImproperNotificationImage[] =
     "disabled.";
 const char kBadMessageInvalidNotificationTriggerTimestamp[] =
     "Received an invalid notification trigger timestamp.";
-const char kBadMessageInvalidNotificationActionButtons[] =
-    "Received a notification with a number of action images that does not "
-    "match the number of actions.";
 
 // Returns the implementation of the PlatformNotificationService. May be NULL.
 PlatformNotificationService* GetNotificationService(
@@ -135,8 +132,7 @@ void BlinkNotificationServiceImpl::DisplayNonPersistentNotification(
     mojo::PendingRemote<blink::mojom::NonPersistentNotificationListener>
         event_listener_remote) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!ValidateNotificationDataAndResources(platform_notification_data,
-                                            notification_resources))
+  if (!ValidateNotificationResources(notification_resources))
     return;
 
   if (!GetNotificationService(browser_context_))
@@ -191,31 +187,28 @@ BlinkNotificationServiceImpl::CheckPermissionStatus() {
                             origin_.GetURL());
 }
 
-bool BlinkNotificationServiceImpl::ValidateNotificationDataAndResources(
-    const blink::PlatformNotificationData& platform_notification_data,
+bool BlinkNotificationServiceImpl::ValidateNotificationResources(
     const blink::NotificationResources& notification_resources) {
-  if (platform_notification_data.actions.size() !=
-      notification_resources.action_icons.size()) {
-    receiver_.ReportBadMessage(kBadMessageInvalidNotificationActionButtons);
-    OnConnectionError();
-    return false;
-  }
+  if (notification_resources.image.drawsNothing() ||
+      base::FeatureList::IsEnabled(features::kNotificationContentImage))
+    return true;
+  receiver_.ReportBadMessage(kBadMessageImproperNotificationImage);
+  // The above ReportBadMessage() closes |binding_| but does not trigger its
+  // connection error handler, so we need to call the error handler explicitly
+  // here to do some necessary work.
+  OnConnectionError();
+  return false;
+}
 
-  if (!CheckNotificationTriggerRange(platform_notification_data)) {
+// Checks if this notification has a valid trigger.
+bool BlinkNotificationServiceImpl::ValidateNotificationData(
+    const blink::PlatformNotificationData& notification_data) {
+  if (!CheckNotificationTriggerRange(notification_data)) {
     receiver_.ReportBadMessage(kBadMessageInvalidNotificationTriggerTimestamp);
     OnConnectionError();
     return false;
   }
 
-  if (!notification_resources.image.drawsNothing() &&
-      !base::FeatureList::IsEnabled(features::kNotificationContentImage)) {
-    receiver_.ReportBadMessage(kBadMessageImproperNotificationImage);
-    // The above ReportBadMessage() closes |binding_| but does not trigger its
-    // connection error handler, so we need to call the error handler explicitly
-    // here to do some necessary work.
-    OnConnectionError();
-    return false;
-  }
   return true;
 }
 
@@ -225,8 +218,10 @@ void BlinkNotificationServiceImpl::DisplayPersistentNotification(
     const blink::NotificationResources& notification_resources,
     DisplayPersistentNotificationCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!ValidateNotificationDataAndResources(platform_notification_data,
-                                            notification_resources))
+  if (!ValidateNotificationResources(notification_resources))
+    return;
+
+  if (!ValidateNotificationData(platform_notification_data))
     return;
 
   if (!GetNotificationService(browser_context_)) {

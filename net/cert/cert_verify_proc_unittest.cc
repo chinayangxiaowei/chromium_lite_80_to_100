@@ -461,46 +461,46 @@ INSTANTIATE_TEST_SUITE_P(All,
 // Tests that a certificate is recognized as EV, when the valid EV policy OID
 // for the trust anchor is the second candidate EV oid in the target
 // certificate. This is a regression test for crbug.com/705285.
-// Started failing: https://crbug.com/1094358
-TEST_P(CertVerifyProcInternalTest, DISABLED_EVVerificationMultipleOID) {
+TEST_P(CertVerifyProcInternalTest, EVVerificationMultipleOID) {
   if (!SupportsEV()) {
     LOG(INFO) << "Skipping test as EV verification is not yet supported";
     return;
   }
 
-  // TODO(eroman): Update this test to use a synthetic certificate, so the test
-  // does not break in the future. The certificate chain in question expires on
-  // Jun 12 14:33:43 2020 GMT, at which point this test will start failing.
-  if (base::Time::Now() >
-      base::Time::UnixEpoch() + base::TimeDelta::FromSeconds(1591972423)) {
-    FAIL() << "This test uses a certificate chain which is now expired. Please "
-              "disable and file a bug.";
-    return;
-  }
-
-  scoped_refptr<X509Certificate> chain = CreateCertificateChainFromFile(
-      GetTestCertsDirectory(), "login.trustwave.com.pem",
-      X509Certificate::FORMAT_PEM_CERT_SEQUENCE);
-  ASSERT_TRUE(chain);
+  scoped_refptr<X509Certificate> cert =
+      ImportCertFromFile(GetTestCertsDirectory(), "ev-multi-oid.pem");
+  scoped_refptr<X509Certificate> root =
+      ImportCertFromFile(GetTestCertsDirectory(), "root_ca_cert.pem");
+  ASSERT_TRUE(cert);
+  ASSERT_TRUE(root);
+  ScopedTestRoot test_root(root.get());
 
   // Build a CRLSet that covers the target certificate.
   //
   // This way CRLSet coverage will be sufficient for EV revocation checking,
   // so this test does not depend on online revocation checking.
-  ASSERT_GE(chain->intermediate_buffers().size(), 1u);
   base::StringPiece spki;
-  ASSERT_TRUE(
-      asn1::ExtractSPKIFromDERCert(x509_util::CryptoBufferAsStringPiece(
-                                       chain->intermediate_buffers()[0].get()),
-                                   &spki));
+  ASSERT_TRUE(asn1::ExtractSPKIFromDERCert(
+      x509_util::CryptoBufferAsStringPiece(root->cert_buffer()), &spki));
   SHA256HashValue spki_sha256;
   crypto::SHA256HashString(spki, spki_sha256.data, sizeof(spki_sha256.data));
   scoped_refptr<CRLSet> crl_set(
       CRLSet::ForTesting(false, &spki_sha256, "", "", {}));
 
+  // The policies that "ev-multi-oid.pem" target certificate asserts.
+  static const char kOtherTestCertPolicy[] = "2.23.140.1.1";
+  static const char kEVTestCertPolicy[] = "1.2.3.4";
+  // Consider the root of the test chain a valid EV root for the test policy.
+  ScopedTestEVPolicy scoped_test_ev_policy(
+      EVRootCAMetadata::GetInstance(),
+      X509Certificate::CalculateFingerprint256(root->cert_buffer()),
+      kEVTestCertPolicy);
+  ScopedTestEVPolicy scoped_test_other_policy(
+      EVRootCAMetadata::GetInstance(), SHA256HashValue(), kOtherTestCertPolicy);
+
   CertVerifyResult verify_result;
   int flags = 0;
-  int error = Verify(chain.get(), "login.trustwave.com", flags, crl_set.get(),
+  int error = Verify(cert.get(), "127.0.0.1", flags, crl_set.get(),
                      CertificateList(), &verify_result);
   EXPECT_THAT(error, IsOk());
   EXPECT_TRUE(verify_result.cert_status & CERT_STATUS_IS_EV);
@@ -1484,6 +1484,7 @@ TEST(CertVerifyProcTest, TestHasTooLongValidity) {
     const char* const file;
     bool is_valid_too_long;
   } tests[] = {
+      {"daltonridgeapts.com-chain.pem", false},
       {"start_after_expiry.pem", true},
       {"pre_br_validity_ok.pem", false},
       {"pre_br_validity_bad_121.pem", true},
@@ -1519,16 +1520,16 @@ TEST(CertVerifyProcTest, TestHasTooLongValidity) {
 TEST_P(CertVerifyProcInternalTest, TestKnownRoot) {
   base::FilePath certs_dir = GetTestCertsDirectory();
   scoped_refptr<X509Certificate> cert_chain = CreateCertificateChainFromFile(
-      certs_dir, "cert-manager.com-chain.pem", X509Certificate::FORMAT_AUTO);
+      certs_dir, "daltonridgeapts.com-chain.pem", X509Certificate::FORMAT_AUTO);
   ASSERT_TRUE(cert_chain);
 
   int flags = 0;
   CertVerifyResult verify_result;
   int error =
-      Verify(cert_chain.get(), "ov-validation.cert-manager.com", flags,
+      Verify(cert_chain.get(), "daltonridgeapts.com", flags,
              CRLSet::BuiltinCRLSet().get(), CertificateList(), &verify_result);
   EXPECT_THAT(error, IsOk()) << "This test relies on a real certificate that "
-                             << "expires on June 2, 2022. If failing on/after "
+                             << "expires on May 28, 2021. If failing on/after "
                              << "that date, please disable and file a bug "
                              << "against rsleevi.";
   EXPECT_TRUE(verify_result.is_issued_by_known_root);

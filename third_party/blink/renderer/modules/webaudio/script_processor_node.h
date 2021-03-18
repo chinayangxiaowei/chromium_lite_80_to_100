@@ -168,8 +168,6 @@ class ScriptProcessorNode final
  private:
   HeapVector<Member<AudioBuffer>> input_buffers_;
   HeapVector<Member<AudioBuffer>> output_buffers_;
-  Member<AudioBuffer> external_input_buffer_;
-  Member<AudioBuffer> external_output_buffer_;
 };
 
 }  // namespace blink

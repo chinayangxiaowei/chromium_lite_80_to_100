@@ -88,9 +88,7 @@ void LinkStyle::NotifyFinished(Resource* resource) {
   auto* parser_context = MakeGarbageCollected<CSSParserContext>(
       GetDocument(), cached_style_sheet->GetResponse().ResponseUrl(),
       cached_style_sheet->GetResponse().IsCorsSameOrigin(),
-      Referrer(cached_style_sheet->GetResponse().ResponseUrl(),
-               cached_style_sheet->GetReferrerPolicy()),
-      cached_style_sheet->Encoding());
+      cached_style_sheet->GetReferrerPolicy(), cached_style_sheet->Encoding());
   if (cached_style_sheet->GetResourceRequest().IsAdResource()) {
     parser_context->SetIsAdRelated();
   }

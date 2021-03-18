@@ -96,7 +96,7 @@ void PaymentRequestItemList::Item::Init() {
   }
 
   layout->StartRow(views::GridLayout::kFixedSize, 0);
-  content->set_can_process_events_within_subtree(false);
+  content->SetCanProcessEventsWithinSubtree(false);
   layout->AddView(std::move(content));
 
   layout->AddView(CreateCheckmark(selected() && clickable()));
@@ -111,7 +111,7 @@ void PaymentRequestItemList::Item::Init() {
     edit_button->SetImage(views::Button::STATE_NORMAL,
                           gfx::CreateVectorIcon(vector_icons::kEditIcon,
                                                 kEditIconSize, icon_color));
-    edit_button->set_ink_drop_base_color(icon_color);
+    edit_button->SetInkDropBaseColor(icon_color);
     edit_button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
     edit_button->SetID(static_cast<int>(DialogViewID::EDIT_ITEM_BUTTON));
     edit_button->SetAccessibleName(
@@ -142,7 +142,7 @@ std::unique_ptr<views::ImageView> PaymentRequestItemList::Item::CreateCheckmark(
   std::unique_ptr<views::ImageView> checkmark =
       std::make_unique<views::ImageView>();
   checkmark->SetID(static_cast<int>(DialogViewID::CHECKMARK_VIEW));
-  checkmark->set_can_process_events_within_subtree(false);
+  checkmark->SetCanProcessEventsWithinSubtree(false);
   checkmark->SetImage(
       gfx::CreateVectorIcon(views::kMenuCheckIcon, kCheckmarkColor));
   checkmark->SetVisible(selected);

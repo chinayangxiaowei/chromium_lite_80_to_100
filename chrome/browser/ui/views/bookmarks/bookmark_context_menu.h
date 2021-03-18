@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_CONTEXT_MENU_H_
 #define CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_CONTEXT_MENU_H_
 
-#include "base/callback_forward.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "chrome/browser/ui/bookmarks/bookmark_context_menu_controller.h"
@@ -40,13 +39,11 @@ class BookmarkContextMenu : public BookmarkContextMenuControllerDelegate,
                             public views::MenuDelegate {
  public:
   // |browser| is used to open the bookmark manager, and is NULL in tests.
-  // |get_navigator| is used to get the current PageNavigator for opening
-  // bookmarks.
   BookmarkContextMenu(
       views::Widget* parent_widget,
       Browser* browser,
       Profile* profile,
-      base::RepeatingCallback<content::PageNavigator*()> get_navigator,
+      content::PageNavigator* page_navigator,
       BookmarkLaunchLocation opened_from,
       const bookmarks::BookmarkNode* parent,
       const std::vector<const bookmarks::BookmarkNode*>& selection,
@@ -67,6 +64,9 @@ class BookmarkContextMenu : public BookmarkContextMenuControllerDelegate,
   void set_observer(BookmarkContextMenuObserver* observer) {
     observer_ = observer;
   }
+
+  // Sets the PageNavigator.
+  void SetPageNavigator(content::PageNavigator* navigator);
 
   // Overridden from views::MenuDelegate:
   void ExecuteCommand(int command_id, int event_flags) override;

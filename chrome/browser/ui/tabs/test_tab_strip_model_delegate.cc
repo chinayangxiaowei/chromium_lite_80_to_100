@@ -43,10 +43,6 @@ bool TestTabStripModelDelegate::CanDuplicateContentsAt(int index) {
   return false;
 }
 
-bool TestTabStripModelDelegate::CanHighlightTabs() {
-  return true;
-}
-
 void TestTabStripModelDelegate::DuplicateContentsAt(int index) {
 }
 

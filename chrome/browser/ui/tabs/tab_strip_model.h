@@ -370,9 +370,9 @@ class TabStripModel : public TabGroupController {
   // Extends the selection from the anchor to |index|.
   void ExtendSelectionTo(int index);
 
-  // Returns true if the selection was toggled; this can fail if the tabstrip
-  // is not editable.
-  bool ToggleSelectionAt(int index);
+  // Toggles the selection at |index|. This does nothing if |index| is selected
+  // and there are no other selected tabs.
+  void ToggleSelectionAt(int index);
 
   // Makes sure the tabs from the anchor to |index| are selected. This only
   // adds to the selection.
@@ -461,6 +461,13 @@ class TabStripModel : public TabGroupController {
 
   TabGroupModel* group_model() const { return group_model_.get(); }
 
+  // Returns true if one or more of the tabs pointed to by |indices| are
+  // supported by read later.
+  bool IsReadLaterSupportedForAny(const std::vector<int> indices);
+
+  // Saves tabs with url supported by Read Later and closes those tabs.
+  void AddToReadLater(const std::vector<int>& indices);
+
   // TabGroupController:
   void CreateTabGroup(const tab_groups::TabGroupId& group) override;
   void OpenTabGroupEditor(const tab_groups::TabGroupId& group) override;
@@ -489,6 +496,7 @@ class TabStripModel : public TabGroupController {
     CommandToggleSiteMuted,
     CommandSendTabToSelf,
     CommandSendTabToSelfSingleTarget,
+    CommandAddToReadLater,
     CommandAddToNewGroup,
     CommandAddToExistingGroup,
     CommandRemoveFromGroup,
@@ -600,9 +608,7 @@ class TabStripModel : public TabGroupController {
   bool RunUnloadListenerBeforeClosing(content::WebContents* contents);
   bool ShouldRunUnloadListenerBeforeClosing(content::WebContents* contents);
 
-  int ConstrainInsertionIndex(int index, bool pinned_tab) const;
-
-  int ConstrainMoveIndex(int index, bool pinned_tab) const;
+  int ConstrainInsertionIndex(int index, bool pinned_tab);
 
   // If |index| is selected all the selected indices are returned, otherwise a
   // vector with |index| is returned. This is used when executing commands to
@@ -722,6 +728,8 @@ class TabStripModel : public TabGroupController {
   void MoveAndSetGroup(int index,
                        int new_index,
                        base::Optional<tab_groups::TabGroupId> new_group);
+
+  void AddToReadLaterImpl(const std::vector<int>& indices);
 
   // Helper function for MoveAndSetGroup. Removes the tab at |index| from the
   // group that contains it, if any. Also deletes that group, if it now contains

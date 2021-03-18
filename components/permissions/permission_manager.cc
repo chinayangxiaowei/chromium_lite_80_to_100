@@ -536,15 +536,14 @@ bool PermissionManager::IsPermissionOverridableByDevTools(
                                                             origin->GetURL());
 }
 
-PermissionManager::SubscriptionId
-PermissionManager::SubscribePermissionStatusChange(
+int PermissionManager::SubscribePermissionStatusChange(
     PermissionType permission,
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     base::RepeatingCallback<void(PermissionStatus)> callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (is_shutting_down_)
-    return SubscriptionId();
+    return 0;
 
   if (subscriptions_.IsEmpty())
     PermissionsClient::Get()
@@ -581,20 +580,16 @@ PermissionManager::SubscribePermissionStatusChange(
   subscription->callback =
       base::BindRepeating(&SubscriptionCallbackWrapper, std::move(callback));
 
-  auto id = subscription_id_generator_.GenerateNextId();
-  subscriptions_.AddWithID(std::move(subscription), id);
-  return id;
+  return subscriptions_.Add(std::move(subscription));
 }
 
-void PermissionManager::UnsubscribePermissionStatusChange(
-    SubscriptionId subscription_id) {
+void PermissionManager::UnsubscribePermissionStatusChange(int subscription_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (is_shutting_down_)
     return;
 
-  if (subscriptions_.Lookup(subscription_id)) {
-    subscriptions_.Remove(subscription_id);
-  }
+  // Whether |subscription_id| is known will be checked by the Remove() call.
+  subscriptions_.Remove(subscription_id);
 
   if (subscriptions_.IsEmpty()) {
     PermissionsClient::Get()

@@ -42,15 +42,10 @@ class CORE_EXPORT CSSParserContext final
   explicit CSSParserContext(const CSSParserContext* other,
                             const Document* use_counter_document = nullptr);
 
-  // Creates a context with most of its constructor attributes provided by
-  // copying from |other|, except that the remaining constructor arguments take
-  // precedence over the corresponding characteristics of |other|. This is
-  // useful for initializing @imported sheets' contexts, which inherit most of
-  // their characteristics from their parents.
   CSSParserContext(const CSSParserContext* other,
                    const KURL& base_url_override,
                    bool origin_clean,
-                   const Referrer& referrer,
+                   network::mojom::ReferrerPolicy referrer_policy_override,
                    const WTF::TextEncoding& charset_override,
                    const Document* use_counter_document);
   CSSParserContext(CSSParserMode,
@@ -61,7 +56,7 @@ class CORE_EXPORT CSSParserContext final
   CSSParserContext(const Document&,
                    const KURL& base_url_override,
                    bool origin_clean,
-                   const Referrer& referrer,
+                   network::mojom::ReferrerPolicy referrer_policy_override,
                    const WTF::TextEncoding& charset = WTF::TextEncoding(),
                    SelectorProfile = kLiveProfile,
                    ResourceFetchRestriction resource_fetch_restriction =
@@ -76,7 +71,7 @@ class CORE_EXPORT CSSParserContext final
                    CSSParserMode,
                    CSSParserMode match_mode,
                    SelectorProfile,
-                   const Referrer& referrer,
+                   const Referrer&,
                    bool is_html_document,
                    bool use_legacy_background_size_shorthand_behavior,
                    SecureContextMode,

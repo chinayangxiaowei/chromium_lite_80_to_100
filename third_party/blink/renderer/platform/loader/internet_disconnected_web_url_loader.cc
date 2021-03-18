@@ -77,9 +77,9 @@ void InternetDisconnectedWebURLLoader::DidChangePriority(
 void InternetDisconnectedWebURLLoader::DidFail(WebURLLoaderClient* client,
                                                const WebURLError& error) {
   DCHECK(client);
-  client->DidFail(
-      error, base::TimeTicks::Now(), /*total_encoded_data_length=*/0,
-      /*total_encoded_body_length=*/0, /*total_decoded_body_length=*/0);
+  client->DidFail(error, 0 /* total_encoded_data_length */,
+                  0 /* total_encoded_body_length */,
+                  0 /* total_decoded_body_length */);
 }
 
 scoped_refptr<base::SingleThreadTaskRunner>

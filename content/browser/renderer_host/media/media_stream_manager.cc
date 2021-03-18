@@ -668,9 +668,9 @@ class MediaStreamManager::DeviceRequest {
 
   std::string tab_capture_device_id;
 
-  PermissionController::SubscriptionId audio_subscription_id;
+  int audio_subscription_id = PermissionControllerImpl::kNoPendingOperation;
 
-  PermissionController::SubscriptionId video_subscription_id;
+  int video_subscription_id = PermissionControllerImpl::kNoPendingOperation;
 
  private:
   std::vector<MediaRequestState> state_;
@@ -2589,8 +2589,8 @@ MediaStreamDevices MediaStreamManager::ConvertToMediaStreamDevices(
   MediaStreamDevices devices;
   for (const auto& info : device_infos) {
     devices.emplace_back(stream_type, info.device_id, info.label,
-                         info.video_facing, info.group_id,
-                         info.pan_tilt_zoom_supported);
+                         info.video_control_support, info.video_facing,
+                         info.group_id);
   }
 
   return devices;
@@ -2673,8 +2673,8 @@ void MediaStreamManager::SubscribeToPermissionControllerOnUIThread(
   if (!controller)
     return;
 
-  PermissionController::SubscriptionId audio_subscription_id;
-  PermissionController::SubscriptionId video_subscription_id;
+  int audio_subscription_id = PermissionControllerImpl::kNoPendingOperation;
+  int video_subscription_id = PermissionControllerImpl::kNoPendingOperation;
 
   if (is_audio_request) {
     // It is safe to bind base::Unretained(this) because MediaStreamManager is
@@ -2716,8 +2716,8 @@ void MediaStreamManager::SetPermissionSubscriptionIDs(
     const std::string& label,
     int requesting_process_id,
     int requesting_frame_id,
-    PermissionController::SubscriptionId audio_subscription_id,
-    PermissionController::SubscriptionId video_subscription_id) {
+    int audio_subscription_id,
+    int video_subscription_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   DeviceRequest* const request = FindRequest(label);
@@ -2744,8 +2744,8 @@ void MediaStreamManager::SetPermissionSubscriptionIDs(
 void MediaStreamManager::UnsubscribeFromPermissionControllerOnUIThread(
     int requesting_process_id,
     int requesting_frame_id,
-    PermissionController::SubscriptionId audio_subscription_id,
-    PermissionController::SubscriptionId video_subscription_id) {
+    int audio_subscription_id,
+    int video_subscription_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   PermissionControllerImpl* controller =

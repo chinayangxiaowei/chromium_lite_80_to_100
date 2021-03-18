@@ -34,6 +34,7 @@
 #include "components/payments/core/payment_request_data_util.h"
 #include "components/payments/core/payments_experimental_features.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_features.h"
 
 namespace payments {
@@ -56,19 +57,19 @@ void PostStatusCallback(PaymentRequestState::StatusCallback callback,
 }  // namespace
 
 PaymentRequestState::PaymentRequestState(
-    content::WebContents* web_contents,
     content::RenderFrameHost* initiator_render_frame_host,
     const GURL& top_level_origin,
     const GURL& frame_origin,
     const url::Origin& frame_security_origin,
     base::WeakPtr<PaymentRequestSpec> spec,
-    Delegate* delegate,
+    base::WeakPtr<Delegate> delegate,
     const std::string& app_locale,
     autofill::PersonalDataManager* personal_data_manager,
     ContentPaymentRequestDelegate* payment_request_delegate,
     JourneyLogger* journey_logger)
-    : web_contents_(web_contents),
-      initiator_render_frame_host_(initiator_render_frame_host),
+    : frame_routing_id_(content::GlobalFrameRoutingId(
+          initiator_render_frame_host->GetProcess()->GetID(),
+          initiator_render_frame_host->GetRoutingID())),
       top_origin_(top_level_origin),
       frame_origin_(frame_origin),
       frame_security_origin_(frame_security_origin),
@@ -83,9 +84,8 @@ PaymentRequestState::PaymentRequestState(
       profile_comparator_(app_locale, *spec) {
   PopulateProfileCache();
 
-  // |web_contents_| is null in unit tests.
   PaymentAppService* service = PaymentAppServiceFactory::GetForContext(
-      web_contents_ ? web_contents_->GetBrowserContext() : nullptr);
+      initiator_render_frame_host->GetBrowserContext());
   number_of_payment_app_factories_ = service->GetNumberOfFactories();
   service->Create(weak_ptr_factory_.GetWeakPtr());
 
@@ -95,7 +95,10 @@ PaymentRequestState::PaymentRequestState(
 PaymentRequestState::~PaymentRequestState() {}
 
 content::WebContents* PaymentRequestState::GetWebContents() {
-  return web_contents_;
+  auto* rfh = content::RenderFrameHost::FromID(frame_routing_id_);
+  return rfh && rfh->IsCurrent()
+             ? content::WebContents::FromRenderFrameHost(rfh)
+             : nullptr;
 }
 
 ContentPaymentRequestDelegate* PaymentRequestState::GetPaymentRequestDelegate()
@@ -129,7 +132,7 @@ const url::Origin& PaymentRequestState::GetFrameSecurityOrigin() {
 
 content::RenderFrameHost* PaymentRequestState::GetInitiatorRenderFrameHost()
     const {
-  return initiator_render_frame_host_;
+  return content::RenderFrameHost::FromID(frame_routing_id_);
 }
 
 const std::vector<mojom::PaymentMethodDataPtr>&
@@ -246,11 +249,17 @@ void PaymentRequestState::SetCanMakePaymentEvenWithoutApps() {
 
 void PaymentRequestState::OnPaymentResponseReady(
     mojom::PaymentResponsePtr payment_response) {
+  if (!delegate_)
+    return;
+
   delegate_->OnPaymentResponseAvailable(std::move(payment_response));
 }
 
 void PaymentRequestState::OnPaymentResponseError(
     const std::string& error_message) {
+  if (!delegate_)
+    return;
+
   delegate_->OnPaymentResponseError(error_message);
 }
 
@@ -387,8 +396,7 @@ void PaymentRequestState::GeneratePaymentResponse() {
 }
 
 void PaymentRequestState::OnPaymentAppWindowClosed() {
-  if (!selected_app_)
-    return;
+  DCHECK(selected_app_);
   response_helper_.reset();
   selected_app_->OnPaymentAppWindowClosed();
 }
@@ -410,17 +418,14 @@ void PaymentRequestState::RecordUseStats() {
     }
   }
 
-  if (selected_app_)
-    selected_app_->RecordUse();
+  selected_app_->RecordUse();
 }
 
 void PaymentRequestState::SetAvailablePaymentAppForRetry() {
-  if (!selected_app_)
-    return;
-
+  DCHECK(selected_app_);
   base::EraseIf(available_apps_, [this](const auto& payment_app) {
     // Remove the app if it is not selected.
-    return payment_app.get() != selected_app_.get();
+    return payment_app.get() != selected_app_;
   });
   is_retry_called_ = true;
 }
@@ -439,8 +444,7 @@ void PaymentRequestState::AddAutofillPaymentApp(
       JourneyLogger::EVENT_AVAILABLE_METHOD_BASIC_CARD);
 
   if (selected) {
-    SetSelectedApp(available_apps_.back()->AsWeakPtr(),
-                   SectionSelectionStatus::kAddedSelected);
+    SetSelectedApp(available_apps_.back().get());
   }
 }
 
@@ -455,8 +459,7 @@ void PaymentRequestState::AddAutofillShippingProfile(
   shipping_profiles_.push_back(new_cached_profile);
 
   if (selected) {
-    SetSelectedShippingProfile(new_cached_profile,
-                               SectionSelectionStatus::kAddedSelected);
+    SetSelectedShippingProfile(new_cached_profile);
   }
 }
 
@@ -469,8 +472,7 @@ void PaymentRequestState::AddAutofillContactProfile(
   contact_profiles_.push_back(new_cached_profile);
 
   if (selected) {
-    SetSelectedContactProfile(new_cached_profile,
-                              SectionSelectionStatus::kAddedSelected);
+    SetSelectedContactProfile(new_cached_profile);
   }
 }
 
@@ -481,14 +483,15 @@ void PaymentRequestState::SetSelectedShippingOption(
 
   spec_->StartWaitingForUpdateWith(
       PaymentRequestSpec::UpdateReason::SHIPPING_OPTION);
-  // This will inform the merchant and will lead to them calling updateWith with
-  // new PaymentDetails.
-  delegate_->OnShippingOptionIdSelected(shipping_option_id);
+  if (delegate_) {
+    // This will inform the merchant and will lead to them calling updateWith
+    // with new PaymentDetails.
+    delegate_->OnShippingOptionIdSelected(shipping_option_id);
+  }
 }
 
 void PaymentRequestState::SetSelectedShippingProfile(
-    autofill::AutofillProfile* profile,
-    SectionSelectionStatus selection_status) {
+    autofill::AutofillProfile* profile) {
   if (!spec_)
     return;
 
@@ -509,13 +512,10 @@ void PaymentRequestState::SetSelectedShippingProfile(
       *selected_shipping_profile_, /*timeout_seconds=*/2,
       base::BindOnce(&PaymentRequestState::OnAddressNormalized,
                      weak_ptr_factory_.GetWeakPtr()));
-  IncrementSelectionStatus(JourneyLogger::Section::SECTION_SHIPPING_ADDRESS,
-                           selection_status);
 }
 
 void PaymentRequestState::SetSelectedContactProfile(
-    autofill::AutofillProfile* profile,
-    SectionSelectionStatus selection_status) {
+    autofill::AutofillProfile* profile) {
   selected_contact_profile_ = profile;
 
   // Changing the contact information clears contact information validation
@@ -524,39 +524,15 @@ void PaymentRequestState::SetSelectedContactProfile(
 
   UpdateIsReadyToPayAndNotifyObservers();
 
-  if (IsPaymentAppInvoked()) {
+  if (IsPaymentAppInvoked() && delegate_) {
     delegate_->OnPayerInfoSelected(
         response_helper_->GeneratePayerDetail(profile));
   }
-  IncrementSelectionStatus(JourneyLogger::Section::SECTION_CONTACT_INFO,
-                           selection_status);
 }
 
-void PaymentRequestState::SetSelectedApp(
-    base::WeakPtr<PaymentApp> app,
-    SectionSelectionStatus selection_status) {
+void PaymentRequestState::SetSelectedApp(PaymentApp* app) {
   selected_app_ = app;
   UpdateIsReadyToPayAndNotifyObservers();
-  IncrementSelectionStatus(JourneyLogger::Section::SECTION_PAYMENT_METHOD,
-                           selection_status);
-}
-
-void PaymentRequestState::IncrementSelectionStatus(
-    JourneyLogger::Section section,
-    SectionSelectionStatus selection_status) {
-  switch (selection_status) {
-    case SectionSelectionStatus::kSelected:
-      journey_logger_->IncrementSelectionChanges(section);
-      break;
-    case SectionSelectionStatus::kEditedSelected:
-      journey_logger_->IncrementSelectionEdits(section);
-      break;
-    case SectionSelectionStatus::kAddedSelected:
-      journey_logger_->IncrementSelectionAdds(section);
-      break;
-    default:
-      NOTREACHED();
-  }
 }
 
 const std::string& PaymentRequestState::GetApplicationLocale() {
@@ -692,7 +668,7 @@ void PaymentRequestState::SetDefaultProfileSelections() {
 
   selected_app_ = nullptr;
   if (!available_apps_.empty() && available_apps_[0]->CanPreselect()) {
-    selected_app_ = available_apps_[0]->AsWeakPtr();
+    selected_app_ = available_apps_[0].get();
     UpdateIsReadyToPayAndNotifyObservers();
   }
 
@@ -717,7 +693,7 @@ void PaymentRequestState::SetDefaultProfileSelections() {
 
   journey_logger_->SetNumberOfSuggestionsShown(
       JourneyLogger::Section::SECTION_PAYMENT_METHOD, available_apps().size(),
-      selected_app_.get());
+      selected_app_);
 }
 
 void PaymentRequestState::UpdateIsReadyToPayAndNotifyObservers() {
@@ -739,7 +715,7 @@ void PaymentRequestState::NotifyOnSelectedInformationChanged() {
 bool PaymentRequestState::ArePaymentDetailsSatisfied() {
   // There is no need to check for supported networks, because only supported
   // apps are listed/created in the flow.
-  return selected_app_ && selected_app_->IsCompleteForPayment();
+  return selected_app_ != nullptr && selected_app_->IsCompleteForPayment();
 }
 
 bool PaymentRequestState::ArePaymentOptionsSatisfied() {
@@ -763,6 +739,9 @@ bool PaymentRequestState::ArePaymentOptionsSatisfied() {
 void PaymentRequestState::OnAddressNormalized(
     bool success,
     const autofill::AutofillProfile& normalized_profile) {
+  if (!delegate_)
+    return;
+
   delegate_->OnShippingAddressSelected(
       data_util::GetPaymentAddressFromAutofillProfile(normalized_profile,
                                                       app_locale_));

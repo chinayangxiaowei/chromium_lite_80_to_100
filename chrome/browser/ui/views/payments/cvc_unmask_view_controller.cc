@@ -28,8 +28,6 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/render_frame_host.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -59,17 +57,16 @@ CvcUnmaskViewController::CvcUnmaskViewController(
     : PaymentRequestSheetController(spec, state, dialog),
       year_combobox_model_(credit_card.expiration_year()),
       credit_card_(credit_card),
-      frame_routing_id_(web_contents->GetMainFrame()->GetProcess()->GetID(),
-                        web_contents->GetMainFrame()->GetRoutingID()),
+      web_contents_(web_contents),
       payments_client_(
           content::BrowserContext::GetDefaultStoragePartition(
-              web_contents->GetBrowserContext())
+              web_contents_->GetBrowserContext())
               ->GetURLLoaderFactoryForBrowserProcess(),
           IdentityManagerFactory::GetForProfile(
-              Profile::FromBrowserContext(web_contents->GetBrowserContext())
+              Profile::FromBrowserContext(web_contents_->GetBrowserContext())
                   ->GetOriginalProfile()),
           state->GetPersonalDataManager(),
-          Profile::FromBrowserContext(web_contents->GetBrowserContext())
+          Profile::FromBrowserContext(web_contents_->GetBrowserContext())
               ->IsOffTheRecord()),
       full_card_request_(this,
                          &payments_client_,
@@ -84,15 +81,7 @@ CvcUnmaskViewController::~CvcUnmaskViewController() {}
 
 void CvcUnmaskViewController::LoadRiskData(
     base::OnceCallback<void(const std::string&)> callback) {
-  auto* rfh = content::RenderFrameHost::FromID(frame_routing_id_);
-  if (!rfh)
-    return;
-
-  auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
-  if (!web_contents)
-    return;
-
-  autofill::risk_util::LoadRiskData(0, web_contents, std::move(callback));
+  autofill::risk_util::LoadRiskData(0, web_contents_, std::move(callback));
 }
 
 void CvcUnmaskViewController::ShowUnmaskPrompt(
@@ -200,14 +189,16 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
   layout->StartRow(views::GridLayout::kFixedSize, 1);
   if (requesting_expiration) {
     auto month = std::make_unique<views::Combobox>(&month_combobox_model_);
-    month->set_listener(this);
+    month->set_callback(base::BindRepeating(
+        &CvcUnmaskViewController::OnPerformAction, base::Unretained(this)));
     month->SetID(static_cast<int>(DialogViewID::CVC_MONTH));
     month->SelectValue(credit_card_.Expiration2DigitMonthAsString());
     month->SetInvalid(true);
     layout->AddView(std::move(month));
 
     auto year = std::make_unique<views::Combobox>(&year_combobox_model_);
-    year->set_listener(this);
+    year->set_callback(base::BindRepeating(
+        &CvcUnmaskViewController::OnPerformAction, base::Unretained(this)));
     year->SetID(static_cast<int>(DialogViewID::CVC_YEAR));
     year->SelectValue(credit_card_.Expiration4DigitYearAsString());
     year->SetInvalid(true);
@@ -222,7 +213,7 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
       credit_card_.network() == autofill::kAmericanExpressCard
           ? IDR_CREDIT_CARD_CVC_HINT_AMEX
           : IDR_CREDIT_CARD_CVC_HINT));
-  cvc_image->set_tooltip_text(l10n_util::GetStringUTF16(
+  cvc_image->SetTooltipText(l10n_util::GetStringUTF16(
       IDS_AUTOFILL_CARD_UNMASK_CVC_IMAGE_DESCRIPTION));
   layout->AddView(std::move(cvc_image));
 
@@ -394,7 +385,7 @@ void CvcUnmaskViewController::ContentsChanged(
   UpdatePayButtonState();
 }
 
-void CvcUnmaskViewController::OnPerformAction(views::Combobox* combobox) {
+void CvcUnmaskViewController::OnPerformAction() {
   if (!dialog()->IsInteractive())
     return;
 

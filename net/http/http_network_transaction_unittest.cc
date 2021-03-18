@@ -3087,7 +3087,7 @@ TEST_F(HttpNetworkTransactionTest, DoNotSendAuth) {
   HttpRequestInfo request;
   request.method = "GET";
   request.url = GURL("http://www.example.org/");
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -3471,7 +3471,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
   request.method = "GET";
   request.url = GURL("https://www.example.org/");
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -3618,7 +3618,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
   request.method = "GET";
   request.url = GURL("https://www.example.org/");
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -3761,7 +3761,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
     request.url = GURL("https://www.example.org/");
     // Ensure that proxy authentication is attempted even
     // when the no authentication data flag is set.
-    request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+    request.privacy_mode = PRIVACY_MODE_ENABLED;
     request.traffic_annotation =
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -3873,7 +3873,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp11) {
     request.url = GURL("https://www.example.org/");
     // Ensure that proxy authentication is attempted even
     // when the no authentication data flag is set.
-    request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+    request.privacy_mode = PRIVACY_MODE_ENABLED;
     request.traffic_annotation =
         net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -3982,7 +3982,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveExtraData) {
   request.method = "GET";
   request.url = GURL("https://www.example.org/");
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -4108,7 +4108,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHangupDuringBody) {
   request.url = GURL("https://www.example.org/");
   // Ensure that proxy authentication is attempted even
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -7717,7 +7717,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxyAuthRetry) {
   request.method = "GET";
   request.url = GURL("http://www.example.org/");
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
@@ -9387,105 +9387,6 @@ TEST_F(HttpNetworkTransactionTest, RecycleDeadSSLSocket) {
 
   // We now check to make sure the socket was added back to the pool.
   EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session.get()));
-}
-
-TEST_F(HttpNetworkTransactionTest, CloseConnectionOnDestruction) {
-  enum class TestCase {
-    kReadHeaders,
-    kReadPartOfBodyRead,
-    kReadAllOfBody,
-  };
-
-  for (auto test_case : {TestCase::kReadHeaders, TestCase::kReadPartOfBodyRead,
-                         TestCase::kReadAllOfBody}) {
-    SCOPED_TRACE(testing::Message()
-                 << "Test case: " << static_cast<int>(test_case));
-    for (bool close_connection : {false, true}) {
-      if (test_case != TestCase::kReadAllOfBody || close_connection == false)
-        continue;
-      SCOPED_TRACE(testing::Message()
-                   << "Close connection: " << close_connection);
-
-      HttpRequestInfo request;
-      request.method = "GET";
-      request.url = GURL("http://foo.test/");
-      request.traffic_annotation =
-          net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
-
-      std::unique_ptr<HttpNetworkSession> session(
-          CreateSession(&session_deps_));
-
-      std::unique_ptr<HttpNetworkTransaction> trans =
-          std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY,
-                                                   session.get());
-
-      MockRead data_reads[] = {
-          // A part of the response body is received with the response headers.
-          MockRead("HTTP/1.1 200 OK\r\n"
-                   "Content-Length: 11\r\n\r\n"
-                   "hello world"),
-          MockRead(SYNCHRONOUS, OK),
-      };
-
-      StaticSocketDataProvider data(data_reads, base::span<MockWrite>());
-      session_deps_.socket_factory->AddSocketDataProvider(&data);
-
-      TestCompletionCallback callback;
-
-      int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
-      EXPECT_THAT(callback.GetResult(rv), IsOk());
-
-      const HttpResponseInfo* response = trans->GetResponseInfo();
-      ASSERT_TRUE(response);
-
-      EXPECT_TRUE(response->headers);
-      std::string status_line = response->headers->GetStatusLine();
-      EXPECT_EQ("HTTP/1.1 200 OK", status_line);
-
-      EXPECT_EQ(0, GetIdleSocketCountInTransportSocketPool(session.get()));
-
-      std::string response_data;
-      switch (test_case) {
-        case TestCase::kReadHeaders: {
-          // Already read the headers, nothing else to do.
-          break;
-        }
-
-        case TestCase::kReadPartOfBodyRead: {
-          scoped_refptr<IOBuffer> buf = base::MakeRefCounted<IOBuffer>(5);
-          rv = trans->Read(buf.get(), 5, callback.callback());
-          ASSERT_EQ(5, callback.GetResult(rv));
-          response_data.assign(buf->data(), 5);
-          EXPECT_EQ("hello", response_data);
-          break;
-        }
-
-        case TestCase::kReadAllOfBody: {
-          rv = ReadTransaction(trans.get(), &response_data);
-          EXPECT_THAT(rv, IsOk());
-          EXPECT_EQ("hello world", response_data);
-          break;
-        }
-      }
-
-      if (close_connection)
-        trans->CloseConnectionOnDestruction();
-      trans.reset();
-
-      // Wait for the socket to be drained and added to the socket pool or
-      // destroyed.
-      base::RunLoop().RunUntilIdle();
-
-      // In the case all the body was read, the socket will have been released
-      // before the CloseConnectionOnDestruction() call, so will not be
-      // destroyed.
-      if (close_connection && test_case != TestCase::kReadAllOfBody) {
-        EXPECT_EQ(0, GetIdleSocketCountInTransportSocketPool(session.get()));
-      } else {
-        EXPECT_EQ(1, GetIdleSocketCountInTransportSocketPool(session.get()));
-      }
-    }
-  }
 }
 
 // Grab a socket, use it, and put it back into the pool. Then, make
@@ -11225,7 +11126,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
   request.method = "GET";
   request.url = GURL("https://www.example.org/");
   // when the no authentication data flag is set.
-  request.load_flags = LOAD_DO_NOT_SEND_AUTH_DATA;
+  request.privacy_mode = PRIVACY_MODE_ENABLED;
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 

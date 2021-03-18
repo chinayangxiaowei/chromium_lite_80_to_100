@@ -10,7 +10,6 @@
 #include <memory>
 
 #include "base/compiler_specific.h"
-#include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "content/browser/appcache/appcache_entry.h"
@@ -36,8 +35,6 @@ class AppCacheSubresourceURLFactory;
 class AppCacheRequest;
 class AppCacheRequestHandlerTest;
 class AppCacheHost;
-
-CONTENT_EXPORT extern const base::Feature kAppCacheAlwaysFallbackToNetwork;
 
 // An instance is created for each net::URLRequest. The instance survives all
 // http transactions involved in the processing of its net::URLRequest, and is

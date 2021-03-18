@@ -24,20 +24,19 @@ RegionDataLoaderImpl::RegionDataLoaderImpl(
       this, &RegionDataLoaderImpl::OnRegionDataLoaded));
 }
 
-RegionDataLoaderImpl::~RegionDataLoaderImpl() = default;
+RegionDataLoaderImpl::~RegionDataLoaderImpl() {}
 
 void RegionDataLoaderImpl::LoadRegionData(
     const std::string& country_code,
-    RegionDataLoaderImpl::RegionDataLoaded callback) {
+    RegionDataLoaderImpl::RegionDataLoaded callback,
+    int64_t timeout_ms) {
   callback_ = callback;
-  // This is the first and only time |LoadRules()| is called on the
-  // |region_data_supplier_|. This guarantees that the supplied callback
-  // |region_data_supplier_callback_| will be invoked resulting in the
-  // destruction of this instance.
-  // |LoadRules()| may use a network request that has an internal timeout of
-  // 5 seconds.
   region_data_supplier_.LoadRules(country_code,
                                   *region_data_supplier_callback_);
+
+  timer_.Start(FROM_HERE, base::TimeDelta::FromMilliseconds(timeout_ms),
+               base::BindOnce(&RegionDataLoaderImpl::OnRegionDataLoaded,
+                              base::Unretained(this), false, country_code, 0));
 }
 
 void RegionDataLoaderImpl::ClearCallback() {
@@ -47,6 +46,7 @@ void RegionDataLoaderImpl::ClearCallback() {
 void RegionDataLoaderImpl::OnRegionDataLoaded(bool success,
                                               const std::string& country_code,
                                               int unused_rule_count) {
+  timer_.Stop();
   if (!callback_.is_null()) {
     if (success) {
       std::string best_region_tree_language_tag;

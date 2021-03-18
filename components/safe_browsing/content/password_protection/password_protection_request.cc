@@ -478,8 +478,10 @@ void PasswordProtectionRequest::SendRequest() {
       WebUIInfoSingleton::GetInstance()->AddToPGPings(*request_proto_);
 
   std::string serialized_request;
-  // TODO(crbug.com/1158582): Return early if request serialization fails.
-  request_proto_->SerializeToString(&serialized_request);
+  if (!request_proto_->SerializeToString(&serialized_request)) {
+    Finish(RequestOutcome::REQUEST_MALFORMED, nullptr);
+    return;
+  }
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("password_protection_request", R"(
@@ -590,11 +592,11 @@ void PasswordProtectionRequest::Finish(
     if (trigger_type_ == LoginReputationClientRequest::UNFAMILIAR_LOGIN_PAGE) {
       LogPasswordOnFocusRequestOutcome(outcome);
     } else {
-#if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
+#if defined(PASSWORD_REUSE_DETECTION_ENABLED)
       LogPasswordEntryRequestOutcome(outcome, password_account_type);
 #endif
 
-#if defined(SYNC_PASSWORD_REUSE_WARNING_ENABLED)
+#if defined(PASSWORD_REUSE_WARNING_ENABLED)
       if (password_type_ == PasswordType::PRIMARY_ACCOUNT_PASSWORD) {
         password_protection_service_->MaybeLogPasswordReuseLookupEvent(
             web_contents_, outcome, password_type_, response.get());

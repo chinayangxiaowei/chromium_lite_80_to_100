@@ -15,7 +15,6 @@
 
 #include "base/check_op.h"
 #include "base/gtest_prod_util.h"
-#include "base/macros.h"
 #include "base/notreached.h"
 #include "base/observer_list_internal.h"
 #include "base/sequence_checker.h"
@@ -247,7 +246,8 @@ class ObserverList {
     // Sequence checks only apply when iterators are live.
     DETACH_FROM_SEQUENCE(iteration_sequence_checker_);
   }
-
+  ObserverList(const ObserverList&) = delete;
+  ObserverList& operator=(const ObserverList&) = delete;
   ~ObserverList() {
     // If there are live iterators, ensure destruction is thread-safe.
     if (!live_iterators_.empty())
@@ -272,7 +272,6 @@ class ObserverList {
       NOTREACHED() << "Observers can only be added once!";
       return;
     }
-    observers_count_++;
     observers_.emplace_back(ObserverStorageType(obs));
   }
 
@@ -285,8 +284,7 @@ class ObserverList {
                      [obs](const auto& o) { return o.IsEqual(obs); });
     if (it == observers_.end())
       return;
-    if (!it->IsMarkedForRemoval())
-      observers_count_--;
+
     if (live_iterators_.empty()) {
       observers_.erase(it);
     } else {
@@ -316,13 +314,8 @@ class ObserverList {
       for (auto& observer : observers_)
         observer.MarkForRemoval();
     }
-    observers_count_ = 0;
   }
 
-  bool empty() const { return !observers_count_; }
-
-  // Deprecated: use |has_observers()|.
-  // TODO(1155308): migrate all callers and make this test only.
   bool might_have_observers() const { return !observers_.empty(); }
 
  private:
@@ -341,13 +334,9 @@ class ObserverList {
 
   base::LinkedList<internal::WeakLinkNode<ObserverList>> live_iterators_;
 
-  size_t observers_count_{0};
-
   const ObserverListPolicy policy_;
 
   SEQUENCE_CHECKER(iteration_sequence_checker_);
-
-  DISALLOW_COPY_AND_ASSIGN(ObserverList);
 };
 
 template <class ObserverType, bool check_empty = false>

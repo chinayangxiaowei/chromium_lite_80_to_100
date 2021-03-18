@@ -21,6 +21,7 @@
 #include "mojo/core/broker.h"
 #include "mojo/core/broker_host.h"
 #include "mojo/core/configuration.h"
+#include "mojo/core/core.h"
 #include "mojo/core/request_context.h"
 #include "mojo/core/user_message_impl.h"
 #include "mojo/public/cpp/platform/named_platform_channel.h"
@@ -76,9 +77,7 @@ ports::ScopedEvent DeserializeEventMessage(
     Channel::MessagePtr channel_message) {
   void* data;
   size_t size;
-  bool valid = NodeChannel::GetEventMessageData(*channel_message, &data, &size);
-  if (!valid)
-    return nullptr;
+  NodeChannel::GetEventMessageData(channel_message.get(), &data, &size);
   auto event = ports::Event::Deserialize(data, size);
   if (!event)
     return nullptr;
@@ -147,8 +146,10 @@ class ThreadDestructionObserver
 
 NodeController::~NodeController() = default;
 
-NodeController::NodeController()
-    : name_(GetRandomNodeName()), node_(new ports::Node(name_, this)) {
+NodeController::NodeController(Core* core)
+    : core_(core),
+      name_(GetRandomNodeName()),
+      node_(new ports::Node(name_, this)) {
   DVLOG(1) << "Initializing node " << name_;
 }
 
@@ -445,6 +446,7 @@ void NodeController::AcceptBrokerClientInvitationOnIOThread(
       inviter_name_ = ports::kInvalidNodeName;
     }
 
+    const bool leak_endpoint = connection_params.leak_endpoint();
     // At this point we don't know the inviter's name, so we can't yet insert it
     // into our |peers_| map. That will happen as soon as we receive an
     // AcceptInvitee message from them.
@@ -453,7 +455,7 @@ void NodeController::AcceptBrokerClientInvitationOnIOThread(
                             Channel::HandlePolicy::kAcceptHandles,
                             io_task_runner_, ProcessErrorCallback());
 
-    if (connection_params.leak_endpoint()) {
+    if (leak_endpoint) {
       // Prevent the inviter pipe handle from being closed on shutdown. Pipe
       // closure may be used by the inviter to detect that the invited process
       // has terminated. In such cases, the invited process must not be invited
@@ -586,16 +588,9 @@ void NodeController::AddPeer(const ports::NodeName& name,
   }
 }
 
-void NodeController::DropPeer(const ports::NodeName& node_name,
+void NodeController::DropPeer(const ports::NodeName& name,
                               NodeChannel* channel) {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-
-  // NOTE: Either the `peers_` erasure or the `pending_invitations_` erasure
-  // below, if executed, may drop the last reference to the named NodeChannel
-  // and thus result in its deletion. The passed `node_name` argument may be
-  // owned by that same NodeChannel, so we make a copy of it here to avoid
-  // potentially unsafe references further below.
-  ports::NodeName name = node_name;
 
   {
     base::AutoLock lock(peers_lock_);
@@ -944,11 +939,7 @@ void NodeController::OnBrokerClientAdded(const ports::NodeName& from_node,
 void NodeController::OnAcceptBrokerClient(const ports::NodeName& from_node,
                                           const ports::NodeName& broker_name,
                                           PlatformHandle broker_channel) {
-  if (GetConfiguration().is_broker_process) {
-    // The broker should never receive this message from anyone.
-    DropPeer(from_node, nullptr);
-    return;
-  }
+  DCHECK(!GetConfiguration().is_broker_process);
 
   // This node should already have an inviter in bootstrap mode.
   ports::NodeName inviter_name;
@@ -959,13 +950,8 @@ void NodeController::OnAcceptBrokerClient(const ports::NodeName& from_node,
     inviter = bootstrap_inviter_channel_;
     bootstrap_inviter_channel_ = nullptr;
   }
-
-  if (inviter_name != from_node || !inviter ||
-      broker_name == ports::kInvalidNodeName) {
-    // We are not expecting this message. Assume the source is hostile.
-    DropPeer(from_node, nullptr);
-    return;
-  }
+  DCHECK(inviter_name == from_node);
+  DCHECK(inviter);
 
   base::queue<ports::NodeName> pending_broker_clients;
   std::unordered_map<ports::NodeName, OutgoingMessageQueue>
@@ -976,22 +962,22 @@ void NodeController::OnAcceptBrokerClient(const ports::NodeName& from_node,
     std::swap(pending_broker_clients, pending_broker_clients_);
     std::swap(pending_relay_messages, pending_relay_messages_);
   }
+  DCHECK(broker_name != ports::kInvalidNodeName);
 
   // It's now possible to add both the broker and the inviter as peers.
   // Note that the broker and inviter may be the same node.
   scoped_refptr<NodeChannel> broker;
   if (broker_name == inviter_name) {
+    DCHECK(!broker_channel.is_valid());
     broker = inviter;
-  } else if (broker_channel.is_valid()) {
+  } else {
+    DCHECK(broker_channel.is_valid());
     broker = NodeChannel::Create(
         this,
         ConnectionParams(PlatformChannelEndpoint(std::move(broker_channel))),
         Channel::HandlePolicy::kAcceptHandles, io_task_runner_,
         ProcessErrorCallback());
     AddPeer(broker_name, broker, true /* start_channel */);
-  } else {
-    DropPeer(from_node, nullptr);
-    return;
   }
 
   AddPeer(inviter_name, inviter, false /* start_channel */);
@@ -1007,11 +993,8 @@ void NodeController::OnAcceptBrokerClient(const ports::NodeName& from_node,
   // Feed the broker any pending invitees of our own.
   while (!pending_broker_clients.empty()) {
     const ports::NodeName& invitee_name = pending_broker_clients.front();
-    auto it = pending_invitations_.find(invitee_name);
-    // If for any reason we don't have a pending invitation for the invitee,
-    // there's nothing left to do: we've already swapped the relevant state into
-    // the stack.
-    if (it != pending_invitations_.end()) {
+    auto it = peers_.find(invitee_name);
+    if (it != peers_.end()) {
       broker->AddBrokerClient(invitee_name,
                               it->second->CloneRemoteProcessHandle());
     }

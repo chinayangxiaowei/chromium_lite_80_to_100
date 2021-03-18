@@ -42,8 +42,6 @@ function MediaHistoryStatsWebUIBrowserTest() {}
 MediaHistoryStatsWebUIBrowserTest.prototype = {
   __proto__: MediaHistoryWebUIBrowserTest.prototype,
 
-  featureList: {enabled: ['media::kMediaFeeds']},
-
   /** @override */
   browsePreload: 'chrome://media-history#tab-stats',
 };
@@ -59,6 +57,7 @@ TEST_F('MediaHistoryStatsWebUIBrowserTest', 'MAYBE_All', function() {
 
     assertDeepEquals(
         [
+          ['kaleidoscopeData', '0'],
           ['mediaFeed', '0'],
           ['mediaFeedItem', '0'],
           ['mediaImage', '0'],

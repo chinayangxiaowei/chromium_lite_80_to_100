@@ -2,11 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-load("//console-header.star", "HEADER")
-
 luci.console_view(
     name = "sheriff.ios",
-    header = HEADER,
+    header = "//chromium-header.textpb",
     repo = "https://chromium.googlesource.com/chromium/src",
     title = "iOS Sheriff Console",
     entries = [

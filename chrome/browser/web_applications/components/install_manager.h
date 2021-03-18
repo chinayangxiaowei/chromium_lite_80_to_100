@@ -122,6 +122,8 @@ class InstallManager {
     bool require_manifest = false;
 
     std::vector<std::string> additional_search_terms;
+
+    base::Optional<std::string> launch_query_params;
   };
   // Starts a background web app installation process for a given
   // |web_contents|.
@@ -156,13 +158,11 @@ class InstallManager {
       std::unique_ptr<WebApplicationInfo> web_application_info,
       OnceInstallCallback callback) = 0;
 
-  // Reinstall an existing web app. If |redownload_app_icons| is true, will
-  // redownload app icons and update them on disk. Otherwise, the icons in
-  // |web_application_info.bitmap_icons| will be used and saved to disk.
+  // Reinstall an existing web app, will redownload icons and update them on
+  // disk.
   virtual void UpdateWebAppFromInfo(
       const AppId& app_id,
       std::unique_ptr<WebApplicationInfo> web_application_info,
-      bool redownload_app_icons,
       OnceInstallCallback callback) = 0;
 
   explicit InstallManager(Profile* profile);

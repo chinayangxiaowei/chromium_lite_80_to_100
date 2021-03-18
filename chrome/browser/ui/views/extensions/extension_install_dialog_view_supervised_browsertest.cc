@@ -10,7 +10,6 @@
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_icon_manager.h"
 #include "chrome/browser/extensions/extension_install_prompt.h"
-#include "chrome/browser/extensions/extension_install_prompt_show_params.h"
 #include "chrome/browser/extensions/extension_install_prompt_test_helper.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/supervised_user/supervised_user_extensions_metrics_recorder.h"
@@ -97,8 +96,7 @@ ExtensionInstallDialogViewTestSupervised::CreateAndShowPrompt(
     ExtensionInstallPromptTestHelper* helper,
     std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt) {
   auto dialog = std::make_unique<ExtensionInstallDialogView>(
-      std::make_unique<ExtensionInstallPromptShowParams>(web_contents()),
-      helper->GetCallback(), std::move(prompt));
+      profile(), web_contents(), helper->GetCallback(), std::move(prompt));
   ExtensionInstallDialogView* delegate_view = dialog.get();
 
   views::Widget* modal_dialog = views::DialogDelegate::CreateDialogWidget(
@@ -152,8 +150,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionInstallDialogViewTestSupervised, AskAParent) {
   task_runner->FastForwardBy(duration);
 
   // Supervised user presses "Ask a parent".
+  ExtensionInstallDialogView::SetInstallButtonDelayForTesting(0);
   ExtensionInstallDialogView* delegate_view =
       CreateAndShowPrompt(&helper, install_prompt.GetPromptForTesting());
+  base::RunLoop().RunUntilIdle();
   delegate_view->AcceptDialog();
   EXPECT_EQ(ExtensionInstallPrompt::Result::ACCEPTED, helper.result());
 

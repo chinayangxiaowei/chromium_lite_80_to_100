@@ -7,8 +7,6 @@
 #include <set>
 #include <string>
 
-#include "base/bind.h"
-#include "base/callback.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -73,6 +71,12 @@ BookmarkEditorView::BookmarkEditorView(
   DCHECK(profile);
   DCHECK(bb_model_);
   DCHECK(bb_model_->client()->CanBeEditedByUser(parent));
+  SetCanResize(true);
+  SetModalType(ui::MODAL_TYPE_WINDOW);
+  SetShowCloseButton(false);
+  SetAcceptCallback(base::BindOnce(&BookmarkEditorView::ApplyEdits,
+                                   base::Unretained(this), nullptr));
+  SetTitle(details_.GetWindowTitleId());
   SetButtonLabel(ui::DIALOG_BUTTON_OK, l10n_util::GetStringUTF16(IDS_SAVE));
   if (show_tree_) {
     new_folder_button_ =
@@ -100,36 +104,6 @@ bool BookmarkEditorView::IsDialogButtonEnabled(ui::DialogButton button) const {
     if (details_.GetNodeType() != BookmarkNode::FOLDER)
       return GetInputURL().is_valid();
   }
-  return true;
-}
-
-ui::ModalType BookmarkEditorView::GetModalType() const {
-  return ui::MODAL_TYPE_WINDOW;
-}
-
-bool BookmarkEditorView::CanResize() const {
-  return true;
-}
-
-bool BookmarkEditorView::ShouldShowCloseButton() const {
-  return false;
-}
-
-base::string16 BookmarkEditorView::GetWindowTitle() const {
-  return l10n_util::GetStringUTF16(details_.GetWindowTitleId());
-}
-
-bool BookmarkEditorView::Accept() {
-  if (!IsDialogButtonEnabled(ui::DIALOG_BUTTON_OK)) {
-    if (details_.GetNodeType() != BookmarkNode::FOLDER) {
-      // The url is invalid, focus the url field.
-      url_tf_->SelectAll(true);
-      url_tf_->RequestFocus();
-    }
-    return false;
-  }
-  // Otherwise save changes and close the dialog box.
-  ApplyEdits();
   return true;
 }
 
@@ -203,8 +177,21 @@ void BookmarkEditorView::ExecuteCommand(int command_id, int event_flags) {
   if (command_id == IDS_EDIT) {
     tree_view_->StartEditing(tree_view_->GetActiveNode());
   } else if (command_id == IDS_DELETE) {
-    ExecuteCommandDelete(base::BindOnce(&chrome::ConfirmDeleteBookmarkNode,
-                                        GetWidget()->GetNativeWindow()));
+    EditorNode* node = tree_model_->AsNode(tree_view_->GetActiveNode());
+    if (!node)
+      return;
+    if (node->value != 0) {
+      const BookmarkNode* b_node =
+          bookmarks::GetBookmarkNodeByID(bb_model_, node->value);
+      if (!b_node->children().empty() &&
+          !chrome::ConfirmDeleteBookmarkNode(b_node,
+                                             GetWidget()->GetNativeWindow())) {
+        // The folder is not empty and the user didn't confirm.
+        return;
+      }
+      deletes_.push_back(node->value);
+    }
+    tree_model_->Remove(node->parent(), node);
   } else {
     DCHECK_EQ(IDS_BOOKMARK_EDITOR_NEW_FOLDER_MENU_ITEM, command_id);
     NewFolder(tree_model_->AsNode(tree_view_->GetActiveNode()));
@@ -515,23 +502,18 @@ BookmarkEditorView::EditorNode* BookmarkEditorView::FindNodeWithID(
   return nullptr;
 }
 
-void BookmarkEditorView::ApplyEdits() {
+void BookmarkEditorView::ApplyEdits(EditorNode* parent) {
   DCHECK(bb_model_->loaded());
 
-  if (tree_view_)
-    tree_view_->CommitEdit();
+  if (!parent) {
+    if (tree_view_)
+      tree_view_->CommitEdit();
 
-  EditorNode* parent =
-      show_tree_ ? tree_model_->AsNode(tree_view_->GetSelectedNode()) : nullptr;
-  if (show_tree_ && !parent) {
-    NOTREACHED();
-    return;
+    if (show_tree_) {
+      parent = tree_model_->AsNode(tree_view_->GetSelectedNode());
+      DCHECK(parent);
+    }
   }
-  ApplyEdits(parent);
-}
-
-void BookmarkEditorView::ApplyEdits(EditorNode* parent) {
-  DCHECK(!show_tree_ || parent);
 
   // We're going to apply edits to the bookmark bar model, which will call us
   // back. Normally when a structural edit occurs we reset the tree model.
@@ -621,37 +603,6 @@ ui::SimpleMenuModel* BookmarkEditorView::GetMenuModel() {
         IDS_BOOKMARK_EDITOR_NEW_FOLDER_MENU_ITEM);
   }
   return context_menu_model_.get();
-}
-
-void BookmarkEditorView::ExecuteCommandDelete(
-    base::OnceCallback<bool(const bookmarks::BookmarkNode* node)>
-        non_empty_folder_confirmation_cb) {
-  EditorNode* node = tree_model_->AsNode(tree_view_->GetActiveNode());
-  if (!node)
-    return;
-  const int64_t bookmark_node_id = node->value;
-  if (bookmark_node_id != 0) {
-    const BookmarkNode* b_node =
-        bookmarks::GetBookmarkNodeByID(bb_model_, bookmark_node_id);
-    if (!b_node->children().empty()) {
-      if (!std::move(non_empty_folder_confirmation_cb).Run(b_node)) {
-        // The folder is not empty and the user didn't confirm.
-        return;
-      }
-      // The function above runs a nested loop so it's necessary to guard
-      // against |node| having been deleted meanwhile (e.g. via extensions).
-      node = tree_model_->AsNode(tree_view_->GetActiveNode());
-      if (!node || node->value != bookmark_node_id) {
-        // The active node has been deleted or has changed. In theory
-        // FindNodeWithID() could be used to look up by |bookmark_node_id|,
-        // but it's hard to reason about the desired behavior in this case, so
-        // let's err on the safe side and avoid a deletion.
-        return;
-      }
-    }
-    deletes_.push_back(bookmark_node_id);
-  }
-  tree_model_->Remove(node->parent(), node);
 }
 
 void BookmarkEditorView::EditorTreeModel::SetTitle(

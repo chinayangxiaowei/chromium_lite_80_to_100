@@ -470,17 +470,16 @@ PermissionStatus AwPermissionManager::GetPermissionStatusForFrame(
           .GetOrigin());
 }
 
-AwPermissionManager::SubscriptionId
-AwPermissionManager::SubscribePermissionStatusChange(
+int AwPermissionManager::SubscribePermissionStatusChange(
     PermissionType permission,
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     base::RepeatingCallback<void(PermissionStatus)> callback) {
-  return SubscriptionId();
+  return content::PermissionController::kNoPendingOperation;
 }
 
 void AwPermissionManager::UnsubscribePermissionStatusChange(
-    SubscriptionId subscription_id) {}
+    int subscription_id) {}
 
 void AwPermissionManager::CancelPermissionRequest(int request_id) {
   PendingRequest* pending_request = pending_requests_.Lookup(request_id);

@@ -18,7 +18,7 @@ load("@stdlib//internal/luci/common.star", "keys")
 load("//project.star", "settings")
 load("./args.star", "args")
 load("./branches.star", "branches")
-load("./builders.star", "builders", "os")
+load("./builders.star", "builders")
 
 defaults = args.defaults(
     extends = builders.defaults,
@@ -31,7 +31,7 @@ defaults = args.defaults(
     refs = None,
 )
 
-def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN):
+def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN_ONLY):
     if not branches.matches(branch_selector):
         return
 
@@ -69,6 +69,7 @@ def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN):
         ci.overview_console_view(
             name = name,
             branch_selector = branch_selector,
+            header = "//chromium-header.textpb",
             repo = "https://chromium.googlesource.com/chromium/src",
             refs = [milestone_vars.ref],
             title = title,
@@ -94,7 +95,7 @@ def declare_bucket(milestone_vars, *, branch_selector = branches.MAIN):
 
 def set_defaults(milestone_vars, **kwargs):
     default_values = dict(
-        add_to_console_view = milestone_vars.is_main,
+        add_to_console_view = milestone_vars.is_master,
         bucket = milestone_vars.ci_bucket,
         build_numbers = True,
         configure_kitchen = True,
@@ -102,14 +103,16 @@ def set_defaults(milestone_vars, **kwargs):
         cpu = builders.cpu.X86_64,
         executable = "recipe:chromium",
         execution_timeout = 3 * time.hour,
+        header = "//chromium-header.textpb",
         os = builders.os.LINUX_DEFAULT,
         pool = "luci.chromium.ci",
-        project_trigger_overrides = {"chromium": settings.project} if not settings.is_main else None,
+        project_trigger_overrides = {"chromium": settings.project} if not settings.is_master else None,
         repo = "https://chromium.googlesource.com/chromium/src",
         refs = [milestone_vars.ref],
         service_account = "chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
         swarming_tags = ["vpython:native-python-wrapper"],
         triggered_by = [milestone_vars.ci_poller],
+        # TODO(crbug.com/1129723): set default goma_backend here.
     )
     default_values.update(kwargs)
     for k, v in default_values.items():
@@ -315,7 +318,7 @@ def ordering(*, short_names = None, categories = None):
         categories = categories or [],
     )
 
-def console_view(*, name, branch_selector = branches.MAIN, ordering = None, **kwargs):
+def console_view(*, name, branch_selector = branches.MAIN_ONLY, ordering = None, **kwargs):
     """Create a console view, optionally providing an entry ordering.
 
     Args:
@@ -362,7 +365,7 @@ def console_view(*, name, branch_selector = branches.MAIN, ordering = None, **kw
         ordering = ordering or {},
     )
 
-def overview_console_view(*, name, top_level_ordering, branch_selector = branches.MAIN, **kwargs):
+def overview_console_view(*, name, top_level_ordering, branch_selector = branches.MAIN_ONLY, **kwargs):
     """Create an overview console view.
 
     An overview console view is a console view that contains a subset of
@@ -415,7 +418,7 @@ def console_view_entry(*, category = None, short_name = None):
 def ci_builder(
         *,
         name,
-        branch_selector = branches.MAIN,
+        branch_selector = branches.MAIN_ONLY,
         add_to_console_view = args.DEFAULT,
         console_view = args.DEFAULT,
         main_console_view = args.DEFAULT,
@@ -557,7 +560,6 @@ def chromium_builder(*, name, tree_closing = True, **kwargs):
     )
 
 def chromiumos_builder(*, name, tree_closing = True, **kwargs):
-    kwargs.setdefault("os", os.LINUX_BIONIC_REMOVE)
     return ci_builder(
         name = name,
         builder_group = "chromium.chromiumos",
@@ -718,12 +720,16 @@ def fyi_ios_builder(
         *,
         name,
         caches = None,
-        executable = "recipe:ios/unified_builder_tester",
+        executable = "recipe:chromium",
         goma_backend = builders.goma.backend.RBE_PROD,
         os = builders.os.MAC_10_15,
+        properties = None,
         **kwargs):
-    if not caches:
-        caches = [builders.xcode_cache.x12a7209]
+    # Default cache and properties sync
+    caches = caches or [builders.xcode_cache.x12a7209]
+
+    properties = properties or {}
+    properties.setdefault("xcode_build_version", "12a7209")
 
     return fyi_builder(
         name = name,
@@ -731,6 +737,7 @@ def fyi_ios_builder(
         cores = None,
         executable = executable,
         os = os,
+        properties = properties,
         **kwargs
     )
 
@@ -765,6 +772,9 @@ def gpu_fyi_builder(*, name, **kwargs):
         builder_group = "chromium.gpu.fyi",
         service_account =
             "chromium-ci-gpu-builder@chops-service-accounts.iam.gserviceaccount.com",
+        properties = {
+            "perf_dashboard_machine_group": "ChromiumGPUFYI",
+        },
         **kwargs
     )
 
@@ -923,12 +933,10 @@ def mac_ios_builder(
         goma_backend = builders.goma.backend.RBE_PROD,
         properties = None,
         **kwargs):
-    if not caches:
-        caches = [builders.xcode_cache.x12a7209]
-    if not properties:
-        properties = {
-            "xcode_build_version": "12a7209",
-        }
+    caches = caches or [builders.xcode_cache.x12a7209]
+
+    properties = properties or {}
+    properties.setdefault("xcode_build_version", "12a7209")
 
     return mac_builder(
         name = name,
@@ -957,6 +965,20 @@ def memory_builder(
         goma_jobs = goma_jobs,
         notifies = notifies,
         tree_closing = tree_closing,
+        **kwargs
+    )
+
+def mojo_builder(
+        *,
+        name,
+        execution_timeout = 10 * time.hour,
+        goma_backend = builders.goma.backend.RBE_PROD,
+        **kwargs):
+    return ci.builder(
+        name = name,
+        builder_group = "chromium.mojo",
+        execution_timeout = execution_timeout,
+        goma_backend = goma_backend,
         **kwargs
     )
 
@@ -1077,6 +1099,7 @@ ci = struct(
     mac_builder = mac_builder,
     mac_ios_builder = mac_ios_builder,
     memory_builder = memory_builder,
+    mojo_builder = mojo_builder,
     swangle_linux_builder = swangle_linux_builder,
     swangle_mac_builder = swangle_mac_builder,
     swangle_windows_builder = swangle_windows_builder,

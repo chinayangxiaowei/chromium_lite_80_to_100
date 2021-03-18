@@ -28,11 +28,12 @@ class RegionDataLoader {
       const std::vector<const ::i18n::addressinput::RegionData*>& regions)>
       RegionDataLoaded;
 
-  virtual ~RegionDataLoader() = default;
-  // Calls |loaded_callback| when the region data for |country_code| is ready.
-  // This may happen synchronously.
+  virtual ~RegionDataLoader() {}
+  // Calls |loaded_callback| when the region data for |country_code| is ready or
+  // when |timeout_ms| miliseconds have passed. This may happen synchronously.
   virtual void LoadRegionData(const std::string& country_code,
-                              RegionDataLoaded callback) = 0;
+                              RegionDataLoaded callback,
+                              int64_t timeout_ms) = 0;
   // To forget about the |callback| givent to LoadRegionData, in cases where
   // callback owner is destroyed before loader.
   virtual void ClearCallback() = 0;

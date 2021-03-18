@@ -61,7 +61,6 @@ class ExtensionUninstallDialogViews
 
  private:
   void Show() override;
-  void Close() override;
 
   ExtensionUninstallDialogDelegateView* view_ = nullptr;
 
@@ -184,12 +183,6 @@ void ExtensionUninstallDialogViews::DialogCanceled() {
   OnDialogClosed(CLOSE_ACTION_CANCELED);
 }
 
-void ExtensionUninstallDialogViews::Close() {
-  DCHECK(view_);
-  view_->GetWidget()->CloseNow();
-  DCHECK(!view_);
-}
-
 ExtensionUninstallDialogDelegateView::ExtensionUninstallDialogDelegateView(
     ExtensionUninstallDialogViews* dialog_view,
     ToolbarActionView* anchor_view,
@@ -246,7 +239,7 @@ ExtensionUninstallDialogDelegateView::ExtensionUninstallDialogDelegateView(
         l10n_util::GetStringFUTF16(
             IDS_EXTENSION_PROMPT_UNINSTALL_TRIGGERED_BY_EXTENSION,
             base::UTF8ToUTF16(triggering_extension->name())),
-        CONTEXT_BODY_TEXT_LARGE, views::style::STYLE_SECONDARY);
+        views::style::CONTEXT_DIALOG_BODY_TEXT, views::style::STYLE_SECONDARY);
     heading_->SetMultiLine(true);
     heading_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     heading_->SetAllowCharacterBreak(true);
@@ -280,7 +273,7 @@ ExtensionUninstallDialogDelegateView::~ExtensionUninstallDialogDelegateView() {
   // can go away during dialog's lifetime (especially when uninstalling).
   views::View* anchor_view = GetAnchorView();
   if (anchor_view) {
-    reinterpret_cast<ToolbarActionView*>(anchor_view)
+    static_cast<ToolbarActionView*>(anchor_view)
         ->AnimateInkDrop(views::InkDropState::DEACTIVATED, nullptr);
   }
 }

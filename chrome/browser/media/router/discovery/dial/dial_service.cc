@@ -430,17 +430,18 @@ void DialServiceImpl::StartDiscovery() {
     return;
   }
 
-  auto ui_task_runner = content::GetUIThreadTaskRunner({});
+  auto task_runner = content::GetUIThreadTaskRunner({});
 
 #if defined(OS_CHROMEOS)
-  ui_task_runner->PostTaskAndReplyWithResult(
-      FROM_HERE, base::BindOnce(&GetBestBindAddressOnUIThread),
+  task_tracker_.PostTaskAndReplyWithResult(
+      task_runner.get(), FROM_HERE,
+      base::BindOnce(&GetBestBindAddressOnUIThread),
       base::BindOnce(&DialServiceImpl::DiscoverOnAddresses,
-                     weak_ptr_factory_.GetWeakPtr()));
+                     base::Unretained(this)));
 #else
-  ui_task_runner->PostTask(FROM_HERE,
-                           base::BindOnce(&GetNetworkListOnUIThread,
-                                          weak_ptr_factory_.GetWeakPtr()));
+  task_tracker_.PostTask(task_runner.get(), FROM_HERE,
+                         base::BindOnce(&GetNetworkListOnUIThread,
+                                        weak_ptr_factory_.GetWeakPtr()));
 #endif
 }
 

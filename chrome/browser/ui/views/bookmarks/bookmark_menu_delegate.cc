@@ -68,13 +68,12 @@ SkColor TextColorForMenu(MenuItemView* menu, views::Widget* widget) {
 
 }  // namespace
 
-BookmarkMenuDelegate::BookmarkMenuDelegate(
-    Browser* browser,
-    base::RepeatingCallback<content::PageNavigator*()> get_navigator,
-    views::Widget* parent)
+BookmarkMenuDelegate::BookmarkMenuDelegate(Browser* browser,
+                                           PageNavigator* navigator,
+                                           views::Widget* parent)
     : browser_(browser),
       profile_(browser->profile()),
-      get_navigator_(std::move(get_navigator)),
+      page_navigator_(navigator),
       parent_(parent),
       menu_(nullptr),
       parent_menu_item_(nullptr),
@@ -128,6 +127,12 @@ void BookmarkMenuDelegate::Init(views::MenuDelegate* real_delegate,
   }
 }
 
+void BookmarkMenuDelegate::SetPageNavigator(PageNavigator* navigator) {
+  page_navigator_ = navigator;
+  if (context_menu_.get())
+    context_menu_->SetPageNavigator(navigator);
+}
+
 const BookmarkModel* BookmarkMenuDelegate::GetBookmarkModel() const {
   return BookmarkModelFactory::GetForBrowserContext(profile_);
 }
@@ -179,8 +184,10 @@ void BookmarkMenuDelegate::ExecuteCommand(int id, int mouse_event_flags) {
 
   RecordBookmarkLaunch(location_,
                        ProfileMetrics::GetBrowserProfileType(profile_));
-  chrome::OpenAllIfAllowed(browser_, std::move(get_navigator_), selection,
-                           ui::DispositionFromEventFlags(mouse_event_flags));
+  chrome::OpenAll(parent_->GetNativeWindow(), page_navigator_, selection,
+                  ui::DispositionFromEventFlags(mouse_event_flags),
+                  profile_);
+  // NOTE: |this| may be deleted.
 }
 
 bool BookmarkMenuDelegate::ShouldExecuteCommandWithoutClosingMenu(
@@ -334,7 +341,7 @@ bool BookmarkMenuDelegate::ShowContextMenu(MenuItemView* source,
   const BookmarkNode* node = menu_id_to_node_map_[id];
   std::vector<const BookmarkNode*> nodes(1, node);
   context_menu_.reset(
-      new BookmarkContextMenu(parent_, browser_, profile_, get_navigator_,
+      new BookmarkContextMenu(parent_, browser_, profile_, page_navigator_,
                               BOOKMARK_LAUNCH_LOCATION_APP_MENU, node->parent(),
                               nodes, ShouldCloseOnRemove(node)));
   context_menu_->set_observer(this);
@@ -508,7 +515,7 @@ void BookmarkMenuDelegate::BuildMenusForPermanentNodes(
 }
 
 void BookmarkMenuDelegate::BuildMenuForPermanentNode(const BookmarkNode* node,
-                                                     const gfx::ImageSkia& icon,
+                                                     const ui::ImageModel& icon,
                                                      MenuItemView* menu,
                                                      bool* added_separator) {
   if (!node->IsVisible() || node->GetTotalNodeCount() == 1)
@@ -519,9 +526,10 @@ void BookmarkMenuDelegate::BuildMenuForPermanentNode(const BookmarkNode* node,
     menu->AppendSeparator();
   }
 
-  AddMenuToMaps(menu->AppendSubMenu(next_menu_id_++,
-                                    MaybeEscapeLabel(node->GetTitle()), icon),
-                node);
+  AddMenuToMaps(
+      menu->AppendSubMenu(next_menu_id_++, MaybeEscapeLabel(node->GetTitle()),
+                          *icon.GetImage().ToImageSkia()),
+      node);
 }
 
 void BookmarkMenuDelegate::BuildMenuForManagedNode(MenuItemView* menu) {
@@ -539,7 +547,7 @@ void BookmarkMenuDelegate::BuildMenu(const BookmarkNode* parent,
                                      MenuItemView* menu) {
   DCHECK_LE(start_child_index, parent->children().size());
   ui::ResourceBundle* rb = &ui::ResourceBundle::GetSharedInstance();
-  const gfx::ImageSkia folder_icon =
+  const ui::ImageModel folder_icon =
       chrome::GetBookmarkFolderIcon(TextColorForMenu(menu, parent_));
   for (auto i = parent->children().cbegin() + start_child_index;
        i != parent->children().cend(); ++i) {
@@ -558,8 +566,9 @@ void BookmarkMenuDelegate::BuildMenu(const BookmarkNode* parent,
               net::UnescapeRule::SPACES, nullptr, nullptr, nullptr));
     } else {
       DCHECK(node->is_folder());
-      child_menu_item = menu->AppendSubMenu(
-          id, MaybeEscapeLabel(node->GetTitle()), folder_icon);
+      child_menu_item =
+          menu->AppendSubMenu(id, MaybeEscapeLabel(node->GetTitle()),
+                              *folder_icon.GetImage().ToImageSkia());
       child_menu_item->GetViewAccessibility().OverrideDescription("");
     }
     AddMenuToMaps(child_menu_item, node);

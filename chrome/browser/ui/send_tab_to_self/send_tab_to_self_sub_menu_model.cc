@@ -96,16 +96,14 @@ SendTabToSelfSubMenuModel::SendTabToSelfSubMenuModel(
     SendTabToSelfMenuType menu_type,
     const GURL& link_url)
     : ui::SimpleMenuModel(this),
-      content::WebContentsObserver(tab),
       tab_(tab),
       menu_type_(menu_type),
       link_url_(link_url) {
-  DCHECK(tab_);
   Profile* profile = Profile::FromBrowserContext(tab->GetBrowserContext());
   Build(profile);
 }
 
-SendTabToSelfSubMenuModel::~SendTabToSelfSubMenuModel() = default;
+SendTabToSelfSubMenuModel::~SendTabToSelfSubMenuModel() {}
 
 bool SendTabToSelfSubMenuModel::IsCommandIdEnabled(int command_id) const {
   // Only valid device names are shown, so all items are enabled.
@@ -118,15 +116,6 @@ void SendTabToSelfSubMenuModel::ExecuteCommand(int command_id,
   if (vector_index == -1) {
     return;
   }
-
-  RecordSendTabToSelfClickResult(MenuTypeToString(menu_type_),
-                                 SendTabToSelfClickResult::kClickItem);
-
-  if (!tab_) {
-    // The WebContents has already been destroyed, just close the menu.
-    return;
-  }
-
   const ValidDeviceItem& item = valid_device_items_[vector_index];
   if (menu_type_ == SendTabToSelfMenuType::kLink) {
     // Is sharing a link from link menu.
@@ -135,10 +124,10 @@ void SendTabToSelfSubMenuModel::ExecuteCommand(int command_id,
     // Is sharing a tab from tab menu, content menu or omnibox menu.
     CreateNewEntry(tab_, item.device_name, item.cache_guid);
   }
-}
 
-void SendTabToSelfSubMenuModel::WebContentsDestroyed() {
-  tab_ = nullptr;
+  RecordSendTabToSelfClickResult(MenuTypeToString(menu_type_),
+                                 SendTabToSelfClickResult::kClickItem);
+  return;
 }
 
 void SendTabToSelfSubMenuModel::Build(Profile* profile) {

@@ -110,9 +110,9 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   bool allow_transparency() const { return allow_transparency_; }
 
   // Loads a data URL with a specified base URL and virtual URL.
-  bool LoadDataWithBaseURL(const GURL& data_url,
-                           const GURL& base_url,
-                           const GURL& virtual_url,
+  bool LoadDataWithBaseURL(const std::string& data_url,
+                           const std::string& base_url,
+                           const std::string& virtual_url,
                            std::string* error);
 
   // Begin or continue a find request.
@@ -183,11 +183,14 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
                                     bool last_unlocked_by_target,
                                     base::OnceCallback<void(bool)> callback);
 
+  // TODO(533069): This appears to be dead code following BrowserPlugin removal.
+  // Investigate removing this.
+  void DidDropLink(const GURL& url);
+
   // GuestViewBase implementation.
   void CreateWebContents(const base::DictionaryValue& create_params,
                          WebContentsCreatedCallback callback) final;
   void DidAttachToEmbedder() final;
-  void DidDropLink(const GURL& url) final;
   void DidInitialize(const base::DictionaryValue& create_params) final;
   void EmbedderFullscreenToggled(bool entered_fullscreen) final;
   void FindReply(content::WebContents* source,

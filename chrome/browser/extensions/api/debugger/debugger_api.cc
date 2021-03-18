@@ -92,6 +92,10 @@ bool ExtensionMayAttachToURL(const Extension& extension,
                              const GURL& url,
                              Profile* profile,
                              std::string* error) {
+  // Allow the extension to attach to about:blank and empty URLs.
+  if (url.is_empty() || url == "about:")
+    return true;
+
   if (url == content::kUnreachableWebDataURL)
     return true;
 
@@ -99,10 +103,6 @@ bool ExtensionMayAttachToURL(const Extension& extension,
   // such to the user), so we don't check explicit page access. However, we
   // still need to check if it's an otherwise-restricted URL.
   if (extension.permissions_data()->IsRestrictedUrl(url, error))
-    return false;
-
-  // Policy blocked hosts supersede the `debugger` permission.
-  if (extension.permissions_data()->IsPolicyBlockedHost(url))
     return false;
 
   if (url.SchemeIsFile() && !util::AllowFileAccess(extension.id(), profile)) {
@@ -404,11 +404,16 @@ bool ExtensionDevToolsClientHost::MayAttachToURL(const GURL& url,
                                                  bool is_webui) {
   if (is_webui)
     return false;
-  // Allow the extension to attach to about:blank.
-  if (url.is_empty() || url == "about:")
-    return true;
   std::string error;
-  return ExtensionMayAttachToURL(*extension_, url, profile_, &error);
+  if (!ExtensionMayAttachToURL(*extension_, url, profile_, &error))
+    return false;
+  // For nested URLs, make sure ExtensionMayAttachToURL() allows both
+  // the outer and the inner URLs.
+  if (url.inner_url() && !ExtensionMayAttachToURL(*extension_, *url.inner_url(),
+                                                  profile_, &error)) {
+    return false;
+  }
+  return true;
 }
 
 bool ExtensionDevToolsClientHost::MayAttachToBrowser() {
@@ -465,9 +470,8 @@ bool DebuggerFunction::InitAgentHost(std::string* error) {
         ProcessManager::Get(browser_context())
             ->GetBackgroundHostForExtension(*debuggee_.extension_id);
     if (extension_host) {
-      const GURL& url = extension_host->GetLastCommittedURL();
-      if (extension()->permissions_data()->IsRestrictedUrl(url, error) ||
-          extension()->permissions_data()->IsPolicyBlockedHost(url)) {
+      if (extension()->permissions_data()->IsRestrictedUrl(
+              extension_host->GetLastCommittedURL(), error)) {
         return false;
       }
       agent_host_ =

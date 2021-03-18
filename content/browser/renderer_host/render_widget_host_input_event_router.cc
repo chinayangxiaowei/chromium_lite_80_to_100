@@ -345,7 +345,7 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewBaseDestroyed(
 
   // Remove this view from the owner_map.
   for (auto entry : owner_map_) {
-    if (entry.second.get() == view) {
+    if (entry.second == view) {
       owner_map_.erase(entry.first);
       // There will only be one instance of a particular view in the map.
       break;
@@ -368,7 +368,7 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewBaseDestroyed(
   // replace it with nullptr so that we maintain the 1:1 correspondence between
   // map entries and the touch sequences that underly them.
   for (auto it : touchscreen_gesture_target_map_) {
-    if (it.second.get() == view)
+    if (it.second == view)
       it.second = nullptr;
   }
 
@@ -417,10 +417,8 @@ void RenderWidgetHostInputEventRouter::OnRenderWidgetHostViewBaseDestroyed(
 void RenderWidgetHostInputEventRouter::ClearAllObserverRegistrations() {
   // Since we're shutting down, it's safe to call RenderWidgetHostViewBase::
   // RemoveObserver() directly here.
-  for (auto entry : owner_map_) {
-    if (entry.second)
-      entry.second->RemoveObserver(this);
-  }
+  for (auto entry : owner_map_)
+    entry.second->RemoveObserver(this);
   owner_map_.clear();
   viz::HostFrameSinkManager* manager = GetHostFrameSinkManager();
   if (manager)
@@ -558,13 +556,13 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindViewAtLocation(
   float device_scale_factor = root_view->GetDeviceScaleFactor();
   DCHECK_GT(device_scale_factor, 0.0f);
   gfx::PointF point_in_pixels =
-      gfx::ConvertPointToPixel(device_scale_factor, point);
+      gfx::ConvertPointToPixels(point, device_scale_factor);
   viz::Target target = query->FindTargetForLocationStartingFrom(
       source, point_in_pixels, root_view->GetFrameSinkId());
   frame_sink_id = target.frame_sink_id;
   if (frame_sink_id.is_valid()) {
     *transformed_point =
-        gfx::ConvertPointToDIP(device_scale_factor, target.location_in_target);
+        gfx::ConvertPointToDips(target.location_in_target, device_scale_factor);
   } else {
     *transformed_point = point;
   }
@@ -842,7 +840,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchEvent(
                touch_event.unique_touch_event_id) ==
            touchscreen_gesture_target_map_.end());
     touchscreen_gesture_target_map_[touch_event.unique_touch_event_id] =
-        touch_target_->GetWeakPtr();
+        touch_target_;
   } else if (touch_event.GetType() == blink::WebInputEvent::Type::kTouchStart) {
     active_touches_ += CountChangedTouchPoints(touch_event);
   }
@@ -1354,7 +1352,7 @@ void RenderWidgetHostInputEventRouter::AddFrameSinkIdOwner(
   // We want to be notified if the owner is destroyed so we can remove it from
   // our map.
   owner->AddObserver(this);
-  owner_map_.insert(std::make_pair(id, owner->GetWeakPtr()));
+  owner_map_.insert(std::make_pair(id, owner));
 }
 
 void RenderWidgetHostInputEventRouter::RemoveFrameSinkIdOwner(
@@ -1366,8 +1364,7 @@ void RenderWidgetHostInputEventRouter::RemoveFrameSinkIdOwner(
     // stale values if the view destructs and isn't an observer anymore.
     // Note: the view the iterator points at will be deleted in the following
     // call, and shouldn't be used after this point.
-    if (it_to_remove->second)
-      OnRenderWidgetHostViewBaseDestroyed(it_to_remove->second.get());
+    OnRenderWidgetHostViewBaseDestroyed(it_to_remove->second);
   }
 }
 
@@ -1418,7 +1415,7 @@ RenderWidgetHostInputEventRouter::FindTouchscreenGestureEventTarget(
 bool RenderWidgetHostInputEventRouter::IsViewInMap(
     const RenderWidgetHostViewBase* view) const {
   DCHECK(!is_registered(view->GetFrameSinkId()) ||
-         owner_map_.find(view->GetFrameSinkId())->second.get() == view);
+         owner_map_.find(view->GetFrameSinkId())->second == view);
   return is_registered(view->GetFrameSinkId());
 }
 
@@ -1555,7 +1552,7 @@ void RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent(
     target = result.view;
     fallback_target_location = transformed_point;
   } else if (is_gesture_start) {
-    target = gesture_target_it->second.get();
+    target = gesture_target_it->second;
     touchscreen_gesture_target_map_.erase(gesture_target_it);
 
     // Abort any scroll bubbling in progress to avoid double entry.
@@ -1741,7 +1738,7 @@ RenderWidgetHostInputEventRouter::FindViewFromFrameSinkId(
   // If the point hit a Surface whose namspace is no longer in the map, then
   // it likely means the RenderWidgetHostView has been destroyed but its
   // parent frame has not sent a new compositor frame since that happened.
-  return iter == owner_map_.end() ? nullptr : iter->second.get();
+  return iter == owner_map_.end() ? nullptr : iter->second;
 }
 
 bool RenderWidgetHostInputEventRouter::ShouldContinueHitTesting(
@@ -1761,10 +1758,8 @@ bool RenderWidgetHostInputEventRouter::ShouldContinueHitTesting(
 std::vector<RenderWidgetHostView*>
 RenderWidgetHostInputEventRouter::GetRenderWidgetHostViewsForTests() const {
   std::vector<RenderWidgetHostView*> hosts;
-  for (auto entry : owner_map_) {
-    DCHECK(entry.second);
-    hosts.push_back(entry.second.get());
-  }
+  for (auto entry : owner_map_)
+    hosts.push_back(entry.second);
 
   return hosts;
 }
@@ -1933,10 +1928,8 @@ void RenderWidgetHostInputEventRouter::SetCursor(const WebCursor& cursor) {
   last_device_scale_factor_ =
       last_mouse_move_root_view_->current_device_scale_factor();
   if (auto* cursor_manager = last_mouse_move_root_view_->GetCursorManager()) {
-    for (auto it : owner_map_) {
-      if (it.second)
-        cursor_manager->UpdateCursor(it.second.get(), cursor);
-    }
+    for (auto it : owner_map_)
+      cursor_manager->UpdateCursor(it.second, cursor);
   }
 }
 
@@ -1956,7 +1949,7 @@ void RenderWidgetHostInputEventRouter::OnAggregatedHitTestRegionListUpdated(
     const std::vector<viz::AggregatedHitTestRegion>& hit_test_data) {
   for (auto& region : hit_test_data) {
     auto iter = owner_map_.find(region.frame_sink_id);
-    if (iter != owner_map_.end() && iter->second)
+    if (iter != owner_map_.end())
       iter->second->NotifyHitTestRegionUpdated(region);
   }
 }

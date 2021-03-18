@@ -41,13 +41,13 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/origin_util.h"
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/app_window_registry.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/switches.h"
 #include "net/base/url_util.h"
+#include "third_party/blink/public/common/loader/network_utils.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_types.h"
@@ -79,8 +79,9 @@ base::string16 GetApplicationTitle(content::WebContents* web_contents,
     return base::UTF8ToUTF16(title);
   }
   GURL url = web_contents->GetURL();
-  title = content::IsOriginSecure(url) ? net::GetHostAndOptionalPort(url)
-                                       : url.GetOrigin().spec();
+  title = blink::network_utils::IsOriginSecure(url)
+              ? net::GetHostAndOptionalPort(url)
+              : url.GetOrigin().spec();
   return base::UTF8ToUTF16(title);
 }
 
@@ -176,7 +177,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
       IsBuiltInExtension(request.security_origin);
 
   const bool origin_is_secure =
-      content::IsOriginSecure(request.security_origin) ||
+      blink::network_utils::IsOriginSecure(request.security_origin) ||
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kAllowHttpScreenCapture);
 
@@ -220,7 +221,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
               ? IDS_MEDIA_SCREEN_CAPTURE_CONFIRMATION_TEXT
               : IDS_MEDIA_SCREEN_AND_AUDIO_CAPTURE_CONFIRMATION_TEXT,
           application_name);
-      chrome::MessageBoxResult result = chrome::ShowQuestionMessageBoxSync(
+      chrome::MessageBoxResult result = chrome::ShowQuestionMessageBox(
           parent_window,
           l10n_util::GetStringFUTF16(
               IDS_MEDIA_SCREEN_CAPTURE_CONFIRMATION_TITLE, application_name),
@@ -248,14 +249,6 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
       const bool display_notification =
           display_notification_ && ShouldDisplayNotification(extension);
 
-      if (!content::WebContents::FromRenderFrameHost(
-              content::RenderFrameHost::FromID(request.render_process_id,
-                                               request.render_frame_id))) {
-        std::move(callback).Run(
-            devices, blink::mojom::MediaStreamRequestResult::INVALID_STATE,
-            std::move(ui));
-        return;
-      }
       ui = GetDevicesForDesktopCapture(
           web_contents, &devices, screen_id,
           blink::mojom::MediaStreamType::GUM_DESKTOP_VIDEO_CAPTURE,

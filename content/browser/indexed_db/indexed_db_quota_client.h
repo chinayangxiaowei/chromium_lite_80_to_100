@@ -48,7 +48,7 @@ class IndexedDBQuotaClient : public storage::QuotaClient {
  private:
   ~IndexedDBQuotaClient() override;
 
-  scoped_refptr<IndexedDBContextImpl> indexed_db_context_;
+  const scoped_refptr<IndexedDBContextImpl> indexed_db_context_;
 
   DISALLOW_COPY_AND_ASSIGN(IndexedDBQuotaClient);
 };

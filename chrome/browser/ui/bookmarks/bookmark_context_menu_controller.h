@@ -8,7 +8,6 @@
 #include <memory>
 #include <vector>
 
-#include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
@@ -50,8 +49,7 @@ class BookmarkContextMenuController
   // Creates the bookmark context menu.
   // |browser| is used to open the bookmark manager and is null in tests.
   // |profile| is used for opening urls as well as enabling 'open incognito'.
-  // |get_navigator| is used to get a content::PageNavigator to open bookmarks.
-  // Uses a callback since this can be asynchronous. See crbug.com/1161144
+  // |navigator| is used if |browser| is null, and is provided for testing.
   // |parent| is the parent for newly created nodes if |selection| is empty.
   // |selection| is the nodes the context menu operates on and may be empty.
   BookmarkContextMenuController(
@@ -59,7 +57,7 @@ class BookmarkContextMenuController
       BookmarkContextMenuControllerDelegate* delegate,
       Browser* browser,
       Profile* profile,
-      base::RepeatingCallback<content::PageNavigator*()> get_navigator,
+      content::PageNavigator* navigator,
       BookmarkLaunchLocation opened_from,
       const bookmarks::BookmarkNode* parent,
       const std::vector<const bookmarks::BookmarkNode*>& selection);
@@ -74,6 +72,10 @@ class BookmarkContextMenuController
   void ExecuteCommand(int command_id, int event_flags) override;
   bool IsItemForCommandIdDynamic(int command_id) const override;
   base::string16 GetLabelForCommandId(int command_id) const override;
+
+  void set_navigator(content::PageNavigator* navigator) {
+    navigator_ = navigator;
+  }
 
  private:
   void BuildMenu();
@@ -95,7 +97,7 @@ class BookmarkContextMenuController
   BookmarkContextMenuControllerDelegate* delegate_;
   Browser* const browser_;
   Profile* profile_;
-  base::RepeatingCallback<content::PageNavigator*()> get_navigator_;
+  content::PageNavigator* navigator_;
   const BookmarkLaunchLocation opened_from_;
   const bookmarks::BookmarkNode* parent_;
   std::vector<const bookmarks::BookmarkNode*> selection_;

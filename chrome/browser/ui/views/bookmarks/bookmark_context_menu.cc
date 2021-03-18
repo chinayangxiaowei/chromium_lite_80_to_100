@@ -41,7 +41,7 @@ BookmarkContextMenu::BookmarkContextMenu(
     views::Widget* parent_widget,
     Browser* browser,
     Profile* profile,
-    base::RepeatingCallback<content::PageNavigator*()> get_navigator,
+    PageNavigator* page_navigator,
     BookmarkLaunchLocation opened_from,
     const BookmarkNode* parent,
     const std::vector<const BookmarkNode*>& selection,
@@ -51,7 +51,7 @@ BookmarkContextMenu::BookmarkContextMenu(
           this,
           browser,
           profile,
-          std::move(get_navigator),
+          page_navigator,
           opened_from,
           parent,
           selection)),
@@ -90,6 +90,10 @@ void BookmarkContextMenu::RunMenuAt(const gfx::Point& point,
   menu_runner_->RunMenuAt(parent_widget_, nullptr,
                           gfx::Rect(point.x(), point.y(), 0, 0),
                           views::MenuAnchorPosition::kTopLeft, source_type);
+}
+
+void BookmarkContextMenu::SetPageNavigator(PageNavigator* navigator) {
+  controller_->set_navigator(navigator);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

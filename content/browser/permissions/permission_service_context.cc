@@ -11,6 +11,7 @@
 #include "content/browser/permissions/permission_service_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/permission_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -31,7 +32,7 @@ class PermissionServiceContext::PermissionSubscription {
   PermissionSubscription& operator=(const PermissionSubscription&) = delete;
 
   ~PermissionSubscription() {
-    DCHECK(id_);
+    DCHECK_NE(id_, 0);
     BrowserContext* browser_context = context_->GetBrowserContext();
     if (browser_context) {
       PermissionControllerImpl::FromBrowserContext(browser_context)
@@ -40,7 +41,7 @@ class PermissionServiceContext::PermissionSubscription {
   }
 
   void OnConnectionError() {
-    DCHECK(id_);
+    DCHECK_NE(id_, 0);
     context_->ObserverHadConnectionError(id_);
   }
 
@@ -48,12 +49,12 @@ class PermissionServiceContext::PermissionSubscription {
     observer_->OnPermissionStatusChange(status);
   }
 
-  void set_id(PermissionController::SubscriptionId id) { id_ = id; }
+  void set_id(int id) { id_ = id; }
 
  private:
   PermissionServiceContext* const context_;
   mojo::Remote<blink::mojom::PermissionObserver> observer_;
-  PermissionController::SubscriptionId id_;
+  int id_ = 0;
 };
 
 PermissionServiceContext::PermissionServiceContext(
@@ -107,7 +108,7 @@ void PermissionServiceContext::CreateSubscription(
   }
 
   GURL requesting_origin(origin.Serialize());
-  auto subscription_id =
+  int subscription_id =
       PermissionControllerImpl::FromBrowserContext(browser_context)
           ->SubscribePermissionStatusChange(
               permission_type, render_frame_host_, requesting_origin,
@@ -118,8 +119,7 @@ void PermissionServiceContext::CreateSubscription(
   subscriptions_[subscription_id] = std::move(subscription);
 }
 
-void PermissionServiceContext::ObserverHadConnectionError(
-    PermissionController::SubscriptionId subscription_id) {
+void PermissionServiceContext::ObserverHadConnectionError(int subscription_id) {
   size_t erased = subscriptions_.erase(subscription_id);
   DCHECK_EQ(1u, erased);
 }

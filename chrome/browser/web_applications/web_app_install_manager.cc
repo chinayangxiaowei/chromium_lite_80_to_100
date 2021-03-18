@@ -232,7 +232,7 @@ void WebAppInstallManager::EnqueueInstallAppFromSync(
   // If sync_app_id is not installed enqueue full background installation
   // flow. This install may produce a web app or an extension-based bookmark
   // app, depending on the BMO flag.
-  GURL launch_url = web_application_info->app_url;
+  GURL start_url = web_application_info->start_url;
 
   auto task = std::make_unique<WebAppInstallTask>(
       profile(), os_integration_manager(), finalizer(),
@@ -240,7 +240,7 @@ void WebAppInstallManager::EnqueueInstallAppFromSync(
 
   task->ExpectAppId(sync_app_id);
   task->SetInstallParams(CreateSyncInstallParams(
-      launch_url, web_application_info->title,
+      start_url, web_application_info->title,
       web_application_info->open_as_window ? DisplayMode::kStandalone
                                            : DisplayMode::kBrowser));
 
@@ -252,7 +252,7 @@ void WebAppInstallManager::EnqueueInstallAppFromSync(
 
   base::OnceClosure start_task = base::BindOnce(
       &WebAppInstallTask::LoadAndInstallWebAppFromManifestWithFallback,
-      base::Unretained(task.get()), launch_url, EnsureWebContentsCreated(),
+      base::Unretained(task.get()), start_url, EnsureWebContentsCreated(),
       base::Unretained(url_loader_.get()), WebappInstallSource::SYNC,
       base::BindOnce(&WebAppInstallManager::OnQueuedTaskCompleted,
                      base::Unretained(this), task.get(),
@@ -276,7 +276,6 @@ bool WebAppInstallManager::IsAppIdAlreadyEnqueued(const AppId& app_id) const {
 void WebAppInstallManager::UpdateWebAppFromInfo(
     const AppId& app_id,
     std::unique_ptr<WebApplicationInfo> web_application_info,
-    bool redownload_app_icons,
     OnceInstallCallback callback) {
   DCHECK(started_);
 
@@ -287,7 +286,6 @@ void WebAppInstallManager::UpdateWebAppFromInfo(
   base::OnceClosure start_task = base::BindOnce(
       &WebAppInstallTask::UpdateWebAppFromInfo, base::Unretained(task.get()),
       EnsureWebContentsCreated(), app_id, std::move(web_application_info),
-      redownload_app_icons,
       base::BindOnce(&WebAppInstallManager::OnQueuedTaskCompleted,
                      base::Unretained(this), task.get(), std::move(callback)));
 
@@ -306,7 +304,7 @@ void WebAppInstallManager::InstallWebAppsAfterSync(
     DCHECK(web_app->is_in_sync_install());
 
     auto web_application_info = std::make_unique<WebApplicationInfo>();
-    web_application_info->app_url = web_app->launch_url();
+    web_application_info->start_url = web_app->start_url();
     web_application_info->title =
         base::UTF8ToUTF16(web_app->sync_fallback_data().name);
     web_application_info->scope = web_app->sync_fallback_data().scope;

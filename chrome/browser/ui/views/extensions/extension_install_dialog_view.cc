@@ -28,6 +28,7 @@
 #include "components/constrained_window/constrained_window_views.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/web_contents.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_urls.h"
@@ -129,14 +130,15 @@ void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
 }
 
 void ShowExtensionInstallDialogImpl(
-    std::unique_ptr<ExtensionInstallPromptShowParams> show_params,
+    ExtensionInstallPromptShowParams* show_params,
     const ExtensionInstallPrompt::DoneCallback& done_callback,
     std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  gfx::NativeWindow parent_window = show_params->GetParentWindow();
   ExtensionInstallDialogView* dialog = new ExtensionInstallDialogView(
-      std::move(show_params), done_callback, std::move(prompt));
-  constrained_window::CreateBrowserModalDialogViews(dialog, parent_window)
+      show_params->profile(), show_params->GetParentWebContents(),
+      done_callback, std::move(prompt));
+  constrained_window::CreateBrowserModalDialogViews(
+      dialog, show_params->GetParentWindow())
       ->Show();
 }
 
@@ -189,11 +191,12 @@ void AddPermissions(ExtensionInstallPrompt::Prompt* prompt,
 }  // namespace
 
 ExtensionInstallDialogView::ExtensionInstallDialogView(
-    std::unique_ptr<ExtensionInstallPromptShowParams> show_params,
+    Profile* profile,
+    content::PageNavigator* navigator,
     const ExtensionInstallPrompt::DoneCallback& done_callback,
     std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt)
-    : profile_(show_params->profile()),
-      show_params_(std::move(show_params)),
+    : profile_(profile),
+      navigator_(navigator),
       done_callback_(done_callback),
       prompt_(std::move(prompt)),
       title_(prompt_->GetDialogTitle()),
@@ -240,6 +243,7 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
   SetButtonLabel(ui::DIALOG_BUTTON_OK, prompt_->GetAcceptButtonLabel());
   SetButtonLabel(ui::DIALOG_BUTTON_CANCEL, prompt_->GetAbortButtonLabel());
   set_close_on_deactivate(false);
+  SetShowCloseButton(false);
   CreateContents();
 
   UMA_HISTOGRAM_ENUMERATION("Extensions.InstallPrompt.Type2", prompt_->type(),
@@ -250,15 +254,6 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 ExtensionInstallDialogView::~ExtensionInstallDialogView() {
   if (done_callback_)
     OnDialogCanceled();
-}
-
-ExtensionInstallPromptShowParams*
-ExtensionInstallDialogView::GetShowParamsForTesting() {
-  return show_params_.get();
-}
-
-void ExtensionInstallDialogView::ClickLinkForTesting() {
-  LinkClicked();
 }
 
 void ExtensionInstallDialogView::SetInstallButtonDelayForTesting(
@@ -351,14 +346,14 @@ void ExtensionInstallDialogView::AddedToWidget() {
                                                 prompt_->rating_count());
     prompt_->AppendRatingStars(AddResourceIcon, rating.get());
     rating_container->AddChildView(std::move(rating));
-    auto rating_count = std::make_unique<RatingLabel>(prompt_->GetRatingCount(),
-                                                      CONTEXT_BODY_TEXT_LARGE);
+    auto rating_count = std::make_unique<RatingLabel>(
+        prompt_->GetRatingCount(), views::style::CONTEXT_DIALOG_BODY_TEXT);
     rating_count->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     rating_container->AddChildView(std::move(rating_count));
     webstore_data_container->AddChildView(std::move(rating_container));
 
     auto user_count = std::make_unique<views::Label>(
-        prompt_->GetUserCount(), CONTEXT_BODY_TEXT_SMALL,
+        prompt_->GetUserCount(), CONTEXT_DIALOG_BODY_TEXT_SMALL,
         views::style::STYLE_SECONDARY);
     user_count->SetAutoColorReadabilityEnabled(false);
     user_count->SetEnabledColor(SK_ColorGRAY);
@@ -400,10 +395,6 @@ bool ExtensionInstallDialogView::IsDialogButtonEnabled(
     ui::DialogButton button) const {
   if (button == ui::DIALOG_BUTTON_OK)
     return install_button_enabled_;
-  return true;
-}
-
-bool ExtensionInstallDialogView::ShouldShowCloseButton() const {
   return true;
 }
 
@@ -449,9 +440,8 @@ void ExtensionInstallDialogView::LinkClicked() {
                        WindowOpenDisposition::NEW_FOREGROUND_TAB,
                        ui::PAGE_TRANSITION_LINK, false);
 
-  DCHECK(show_params_);
-  if (show_params_->GetParentWebContents()) {
-    show_params_->GetParentWebContents()->OpenURL(params);
+  if (navigator_) {
+    navigator_->OpenURL(params);
   } else {
     chrome::ScopedTabbedBrowserDisplayer displayer(profile_);
     displayer.browser()->OpenURL(params);
@@ -518,8 +508,8 @@ void ExtensionInstallDialogView::CreateContents() {
   set_margins(gfx::Insets(content_insets.top(), 0, content_insets.bottom(), 0));
 
   for (ExtensionInfoSection& section : sections) {
-    views::Label* header_label =
-        new views::Label(section.header, CONTEXT_BODY_TEXT_LARGE);
+    views::Label* header_label = new views::Label(
+        section.header, views::style::CONTEXT_DIALOG_BODY_TEXT);
     header_label->SetMultiLine(true);
     header_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
     header_label->SizeToFit(content_width);

@@ -48,7 +48,7 @@ class NFCHostTest : public RenderViewHostImplTestHarness {
 };
 
 TEST_F(NFCHostTest, GetNFCTwice) {
-  constexpr MockPermissionManager::SubscriptionId kSubscriptionId(42);
+  constexpr int kSubscriptionId = 42;
 
   NavigateAndCommit(GURL(kTestUrl));
 

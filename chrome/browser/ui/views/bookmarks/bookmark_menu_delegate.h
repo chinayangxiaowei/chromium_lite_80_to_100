@@ -8,7 +8,6 @@
 #include <map>
 #include <set>
 
-#include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
@@ -26,10 +25,6 @@ class ManagedBookmarkService;
 
 namespace content {
 class PageNavigator;
-}
-
-namespace gfx {
-class ImageSkia;
 }
 
 namespace ui {
@@ -59,10 +54,9 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
     HIDE_PERMANENT_FOLDERS
   };
 
-  BookmarkMenuDelegate(
-      Browser* browser,
-      base::RepeatingCallback<content::PageNavigator*()> get_navigator,
-      views::Widget* parent);
+  BookmarkMenuDelegate(Browser* browser,
+                       content::PageNavigator* navigator,
+                       views::Widget* parent);
   ~BookmarkMenuDelegate() override;
 
   // Creates the menus from the model.
@@ -72,6 +66,9 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
             size_t start_child_index,
             ShowOptions show_options,
             BookmarkLaunchLocation location);
+
+  // Sets the PageNavigator.
+  void SetPageNavigator(content::PageNavigator* navigator);
 
   // Returns the id given to the next menu.
   int next_menu_id() const { return next_menu_id_; }
@@ -164,7 +161,7 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   // separator is added before the new menu items and |added_separator| is set
   // to true.
   void BuildMenuForPermanentNode(const bookmarks::BookmarkNode* node,
-                                 const gfx::ImageSkia& icon,
+                                 const ui::ImageModel& icon,
                                  views::MenuItemView* menu,
                                  bool* added_separator);
 
@@ -187,7 +184,7 @@ class BookmarkMenuDelegate : public bookmarks::BaseBookmarkModelObserver,
   Browser* const browser_;
   Profile* profile_;
 
-  base::RepeatingCallback<content::PageNavigator*()> get_navigator_;
+  content::PageNavigator* page_navigator_;
 
   // Parent of menus.
   views::Widget* parent_;

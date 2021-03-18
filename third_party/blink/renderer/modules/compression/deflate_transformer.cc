@@ -111,10 +111,6 @@ void DeflateTransformer::Deflate(const uint8_t* start,
   // Zlib treats this pointer as const, so this cast is safe.
   stream_.next_in = const_cast<uint8_t*>(start);
 
-  // enqueue() may execute JavaScript which may invalidate the input buffer. So
-  // accumulate all the output before calling enqueue().
-  HeapVector<Member<DOMUint8Array>, 1u> buffers;
-
   do {
     stream_.avail_out = out_buffer_.size();
     stream_.next_out = out_buffer_.data();
@@ -124,21 +120,16 @@ void DeflateTransformer::Deflate(const uint8_t* start,
 
     wtf_size_t bytes = out_buffer_.size() - stream_.avail_out;
     if (bytes) {
-      buffers.push_back(DOMUint8Array::Create(out_buffer_.data(), bytes));
+      controller->enqueue(
+          script_state_,
+          ScriptValue::From(script_state_,
+                            DOMUint8Array::Create(out_buffer_.data(), bytes)),
+          exception_state);
+      if (exception_state.HadException()) {
+        return;
+      }
     }
   } while (stream_.avail_out == 0);
-
-  DCHECK_EQ(stream_.avail_in, 0u);
-
-  // JavaScript may be executed inside this loop, however it is safe because
-  // |buffers| is a local variable that JavaScript cannot modify.
-  for (DOMUint8Array* buffer : buffers) {
-    controller->enqueue(script_state_, ScriptValue::From(script_state_, buffer),
-                        exception_state);
-    if (exception_state.HadException()) {
-      return;
-    }
-  }
 }
 
 void DeflateTransformer::Trace(Visitor* visitor) const {

@@ -36,7 +36,6 @@
 #include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/native_browser_frame_factory.h"
@@ -438,9 +437,7 @@ class DetachToBrowserTabDragControllerTest
       public ::testing::WithParamInterface<const char*> {
  public:
   DetachToBrowserTabDragControllerTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kMixBrowserTypeTabs} /* enabled_features */,
-        {features::kWebUITabStrip} /* disabled_features */);
+    scoped_feature_list_.InitAndDisableFeature(features::kWebUITabStrip);
   }
   DetachToBrowserTabDragControllerTest(
       const DetachToBrowserTabDragControllerTest&) = delete;
@@ -3534,38 +3531,6 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
   EXPECT_EQ("1", IDString(app_browser1->tab_strip_model()));
 }
 
-// Move tab from TYPE_APP Browser to TYPE_NORMAL Browser.
-// Only allowed with feature MixBrowserTypeTabs.
-IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestWithTabbedSystemApp,
-                       DragAppToNormalWindow) {
-  // Install and get a tabbed system app.
-  web_app::AppId tabbed_app_id = InstallMockApp();
-  Browser* app_browser = LaunchWebAppBrowser(tabbed_app_id);
-  ASSERT_EQ(2u, browser_list->size());
-  // Close normal browser since other code expects only 1 browser to start.
-  CloseBrowserSynchronously(browser());
-  ASSERT_EQ(1u, browser_list->size());
-  SelectFirstBrowser();
-
-  Browser* browser2 = CreateAnotherBrowserAndResize();
-  ResetIDs(browser2->tab_strip_model(), 100);
-
-  AddTabsAndResetBrowser(browser(), 1, GetAppUrl());
-  TabStrip* tab_strip1 = GetTabStripForBrowser(app_browser);
-  TabStrip* tab_strip2 = GetTabStripForBrowser(browser2);
-
-  // Move to the first tab and drag it enough so that it detaches, but not
-  // enough that it attaches to browser2.
-  DragTabAndNotify(tab_strip1, base::BindOnce(&DragToSeparateWindowStep2, this,
-                                              tab_strip1, tab_strip2));
-
-  // Should now be attached to tab_strip2.
-  // Release mouse or touch, stopping the drag session.
-  ASSERT_TRUE(ReleaseInput());
-  EXPECT_EQ("100 0", IDString(browser2->tab_strip_model()));
-  EXPECT_EQ("1", IDString(app_browser->tab_strip_model()));
-}
-
 // Subclass of DetachToBrowserTabDragControllerTest that
 // creates multiple displays.
 class DetachToBrowserInSeparateDisplayTabDragControllerTest
@@ -4456,50 +4421,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
 
 #endif  // OS_CHROMEOS
 
-namespace {
-
-class SelectTabDuringDragObserver : public TabStripModelObserver {
- public:
-  SelectTabDuringDragObserver() = default;
-  ~SelectTabDuringDragObserver() override = default;
-  void OnTabStripModelChanged(
-      TabStripModel* tab_strip_model,
-      const TabStripModelChange& change,
-      const TabStripSelectionChange& selection) override {
-    if (change.type() != TabStripModelChange::kMoved)
-      return;
-    const TabStripModelChange::Move* move = change.GetMove();
-    int index_to_select = move->to_index == 0 ? 1 : 0;
-    tab_strip_model->ToggleSelectionAt(index_to_select);
-  }
-};
-
-}  // namespace
-
-// Bug fix for crbug.com/1196309. Don't change tab selection while dragging.
-IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
-                       SelectTabDuringDrag) {
-  TabStripModel* model = browser()->tab_strip_model();
-  TabStrip* tab_strip = GetTabStripForBrowser(browser());
-
-  SelectTabDuringDragObserver observer;
-  model->AddObserver(&observer);
-
-  AddTabsAndResetBrowser(browser(), 1);
-  ASSERT_EQ(2, model->count());
-
-  ASSERT_TRUE(PressInput(GetCenterInScreenCoordinates(tab_strip->tab_at(0))));
-  ASSERT_TRUE(DragInputTo(GetCenterInScreenCoordinates(tab_strip->tab_at(1))));
-  {
-    gfx::Rect tab_bounds = tab_strip->tab_at(1)->GetLocalBounds();
-    views::View::ConvertRectToScreen(tab_strip->tab_at(1), &tab_bounds);
-    ASSERT_TRUE(DragInputTo(tab_bounds.right_center()));
-  }
-  ASSERT_TRUE(ReleaseInput());
-}
-
 #if defined(OS_CHROMEOS)
-
 INSTANTIATE_TEST_SUITE_P(TabDragging,
                          DetachToBrowserTabDragControllerTest,
                          ::testing::Values("mouse", "touch"));

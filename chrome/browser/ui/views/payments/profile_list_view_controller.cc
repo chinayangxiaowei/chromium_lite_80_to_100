@@ -147,18 +147,15 @@ class ShippingProfileViewController : public ProfileListViewController,
     // of the profile list. When the spec comes back updated (in OnSpecUpdated),
     // the decision will be made to either stay on this screen or go back to the
     // payment sheet.
-    state()->SetSelectedShippingProfile(
-        profile, PaymentRequestState::SectionSelectionStatus::kSelected);
+    state()->SetSelectedShippingProfile(profile);
   }
 
   void ShowEditor(autofill::AutofillProfile* profile) override {
     dialog()->ShowShippingAddressEditor(
         BackNavigationType::kPaymentSheet,
         /*on_edited=*/
-        base::BindOnce(
-            &PaymentRequestState::SetSelectedShippingProfile,
-            state()->AsWeakPtr(), profile,
-            PaymentRequestState::SectionSelectionStatus::kEditedSelected),
+        base::BindOnce(&PaymentRequestState::SetSelectedShippingProfile,
+                       state()->AsWeakPtr(), profile),
         /*on_added=*/
         base::BindOnce(&PaymentRequestState::AddAutofillShippingProfile,
                        state()->AsWeakPtr(), /*selected=*/true),
@@ -273,8 +270,7 @@ class ContactProfileViewController : public ProfileListViewController {
   }
 
   void SelectProfile(autofill::AutofillProfile* profile) override {
-    state()->SetSelectedContactProfile(
-        profile, PaymentRequestState::SectionSelectionStatus::kSelected);
+    state()->SetSelectedContactProfile(profile);
     dialog()->GoBack();
   }
 
@@ -282,10 +278,8 @@ class ContactProfileViewController : public ProfileListViewController {
     dialog()->ShowContactInfoEditor(
         BackNavigationType::kPaymentSheet,
         /*on_edited=*/
-        base::BindOnce(
-            &PaymentRequestState::SetSelectedContactProfile,
-            state()->AsWeakPtr(), profile,
-            PaymentRequestState::SectionSelectionStatus::kEditedSelected),
+        base::BindOnce(&PaymentRequestState::SetSelectedContactProfile,
+                       state()->AsWeakPtr(), profile),
         /*on_added=*/
         base::BindOnce(&PaymentRequestState::AddAutofillContactProfile,
                        state()->AsWeakPtr(), /*selected=*/true),
