@@ -19,6 +19,7 @@
 #include "base/json/json_writer.h"
 #include "base/scoped_native_library.h"
 #include "base/stl_util.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/win_util.h"
 #include "base/win/wmi.h"
@@ -28,6 +29,7 @@
 #include "chrome/credential_provider/gaiacp/gcpw_strings.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
+#include "third_party/re2/src/re2/re2.h"
 
 namespace credential_provider {
 
@@ -35,7 +37,8 @@ constexpr wchar_t kRegEnableVerboseLogging[] = L"enable_verbose_logging";
 constexpr wchar_t kRegInitializeCrashReporting[] = L"enable_crash_reporting";
 constexpr wchar_t kRegMdmUrl[] = L"mdm";
 constexpr wchar_t kRegEnableDmEnrollment[] = L"enable_dm_enrollment";
-
+constexpr wchar_t kRegDeveloperMode[] = L"developer_mode";
+constexpr wchar_t kRegMdmEnforceOnlineLogin[] = L"enforce_online_login";
 constexpr wchar_t kRegMdmEnableForcePasswordReset[] =
     L"enable_force_reset_password_option";
 constexpr wchar_t kRegDisablePasswordSync[] = L"disable_password_sync";
@@ -43,6 +46,8 @@ constexpr wchar_t kRegMdmSupportsMultiUser[] = L"enable_multi_user_login";
 constexpr wchar_t kRegMdmAllowConsumerAccounts[] = L"enable_consumer_accounts ";
 constexpr wchar_t kRegDeviceDetailsUploadStatus[] =
     L"device_details_upload_status";
+constexpr wchar_t kRegDeviceDetailsUploadFailures[] =
+    L"device_details_upload_failures";
 constexpr wchar_t kRegGlsPath[] = L"gls_path";
 constexpr wchar_t kRegUserDeviceResourceId[] = L"device_resource_id";
 constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
@@ -52,6 +57,7 @@ constexpr wchar_t kUserPasswordLsaStoreKeyPrefix[] =
     L"Chromium-GCPW-";
 #endif
 const char kErrorKeyInRequestResult[] = "error";
+constexpr int kMaxNumConsecutiveUploadDeviceFailures = 3;
 
 // Overridden in tests to force the MDM enrollment to either succeed or fail.
 enum class EnrollmentStatus {
@@ -109,15 +115,21 @@ T GetMdmFunctionPointer(const base::ScopedNativeLibrary& library,
 
 base::string16 GetMdmUrl() {
   DWORD enable_dm_enrollment;
+  base::string16 enrollment_url = L"";
+
   HRESULT hr = GetGlobalFlag(kRegEnableDmEnrollment, &enable_dm_enrollment);
   if (SUCCEEDED(hr)) {
     if (enable_dm_enrollment)
-      return kDefaultMdmUrl;
-    return L"";
+      enrollment_url = kDefaultMdmUrl;
+  } else {
+    // Fallback to using the older flag to control mdm url.
+    enrollment_url = GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
   }
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+  if (!dev.empty())
+    enrollment_url = GetDevelopmentUrl(enrollment_url, dev);
 
-  // Fallback to using the older flag to control mdm url.
-  return GetGlobalFlagOrDefault(kRegMdmUrl, kDefaultMdmUrl);
+  return enrollment_url;
 }
 
 bool IsEnrolledWithGoogleMdm(const base::string16& mdm_url) {
@@ -232,6 +244,39 @@ HRESULT ExtractRegistrationData(const base::Value& registration_data,
   return S_OK;
 }
 
+// Gets localalized name for builtin administrator account. Extracting
+// localized name for builtin administrator account requires DomainSid
+// to be passed onto the CreateWellKnownSid function unlike any other
+// WellKnownSid as per microsoft documentation. Thats why we need to first
+// extract the DomainSid (even for local accounts) and pass it as a
+// parameter to the CreateWellKnownSid function call.
+HRESULT GetLocalizedNameBuiltinAdministratorAccount(
+    base::string16* builtin_localized_admin_name) {
+  LSA_HANDLE PolicyHandle;
+  static LSA_OBJECT_ATTRIBUTES oa = {sizeof(oa)};
+  NTSTATUS status =
+      LsaOpenPolicy(0, &oa, POLICY_VIEW_LOCAL_INFORMATION, &PolicyHandle);
+  if (status >= 0) {
+    PPOLICY_ACCOUNT_DOMAIN_INFO ppadi;
+    status = LsaQueryInformationPolicy(
+        PolicyHandle, PolicyAccountDomainInformation, (void**)&ppadi);
+    if (status >= 0) {
+      BYTE well_known_sid[SECURITY_MAX_SID_SIZE];
+      DWORD size_local_users_group_sid = base::size(well_known_sid);
+      if (CreateWellKnownSid(::WinAccountAdministratorSid, ppadi->DomainSid,
+                             well_known_sid, &size_local_users_group_sid)) {
+        return LookupLocalizedNameBySid(well_known_sid,
+                                        builtin_localized_admin_name);
+      } else {
+        status = GetLastError();
+      }
+      LsaFreeMemory(ppadi);
+    }
+    LsaClose(PolicyHandle);
+  }
+  return status >= 0 ? S_OK : E_FAIL;
+}
+
 HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
                                            const base::Value& properties) {
   // Make sure all the needed data is present in the dictionary.
@@ -274,14 +319,14 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
 
   // Need localized local user group name for Administrators group
   // for supporting account elevation scenarios.
-  base::string16 local_administrators_group_name = L"";
+  base::string16 local_administrators_group_name;
   hr = LookupLocalizedNameForWellKnownSid(WinBuiltinAdministratorsSid,
                                           &local_administrators_group_name);
   if (FAILED(hr)) {
     LOGFN(WARNING) << "Failed to fetch name for administrators group";
   }
 
-  base::string16 builtin_administrator_name = L"";
+  base::string16 builtin_administrator_name;
   hr = GetLocalizedNameBuiltinAdministratorAccount(&builtin_administrator_name);
   if (FAILED(hr)) {
     LOGFN(WARNING) << "Failed to fetch name for builtin administrator account";
@@ -362,7 +407,18 @@ bool UploadDeviceDetailsNeeded(const base::string16& sid) {
   DWORD status = 0;
   GetUserProperty(sid, kRegDeviceDetailsUploadStatus, &status);
 
-  return status != 1;
+  if (status != 1) {
+    DWORD device_upload_failures = 1;
+    GetUserProperty(sid, kRegDeviceDetailsUploadFailures,
+                    &device_upload_failures);
+    if (device_upload_failures > kMaxNumConsecutiveUploadDeviceFailures) {
+      LOGFN(WARNING) << "Reauth not enforced due to upload device details "
+                        "failures exceeding threshhold.";
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 bool MdmEnrollmentEnabled() {
@@ -376,8 +432,21 @@ GURL EscrowServiceUrl() {
   if (disable_password_sync)
     return GURL();
 
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+
+  if (!dev.empty())
+    return GURL(GetDevelopmentUrl(kDefaultEscrowServiceServerUrl, dev));
+
   // By default, the password recovery feature should be enabled.
   return GURL(base::UTF16ToUTF8(kDefaultEscrowServiceServerUrl));
+}
+
+GURL GetGcpwServiceUrl() {
+  base::string16 dev = GetGlobalFlagOrDefault(kRegDeveloperMode, L"");
+  if (!dev.empty())
+    return GURL(GetDevelopmentUrl(kDefaultGcpwServiceUrl, dev));
+
+  return GURL(kDefaultGcpwServiceUrl);
 }
 
 bool PasswordRecoveryEnabled() {
@@ -387,6 +456,30 @@ bool PasswordRecoveryEnabled() {
 bool IsGemEnabled() {
   // The gem features are enabled by default.
   return GetGlobalFlagOrDefault(kKeyEnableGemFeatures, 1);
+}
+
+bool IsOnlineLoginEnforced(const base::string16& sid) {
+  DWORD global_flag = GetGlobalFlagOrDefault(kRegMdmEnforceOnlineLogin, 0);
+
+  // Return true if global flag is set. If it is not set check for
+  // the user flag.
+  if (global_flag)
+    return true;
+
+
+  DWORD is_online_login_enforced_for_user = 0;
+  HRESULT hr = GetUserProperty(sid, kRegMdmEnforceOnlineLogin,
+                       &is_online_login_enforced_for_user);
+
+  if (FAILED(hr)) {
+    LOGFN(VERBOSE) << "GetUserProperty for " << kRegMdmEnforceOnlineLogin
+                << " failed. hr=" << putHR(hr);
+    // Fallback to the less obstructive option to not enforce login via google
+    // when fetching the registry entry fails.
+    return false;
+  }
+
+  return is_online_login_enforced_for_user;
 }
 
 HRESULT EnrollToGoogleMdmIfNeeded(const base::Value& properties) {
@@ -426,6 +519,20 @@ base::string16 GetUserDeviceResourceId(const base::string16& sid) {
     return base::string16(known_resource_id, known_resource_id_size - 1);
 
   return base::string16();
+}
+
+base::string16 GetDevelopmentUrl(const base::string16& url,
+                                 const base::string16& dev) {
+  std::string project;
+  std::string final_part;
+  if (re2::RE2::FullMatch(base::UTF16ToUTF8(url),
+                          "https://(.*).(googleapis.com.*)", &project,
+                          &final_part)) {
+    std::string url_prefix = "https://" + base::UTF16ToUTF8(dev) + "-";
+    return base::UTF8ToUTF16(
+        base::JoinString({url_prefix + project, "sandbox", final_part}, "."));
+  }
+  return url;
 }
 
 // GoogleMdmEnrollmentStatusForTesting ////////////////////////////////////////

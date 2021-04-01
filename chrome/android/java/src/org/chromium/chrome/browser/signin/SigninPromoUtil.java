@@ -17,6 +17,7 @@ import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
+import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.ui.base.WindowAndroid;
 
@@ -36,14 +37,18 @@ public class SigninPromoUtil {
      * @return Whether the signin promo is shown.
      */
     public static boolean launchSigninPromoIfNeeded(final Activity activity) {
+        if (!AccountManagerFacadeProvider.getInstance().isCachePopulated()) {
+            // Suppress the promo if the account list isn't available yet.
+            return false;
+        }
+
         SigninPreferencesManager preferencesManager = SigninPreferencesManager.getInstance();
         int currentMajorVersion = ChromeVersionInfo.getProductMajorVersion();
         boolean wasSignedIn = TextUtils.isEmpty(
                 PrefServiceBridge.getInstance().getString(Pref.SYNC_LAST_ACCOUNT_NAME));
-
-        Supplier<Set<String>> accountNamesSupplier = ()
-                -> new ArraySet<>(
-                        AccountManagerFacadeProvider.getInstance().tryGetGoogleAccountNames());
+        List<String> accountNames = AccountUtils.toAccountNames(
+                AccountManagerFacadeProvider.getInstance().tryGetGoogleAccounts());
+        Supplier<Set<String>> accountNamesSupplier = () -> new ArraySet<>(accountNames);
         if (!shouldLaunchSigninPromo(preferencesManager, currentMajorVersion,
                     IdentityServicesProvider.get().getIdentityManager().hasPrimaryAccount(),
                     wasSignedIn, accountNamesSupplier)) {
@@ -52,8 +57,7 @@ public class SigninPromoUtil {
 
         SigninUtils.startSigninActivityIfAllowed(activity, SigninAccessPoint.SIGNIN_PROMO);
         preferencesManager.setSigninPromoLastShownVersion(currentMajorVersion);
-        preferencesManager.setSigninPromoLastAccountNames(new ArraySet<>(
-                AccountManagerFacadeProvider.getInstance().tryGetGoogleAccountNames()));
+        preferencesManager.setSigninPromoLastAccountNames(new ArraySet<>(accountNames));
         return true;
     }
 

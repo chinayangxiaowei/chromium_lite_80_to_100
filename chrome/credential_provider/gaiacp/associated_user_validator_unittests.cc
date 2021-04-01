@@ -144,7 +144,6 @@ TEST_F(AssociatedUserValidatorTest, CleanupStaleUsers) {
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2CW(sid_bad)));
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2CW(sid_no_gaia_id)));
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2CW(sid_no_token_handle)));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
 
   // Expect deleted user and user with no gaia id to be deleted.
   EXPECT_NE(ERROR_SUCCESS, key.OpenKey(OLE2CW(sid_bad), KEY_READ));
@@ -165,7 +164,6 @@ TEST_F(AssociatedUserValidatorTest, NoTokenHandles) {
   // If there is no associated user then all token handles are valid.
   EXPECT_FALSE(
       validator.IsAuthEnforcedForUser(GetNewSidString(fake_os_user_manager())));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(0u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -187,7 +185,54 @@ TEST_F(AssociatedUserValidatorTest, ValidTokenHandle) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
+  EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
+}
+
+TEST_F(AssociatedUserValidatorTest, EnforceOnlineLoginGlobalFlag) {
+  GoogleUploadDeviceDetailsNeededForTesting upload_device_details_needed(false);
+
+  FakeAssociatedUserValidator validator;
+
+  CComBSTR sid;
+  ASSERT_EQ(S_OK, fake_os_user_manager()->CreateTestOSUser(
+                      L"username", L"password", L"fullname", L"comment",
+                      L"gaia-id", base::string16(), &sid));
+
+  // Valid token fetch result.
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(AssociatedUserValidator::kTokenInfoUrl),
+      FakeWinHttpUrlFetcher::Headers(), "{\"expires_in\":1}");
+
+  // Set global flag to enforce online login.
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(L"enforce_online_login", 1));
+
+  validator.StartRefreshingTokenHandleValidity();
+
+  EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
+  EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
+}
+
+TEST_F(AssociatedUserValidatorTest, EnforceOnlineLoginUserFlag) {
+  GoogleUploadDeviceDetailsNeededForTesting upload_device_details_needed(false);
+
+  FakeAssociatedUserValidator validator;
+
+  CComBSTR sid;
+  ASSERT_EQ(S_OK, fake_os_user_manager()->CreateTestOSUser(
+                      L"username", L"password", L"fullname", L"comment",
+                      L"gaia-id", base::string16(), &sid));
+
+  // Valid token fetch result.
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(AssociatedUserValidator::kTokenInfoUrl),
+      FakeWinHttpUrlFetcher::Headers(), "{\"expires_in\":1}");
+
+  // Set global flag to enforce online login.
+  ASSERT_EQ(S_OK, SetUserProperty((BSTR)sid, L"enforce_online_login", 1));
+
+  validator.StartRefreshingTokenHandleValidity();
+
+  EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
   EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -207,7 +252,6 @@ TEST_F(AssociatedUserValidatorTest, InvalidTokenHandle) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -223,7 +267,6 @@ TEST_F(AssociatedUserValidatorTest, InvalidTokenHandleNoInternet) {
 
   validator.StartRefreshingTokenHandleValidity();
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(0u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -244,7 +287,6 @@ TEST_F(AssociatedUserValidatorTest, InvalidTokenHandleTimeout) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
 
   http_fetcher_event.Signal();
@@ -269,7 +311,6 @@ TEST_F(AssociatedUserValidatorTest, TokenHandleValidityStillFresh) {
 
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -343,7 +384,6 @@ TEST_F(AssociatedUserValidatorTest,
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
   EXPECT_TRUE(validator.DenySigninForUsersWithInvalidTokenHandles(CPUS_LOGON,
                                                                   reauth_sids));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
 }
 
 // Donot deny user access even when the gaia handle is invalidated for a
@@ -372,7 +412,6 @@ TEST_F(AssociatedUserValidatorTest,
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
   EXPECT_FALSE(validator.DenySigninForUsersWithInvalidTokenHandles(
       CPUS_LOGON, reauth_sids));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
 }
 
 // Clear the UserProperty from registry for those sids which doesn't
@@ -564,7 +603,6 @@ TEST_P(AssociatedUserValidatorUserAccessBlockingTest, BlockUserAccessAsNeeded) {
   EXPECT_EQ(should_user_be_blocked,
             validator.IsUserAccessBlockedForTesting(OLE2W(sid)));
   EXPECT_EQ(is_get_auth_enforced, validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_EQ(is_get_auth_enforced, validator.IsAuthEnforcedOnAssociatedUsers());
 
   // Unlock the user.
   validator.AllowSigninForUsersWithInvalidTokenHandles();
@@ -592,6 +630,66 @@ INSTANTIATE_TEST_SUITE_P(
                        ::testing::Bool(),
                        ::testing::Bool()));
 
+// Tests auth enforcement when multiple number of device details uploads fail
+// consecutively.
+// Parameters are: int - number of failures while uploading device details.
+class AssociatedUserValidatorMultipleUploadDeviceFailuresTest
+    : public AssociatedUserValidatorTest,
+      public ::testing::WithParamInterface<int> {};
+
+TEST_P(AssociatedUserValidatorMultipleUploadDeviceFailuresTest,
+       WithNumFailures) {
+  const int num_upload_device_details_failures = GetParam();
+  const bool is_upload_device_details_failed =
+      num_upload_device_details_failures > 0;
+  GoogleMdmEnrolledStatusForTesting mdm_enrolled(true);
+
+  CComBSTR sid;
+  constexpr wchar_t username[] = L"username";
+  ASSERT_EQ(S_OK, fake_os_user_manager()->CreateTestOSUser(
+                      username, L"password", L"fullname", L"comment",
+                      L"gaia-id", base::string16(), &sid));
+  std::vector<base::string16> reauth_sids;
+  reauth_sids.push_back((BSTR)sid);
+
+  ASSERT_EQ(S_OK, SetGlobalFlagForTesting(kRegDisablePasswordSync, 0));
+  // Store encrypted password.
+  base::string16 store_key = GetUserPasswordLsaStoreKey(OLE2W(sid));
+  auto policy = ScopedLsaPolicy::Create(POLICY_ALL_ACCESS);
+  EXPECT_TRUE(SUCCEEDED(
+      policy->StorePrivateData(store_key.c_str(), L"encrypted_data")));
+  EXPECT_TRUE(policy->PrivateDataExists(store_key.c_str()));
+
+  // Set successful upload status and number of failures.
+  ASSERT_EQ(S_OK, SetUserProperty((BSTR)sid, kRegDeviceDetailsUploadStatus,
+                                  is_upload_device_details_failed ? 0 : 1));
+  ASSERT_EQ(S_OK, SetUserProperty((BSTR)sid, kRegDeviceDetailsUploadFailures,
+                                  num_upload_device_details_failures));
+
+  // Token handle fetch result.
+  fake_http_url_fetcher_factory()->SetFakeResponse(
+      GURL(AssociatedUserValidator::kTokenInfoUrl),
+      FakeWinHttpUrlFetcher::Headers(), "{\"expires_in\":1}");
+
+  FakeAssociatedUserValidator validator;
+  validator.StartRefreshingTokenHandleValidity();
+
+  bool is_get_auth_enforced = is_upload_device_details_failed &&
+                              (num_upload_device_details_failures <=
+                               kMaxNumConsecutiveUploadDeviceFailures);
+
+  EXPECT_EQ(is_get_auth_enforced, validator.IsAuthEnforcedForUser(OLE2W(sid)));
+  EXPECT_EQ(is_get_auth_enforced
+                ? AssociatedUserValidator::UPLOAD_DEVICE_DETAILS_FAILED
+                : AssociatedUserValidator::NOT_ENFORCED,
+            validator.GetAuthEnforceReason(OLE2W(sid)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    AssociatedUserValidatorMultipleUploadDeviceFailuresTest,
+    ::testing::Range(0, 2 * kMaxNumConsecutiveUploadDeviceFailures));
+
 TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_Refresh) {
   GoogleUploadDeviceDetailsNeededForTesting upload_device_details_needed(false);
 
@@ -616,7 +714,6 @@ TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_Refresh) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
 
   // Make the next token fetch result invalid.
   fake_http_url_fetcher_factory()->SetFakeResponse(
@@ -626,7 +723,6 @@ TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_Refresh) {
   // If the lifetime of the validity has not expired, even if the token is
   // invalid, no new fetch will be performed yet.
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(1u, fake_http_url_fetcher_factory()->requests_created());
 
   // Advance the time so that a new fetch will be done and retrieve the
@@ -635,7 +731,6 @@ TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_Refresh) {
       AssociatedUserValidator::kTokenHandleValidityLifetime +
       base::TimeDelta::FromMilliseconds(1);
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
   EXPECT_EQ(2u, fake_http_url_fetcher_factory()->requests_created());
 }
 
@@ -664,7 +759,6 @@ TEST_F(AssociatedUserValidatorTest, InvalidTokenHandle_MissingPasswordLsaData) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_TRUE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_TRUE(validator.IsAuthEnforcedOnAssociatedUsers());
 }
 
 TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_PresentPasswordLsaData) {
@@ -694,7 +788,6 @@ TEST_F(AssociatedUserValidatorTest, ValidTokenHandle_PresentPasswordLsaData) {
   validator.StartRefreshingTokenHandleValidity();
 
   EXPECT_FALSE(validator.IsAuthEnforcedForUser(OLE2W(sid)));
-  EXPECT_FALSE(validator.IsAuthEnforcedOnAssociatedUsers());
 }
 
 }  // namespace testing

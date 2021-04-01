@@ -33,7 +33,9 @@
 #include "base/i18n/time_formatting.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -51,6 +53,7 @@
 #include "ui/views/border.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/highlight_path_generator.h"
+#include "ui/views/controls/label.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
@@ -117,6 +120,15 @@ constexpr int kDisabledAuthMessageTitleFontSizeDeltaDp = 3;
 constexpr int kDisabledAuthMessageContentsFontSizeDeltaDp = -1;
 constexpr int kDisabledAuthMessageRoundedCornerRadiusDp = 8;
 
+constexpr int kLockedTpmMessageVerticalBorderDp = 16;
+constexpr int kLockedTpmMessageHorizontalBorderDp = 16;
+constexpr int kLockedTpmMessageChildrenSpacingDp = 4;
+constexpr int kLockedTpmMessageWidthDp = 360;
+constexpr int kLockedTpmMessageHeightDp = 108;
+constexpr int kLockedTpmMessageIconSizeDp = 24;
+constexpr int kLockedTpmMessageDeltaDp = 0;
+constexpr int kLockedTpmMessageRoundedCornerRadiusDp = 8;
+
 constexpr int kNonEmptyWidthDp = 1;
 
 // Returns an observer that will hide |view| when it fires. The observer will
@@ -181,7 +193,7 @@ class ClearPasswordAndHideAnimationObserver
 
   // ui::ImplicitAnimationObserver:
   void OnImplicitAnimationsCompleted() override {
-    password_view_->Clear();
+    password_view_->Reset();
     password_view_->SetVisible(false);
     delete this;
   }
@@ -712,6 +724,88 @@ class LoginAuthUserView::DisabledAuthMessageView : public views::View {
   DISALLOW_COPY_AND_ASSIGN(DisabledAuthMessageView);
 };
 
+// The message shown to user when TPM is locked.
+class LoginAuthUserView::LockedTpmMessageView : public views::View {
+ public:
+  LockedTpmMessageView() {
+    SetLayoutManager(std::make_unique<views::BoxLayout>(
+        views::BoxLayout::Orientation::kVertical,
+        gfx::Insets(kLockedTpmMessageVerticalBorderDp,
+                    kLockedTpmMessageHorizontalBorderDp),
+        kLockedTpmMessageChildrenSpacingDp));
+    SetPaintToLayer();
+    layer()->SetFillsBoundsOpaquely(false);
+    SetPreferredSize(
+        gfx::Size(kLockedTpmMessageWidthDp, kLockedTpmMessageHeightDp));
+    SetFocusBehavior(FocusBehavior::ALWAYS);
+
+    auto message_icon = std::make_unique<views::ImageView>();
+    message_icon->SetPreferredSize(
+        gfx::Size(kLockedTpmMessageIconSizeDp, kLockedTpmMessageIconSizeDp));
+    message_icon->SetImage(
+        gfx::CreateVectorIcon(kLockScreenAlertIcon, SK_ColorWHITE));
+    message_icon_ = AddChildView(std::move(message_icon));
+
+    message_warning_ = CreateLabel();
+    message_description_ = CreateLabel();
+
+    // Set content.
+    base::string16 message_description = l10n_util::GetStringUTF16(
+        IDS_ASH_LOGIN_POD_TPM_LOCKED_ISSUE_DESCRIPTION);
+    message_description_->SetText(message_description);
+  }
+
+  LockedTpmMessageView(const LockedTpmMessageView&) = delete;
+  LockedTpmMessageView& operator=(const LockedTpmMessageView&) = delete;
+  ~LockedTpmMessageView() override = default;
+
+  // Set the parameters needed to render the message.
+  void SetRemainingTime(base::TimeDelta time_left) {
+    base::string16 time_left_message;
+    if (base::TimeDurationFormatWithSeconds(
+            time_left, base::DurationFormatWidth::DURATION_WIDTH_WIDE,
+            &time_left_message)) {
+      base::string16 message_warning = l10n_util::GetStringFUTF16(
+          IDS_ASH_LOGIN_POD_TPM_LOCKED_ISSUE_WARNING, time_left_message);
+      message_warning_->SetText(message_warning);
+    }
+    Layout();
+  }
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override {
+    views::View::OnPaint(canvas);
+
+    cc::PaintFlags flags;
+    flags.setStyle(cc::PaintFlags::kFill_Style);
+    flags.setColor(
+        PinRequestView::GetChildUserDialogColor(false /*using blur*/));
+    canvas->DrawRoundRect(GetContentsBounds(),
+                          kLockedTpmMessageRoundedCornerRadiusDp, flags);
+  }
+  void RequestFocus() override { message_warning_->RequestFocus(); }
+
+ private:
+  views::Label* CreateLabel() {
+    auto label = std::make_unique<views::Label>(base::string16(),
+                                                views::style::CONTEXT_LABEL,
+                                                views::style::STYLE_PRIMARY);
+    label->SetFontList(gfx::FontList().Derive(kLockedTpmMessageDeltaDp,
+                                              gfx::Font::NORMAL,
+                                              gfx::Font::Weight::NORMAL));
+    label->SetSubpixelRenderingEnabled(false);
+    label->SetAutoColorReadabilityEnabled(false);
+    label->SetEnabledColor(SK_ColorWHITE);
+    label->SetFocusBehavior(FocusBehavior::ALWAYS);
+    label->SetMultiLine(true);
+    return AddChildView(std::move(label));
+  }
+
+  views::Label* message_warning_;
+  views::Label* message_description_;
+  views::ImageView* message_icon_;
+};
+
 struct LoginAuthUserView::AnimationState {
   explicit AnimationState(LoginAuthUserView* view) {
     non_pin_y_start_in_screen = view->GetBoundsInScreen().y();
@@ -789,7 +883,7 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
 
   // Build child views.
   auto user_view = std::make_unique<LoginUserView>(
-      LoginDisplayStyle::kLarge, true /*show_dropdown*/, false /*show_domain*/,
+      LoginDisplayStyle::kLarge, true /*show_dropdown*/,
       base::BindRepeating(&LoginAuthUserView::OnUserViewTap,
                           base::Unretained(this)),
       callbacks.on_remove_warning_shown, callbacks.on_remove);
@@ -799,15 +893,29 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   password_view_ = password_view.get();
   password_view->SetPaintToLayer();  // Needed for opacity animation.
   password_view->layer()->SetFillsBoundsOpaquely(false);
+  password_view_->SetDisplayPasswordButtonVisible(
+      user.show_display_password_button);
 
-  auto pin_view = std::make_unique<LoginPinView>(
-      LoginPinView::Style::kAlphanumeric,
-      base::BindRepeating(&LoginPasswordView::InsertNumber,
-                          base::Unretained(password_view.get())),
-      base::BindRepeating(&LoginPasswordView::Backspace,
-                          base::Unretained(password_view.get())),
-      base::BindRepeating(&LoginPasswordView::SubmitPassword,
-                          base::Unretained(password_view.get())));
+  std::unique_ptr<LoginPinView> pin_view;
+  // If the display password button feature is disabled, the PIN view does not
+  // need a submit button as the password view already has one.
+  if (chromeos::features::IsLoginDisplayPasswordButtonEnabled()) {
+    pin_view = std::make_unique<LoginPinView>(
+        LoginPinView::Style::kAlphanumeric,
+        base::BindRepeating(&LoginPasswordView::InsertNumber,
+                            base::Unretained(password_view.get())),
+        base::BindRepeating(&LoginPasswordView::Backspace,
+                            base::Unretained(password_view.get())),
+        base::BindRepeating(&LoginPasswordView::SubmitPassword,
+                            base::Unretained(password_view.get())));
+  } else {
+    pin_view = std::make_unique<LoginPinView>(
+        LoginPinView::Style::kAlphanumeric,
+        base::BindRepeating(&LoginPasswordView::InsertNumber,
+                            base::Unretained(password_view.get())),
+        base::BindRepeating(&LoginPasswordView::Backspace,
+                            base::Unretained(password_view.get())));
+  }
   pin_view_ = pin_view.get();
   DCHECK(pin_view_->layer());
 
@@ -832,6 +940,9 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
 
   auto disabled_auth_message = std::make_unique<DisabledAuthMessageView>();
   disabled_auth_message_ = disabled_auth_message.get();
+
+  auto locked_tpm_message_view = std::make_unique<LockedTpmMessageView>();
+  locked_tpm_message_view_ = locked_tpm_message_view.get();
 
   auto fingerprint_view = std::make_unique<FingerprintView>();
   fingerprint_view_ = fingerprint_view.get();
@@ -876,6 +987,9 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   auto wrapped_disabled_auth_message_view =
       login_views_utils::WrapViewForPreferredSize(
           std::move(disabled_auth_message));
+  auto wrapped_locked_tpm_message_view =
+      login_views_utils::WrapViewForPreferredSize(
+          std::move(locked_tpm_message_view));
   auto wrapped_user_view =
       login_views_utils::WrapViewForPreferredSize(std::move(user_view));
   auto wrapped_pin_view =
@@ -902,6 +1016,8 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
       AddChildView(std::move(wrapped_online_sign_in_message_view));
   views::View* wrapped_disabled_auth_message_view_ptr =
       AddChildView(std::move(wrapped_disabled_auth_message_view));
+  views::View* wrapped_locked_tpm_message_view_ptr =
+      AddChildView(std::move(wrapped_locked_tpm_message_view));
   views::View* wrapped_pin_view_ptr = AddChildView(std::move(wrapped_pin_view));
   views::View* wrapped_fingerprint_view_ptr =
       AddChildView(std::move(wrapped_fingerprint_view));
@@ -922,7 +1038,8 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
       SetLayoutManager(std::make_unique<views::GridLayout>());
   views::ColumnSet* column_set = grid_layout->AddColumnSet(0);
   column_set->AddColumn(views::GridLayout::CENTER, views::GridLayout::LEADING,
-                        0 /*resize_percent*/, views::GridLayout::USE_PREF,
+                        0 /*resize_percent*/,
+                        views::GridLayout::ColumnSize::kUsePreferred,
                         0 /*fixed_width*/, 0 /*min_width*/);
   auto add_view = [&](views::View* view) {
     grid_layout->StartRow(0 /*vertical_resize*/, 0 /*column_set_id*/);
@@ -936,6 +1053,7 @@ LoginAuthUserView::LoginAuthUserView(const LoginUserInfo& user,
   add_padding(kDistanceFromTopOfBigUserViewToUserIconDp);
   add_view(wrapped_user_view_ptr);
   add_padding(kDistanceBetweenUserViewAndPasswordDp);
+  add_view(wrapped_locked_tpm_message_view_ptr);
   add_view(wrapped_password_view_ptr);
   add_view(wrapped_online_sign_in_message_view_ptr);
   add_view(wrapped_disabled_auth_message_view_ptr);
@@ -969,12 +1087,16 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   bool has_challenge_response = HasAuthMethod(AUTH_CHALLENGE_RESPONSE);
   bool auth_disabled = HasAuthMethod(AUTH_DISABLED);
 
-  bool hide_auth = auth_disabled || force_online_sign_in;
+  bool hide_auth = auth_disabled || force_online_sign_in || tpm_is_locked_;
 
   online_sign_in_message_->SetVisible(force_online_sign_in);
   disabled_auth_message_->SetVisible(auth_disabled);
-  if (auth_disabled)
+  if (auth_disabled && !tpm_is_locked_)
     disabled_auth_message_->RequestFocus();
+
+  locked_tpm_message_view_->SetVisible(tpm_is_locked_);
+  if (tpm_is_locked_)
+    locked_tpm_message_view_->RequestFocus();
 
   // Adjust the PIN keyboard visibility before the password textfield's one, so
   // that when both are about to be hidden the focus doesn't jump to the "1"
@@ -1206,8 +1328,11 @@ void LoginAuthUserView::UpdateForUser(const LoginUserInfo& user) {
   const bool user_changed = current_user().basic_user_info.account_id !=
                             user.basic_user_info.account_id;
   user_view_->UpdateForUser(user, true /*animate*/);
-  if (user_changed)
-    password_view_->Clear();
+  if (user_changed) {
+    password_view_->Reset();
+    password_view_->SetDisplayPasswordButtonVisible(
+        user.show_display_password_button);
+  }
   online_sign_in_message_->SetText(
       l10n_util::GetStringUTF16(IDS_ASH_LOGIN_SIGN_IN_REQUIRED_MESSAGE));
 }
@@ -1224,6 +1349,15 @@ void LoginAuthUserView::SetAuthDisabledMessage(
     const AuthDisabledData& auth_disabled_data) {
   disabled_auth_message_->SetAuthDisabledMessage(auth_disabled_data);
   Layout();
+}
+
+void LoginAuthUserView::SetTpmLockedState(bool is_locked,
+                                          base::TimeDelta time_left) {
+  if (is_locked)
+    locked_tpm_message_view_->SetRemainingTime(time_left);
+  tpm_is_locked_ = is_locked;
+  // Update auth methods which are available.
+  SetAuthMethods(auth_methods_, can_use_pin_);
 }
 
 const LoginUserInfo& LoginAuthUserView::current_user() const {
@@ -1291,7 +1425,7 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
   // animating the next lock screen will not work as expected. See
   // https://crbug.com/808486.
   if (!auth_success.has_value() || !auth_success.value()) {
-    password_view_->Clear();
+    password_view_->Reset();
     password_view_->SetReadOnly(false);
     external_binary_auth_button_->SetEnabled(true);
     external_binary_enrollment_button_->SetEnabled(true);
@@ -1303,7 +1437,7 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
 void LoginAuthUserView::OnChallengeResponseAuthComplete(
     base::Optional<bool> auth_success) {
   if (!auth_success.has_value() || !auth_success.value()) {
-    password_view_->Clear();
+    password_view_->Reset();
     password_view_->SetReadOnly(false);
     // If the user canceled the PIN request during ChallengeResponse,
     // ChallengeResponse will fail with an unknown error. Since this is

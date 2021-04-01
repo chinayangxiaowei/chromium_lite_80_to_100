@@ -108,6 +108,14 @@ class XcodeVersionNotFoundError(TestRunnerError):
         'Xcode version not found: %s' % xcode_version)
 
 
+class XCTestConfigError(TestRunnerError):
+  """Error related with XCTest config."""
+
+  def __init__(self, message):
+    super(XCTestConfigError,
+          self).__init__('Incorrect config related with XCTest: %s' % message)
+
+
 class XCTestPlugInNotFoundError(TestRunnerError):
   """The .xctest PlugIn was not found."""
   def __init__(self, xctest_path):
@@ -148,19 +156,6 @@ def get_device_ios_version(udid):
   return subprocess.check_output(['ideviceinfo',
                                   '--udid', udid,
                                   '-k', 'ProductVersion']).strip()
-
-
-def is_iOS13_or_higher_device(udid):
-  """Checks whether device with udid has iOS 13.0+.
-
-  Args:
-    udid: (str) iOS device UDID.
-
-  Returns:
-    True for iOS 13.0+ devices otherwise false.
-  """
-  return (distutils.version.LooseVersion(get_device_ios_version(udid)) >=
-          distutils.version.LooseVersion('13.0'))
 
 
 def defaults_write(d, key, value):
@@ -308,10 +303,16 @@ def get_xctest_from_app(app):
   """
   plugins_dir = os.path.join(app, 'PlugIns')
   if not os.path.exists(plugins_dir):
+    # TODO(crbug.com/1001667): Throw error when all device unit test should run
+    # with xctest.
+    LOGGER.warning('PlugIns dir doesn\'t exist in app.\n')
     return None
   for plugin in os.listdir(plugins_dir):
     if plugin.endswith('.xctest'):
       return os.path.join(plugins_dir, plugin)
+  # TODO(crbug.com/1001667): Throw error when all device unit test should run
+  # with xctest.
+  LOGGER.warning('.xctest doesn\'t exist in app PlugIns dir.\n')
   return None
 
 
@@ -566,6 +567,23 @@ class TestRunner(object):
           included_tests=self.test_cases,
           env_vars=self.env_vars,
           test_args=self.test_args)
+    elif self.xctest_path:
+
+      if self.__class__.__name__ == 'DeviceTestRunner':
+        # When self.xctest is False and (bool)self.xctest_path is True and it's
+        # using a device runner, this is a XCTest hosted unit test, which is
+        # currently running on real devices.
+        # TODO(crbug.com/1006881): Separate "running style" from "parser style"
+        # for XCtests and Gtests.
+        test_app = test_apps.DeviceXCTestUnitTestsApp(
+            self.app_path,
+            included_tests=self.test_cases,
+            env_vars=self.env_vars,
+            test_args=self.test_args)
+      else:
+        raise XCTestConfigError('Trying to run a DeviceXCTestUnitTestsApp on a'
+                                'non device runner!')
+
     else:
       test_app = test_apps.GTestsApp(
           self.app_path,
@@ -845,6 +863,8 @@ class SimulatorTestRunner(TestRunner):
     self.kill_simulators()
     LOGGER.debug('Wiping simulator.')
     self.wipe_simulator()
+    LOGGER.debug('Deleting simulator.')
+    self.deleteSimulator(self.udid)
     if os.path.exists(self.homedir):
       shutil.rmtree(self.homedir, ignore_errors=True)
       self.homedir = ''
@@ -955,13 +975,10 @@ class DeviceTestRunner(TestRunner):
     if len(self.udid.splitlines()) != 1:
       raise DeviceDetectionError(self.udid)
 
-    is_iOS13 = is_iOS13_or_higher_device(self.udid)
-
-    # GTest-based unittests are invoked via XCTest on iOS 13+ devices
+    # GTest-based unittests are invoked via XCTest for all devices
     # but produce GTest-style log output that is parsed with a GTestLogParser.
-    if xctest or is_iOS13:
-      if is_iOS13:
-        self.xctest_path = get_xctest_from_app(self.app_path)
+    self.xctest_path = get_xctest_from_app(self.app_path)
+
     self.restart = restart
 
   def uninstall_apps(self):
@@ -1042,12 +1059,6 @@ class DeviceTestRunner(TestRunner):
     self.retrieve_crash_reports()
     self.uninstall_apps()
 
-  def get_command_line_args_xctest_unittests(self, filtered_tests):
-    command_line_args = ['--enable-run-ios-unittests-with-xctest']
-    if filtered_tests:
-      command_line_args.append('--gtest_filter=%s' % filtered_tests)
-    return command_line_args
-
   def get_launch_command(self, test_app, out_dir, destination, shards=1):
     """Returns the command that can be used to launch the test app.
 
@@ -1061,20 +1072,6 @@ class DeviceTestRunner(TestRunner):
       A list of strings forming the command to launch the test.
     """
     if self.xctest_path:
-      command_line_args = test_app.test_args
-
-      if not self.xctest:
-        filtered_tests = []
-        if test_app.included_tests:
-          filtered_tests = test_apps.get_gtest_filter(
-              test_app.included_tests, invert=False)
-        elif test_app.excluded_tests:
-          filtered_tests = test_apps.get_gtest_filter(
-            test_app.excluded_tests, invert=True)
-        command_line_args.append(
-            self.get_command_line_args_xctest_unittests(filtered_tests))
-      if command_line_args:
-        test_app.test_args = command_line_args
       return test_app.command(out_dir, destination, shards)
 
     cmd = [
