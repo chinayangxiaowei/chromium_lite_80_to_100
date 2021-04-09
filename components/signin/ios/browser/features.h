@@ -22,11 +22,8 @@ extern const base::Feature kRestoreGaiaCookiesIfDeleted;
 // for the existence of Gaia cookies for google.com.
 extern const char kDelayThresholdMinutesToUpdateGaiaCookie[];
 
-// This feature disable SSO editing.
-extern const base::Feature kDisableSSOEditing;
-
-// Returns true if SSO editing is enabled.
-bool IsSSOEditingEnabled();
+// Feature controlling whether to use full username in sign-in notifications.
+extern const base::Feature kSigninNotificationInfobarUsernameInTitle;
 
 }  // namespace signin
 

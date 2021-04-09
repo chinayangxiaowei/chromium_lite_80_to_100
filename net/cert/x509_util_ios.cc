@@ -31,8 +31,8 @@ CreateSecCertificateFromX509Certificate(const X509Certificate* cert) {
 }
 
 scoped_refptr<X509Certificate> CreateX509CertificateFromSecCertificate(
-    base::ScopedCFTypeRef<SecCertificateRef> sec_cert,
-    const std::vector<base::ScopedCFTypeRef<SecCertificateRef>>& sec_chain) {
+    SecCertificateRef sec_cert,
+    const std::vector<SecCertificateRef>& sec_chain) {
   if (!sec_cert)
     return nullptr;
   base::ScopedCFTypeRef<CFDataRef> der_data(SecCertificateCopyData(sec_cert));
@@ -45,8 +45,8 @@ scoped_refptr<X509Certificate> CreateX509CertificateFromSecCertificate(
   if (!cert_handle)
     return nullptr;
   std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> intermediates;
-  for (const auto& sec_intermediate : sec_chain) {
-    if (!sec_intermediate.get())
+  for (const SecCertificateRef& sec_intermediate : sec_chain) {
+    if (!sec_intermediate)
       return nullptr;
     der_data.reset(SecCertificateCopyData(sec_intermediate));
     if (!der_data)

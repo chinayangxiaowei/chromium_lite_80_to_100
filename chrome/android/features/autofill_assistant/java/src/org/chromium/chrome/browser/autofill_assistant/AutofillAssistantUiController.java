@@ -15,9 +15,7 @@ import org.chromium.base.task.PostTask;
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.app.ChromeActivity;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantCarouselModel;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip;
-import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChip.Type;
 import org.chromium.chrome.browser.autofill_assistant.metrics.DropOutReason;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -106,7 +104,7 @@ public class AutofillAssistantUiController {
     @CalledByNative
     private static AutofillAssistantUiController create(ChromeActivity activity,
             boolean allowTabSwitching, long nativeUiController,
-            @Nullable AssistantOnboardingCoordinator onboardingCoordinator) {
+            @Nullable BaseOnboardingCoordinator onboardingCoordinator) {
         BottomSheetController sheetController =
                 BottomSheetControllerProvider.from(activity.getWindowAndroid());
         assert activity != null;
@@ -126,8 +124,7 @@ public class AutofillAssistantUiController {
 
     private AutofillAssistantUiController(ChromeActivity activity, BottomSheetController controller,
             TabObscuringHandler tabObscuringHandler, boolean allowTabSwitching,
-            long nativeUiController,
-            @Nullable AssistantOnboardingCoordinator onboardingCoordinator) {
+            long nativeUiController, @Nullable BaseOnboardingCoordinator onboardingCoordinator) {
         mNativeUiController = nativeUiController;
         mActivity = activity;
         mCoordinator = new AssistantCoordinator(activity, controller, tabObscuringHandler,
@@ -339,9 +336,11 @@ public class AutofillAssistantUiController {
      */
     @CalledByNative
     private AssistantChip createActionButton(int icon, String text, int actionIndex,
-            boolean disabled, boolean sticky, String identifier) {
-        return new AssistantChip(AssistantChip.Type.BUTTON_HAIRLINE, icon, text, disabled, sticky,
-                identifier, () -> safeNativeOnUserActionSelected(actionIndex));
+            boolean disabled, boolean sticky, boolean visible) {
+        AssistantChip chip =
+                AssistantChip.createHairlineAssistantChip(icon, text, disabled, sticky, visible);
+        chip.setSelectedListener(() -> safeNativeOnUserActionSelected(actionIndex));
+        return chip;
     }
 
     /**
@@ -349,9 +348,11 @@ public class AutofillAssistantUiController {
      */
     @CalledByNative
     private AssistantChip createHighlightedActionButton(int icon, String text, int actionIndex,
-            boolean disabled, boolean sticky, String identifier) {
-        return new AssistantChip(Type.BUTTON_FILLED_BLUE, icon, text, disabled, sticky, identifier,
-                () -> safeNativeOnUserActionSelected(actionIndex));
+            boolean disabled, boolean sticky, boolean visible) {
+        AssistantChip chip =
+                AssistantChip.createHighlightedAssistantChip(icon, text, disabled, sticky, visible);
+        chip.setSelectedListener(() -> safeNativeOnUserActionSelected(actionIndex));
+        return chip;
     }
 
     /**
@@ -361,9 +362,11 @@ public class AutofillAssistantUiController {
      */
     @CalledByNative
     private AssistantChip createCancelButton(int icon, String text, int actionIndex,
-            boolean disabled, boolean sticky, String identifier) {
-        return new AssistantChip(AssistantChip.Type.BUTTON_HAIRLINE, icon, text, disabled, sticky,
-                identifier, () -> safeNativeOnCancelButtonClicked(actionIndex));
+            boolean disabled, boolean sticky, boolean visible) {
+        AssistantChip chip =
+                AssistantChip.createHairlineAssistantChip(icon, text, disabled, sticky, visible);
+        chip.setSelectedListener(() -> safeNativeOnCancelButtonClicked(actionIndex));
+        return chip;
     }
 
     /**
@@ -371,11 +374,27 @@ public class AutofillAssistantUiController {
      */
     @CalledByNative
     private AssistantChip createCloseButton(
-            int icon, String text, boolean disabled, boolean sticky, String identifier) {
-        return new AssistantChip(AssistantChip.Type.BUTTON_HAIRLINE, icon, text, disabled, sticky,
-                identifier, this::safeNativeOnCloseButtonClicked);
+            int icon, String text, boolean disabled, boolean sticky, boolean visible) {
+        AssistantChip chip =
+                AssistantChip.createHairlineAssistantChip(icon, text, disabled, sticky, visible);
+        chip.setSelectedListener(() -> safeNativeOnCloseButtonClicked());
+        return chip;
     }
 
+    /**
+     * Creates a feedback button button. It shows the feedback form and then *directly* executes
+     * {@code actionIndex}.
+     */
+    @CalledByNative
+    private AssistantChip createFeedbackButton(int icon, String text, int actionIndex,
+            boolean disabled, boolean sticky, boolean visible) {
+        AssistantChip chip =
+                AssistantChip.createHairlineAssistantChip(icon, text, disabled, sticky, visible);
+        chip.setSelectedListener(() -> safeNativeOnFeedbackButtonClicked(actionIndex));
+        return chip;
+    }
+
+    // TODO(arbesser): Remove this and use methods in {@code AssistantChip} instead.
     @CalledByNative
     private static void appendChipToList(List<AssistantChip> chips, AssistantChip chip) {
         chips.add(chip);
@@ -391,24 +410,6 @@ public class AutofillAssistantUiController {
     private void setDisableChipChangeAnimations(boolean disable) {
         // TODO(b/144075373): Move this to AssistantCarouselModel.
         getModel().getActionsModel().setDisableChangeAnimations(disable);
-    }
-
-    @CalledByNative
-    private void setAllChipsVisibleExcept(String identifier, boolean visible) {
-        AssistantCarouselModel model = getModel().getActionsModel();
-        List<AssistantChip> chips = model.get(AssistantCarouselModel.CHIPS);
-        // Copy the list and modify the copy. Modifying the actual list in-place will not fire the
-        // relevant change notifications. TODO(b/144075373): Refactor to avoid this deep copy,
-        // preferably by moving this to native.
-        List<AssistantChip> newChips = new ArrayList<>();
-        for (int i = 0; i < chips.size(); ++i) {
-            AssistantChip newChip = new AssistantChip(chips.get(i));
-            newChips.add(newChip);
-            if (!chips.get(i).getIdentifier().equals(identifier)) {
-                newChip.setVisible(visible);
-            }
-        }
-        model.setChips(newChips);
     }
 
     @CalledByNative
@@ -470,6 +471,13 @@ public class AutofillAssistantUiController {
         }
     }
 
+    private void safeNativeOnFeedbackButtonClicked(int index) {
+        if (mNativeUiController != 0) {
+            AutofillAssistantUiControllerJni.get().onFeedbackButtonClicked(
+                    mNativeUiController, AutofillAssistantUiController.this, index);
+        }
+    }
+
     private void safeNativeOnKeyboardVisibilityChanged(boolean visible) {
         if (mNativeUiController != 0) {
             AutofillAssistantUiControllerJni.get().onKeyboardVisibilityChanged(
@@ -512,6 +520,8 @@ public class AutofillAssistantUiController {
                 long nativeUiControllerAndroid, AutofillAssistantUiController caller, int index);
         void onCloseButtonClicked(
                 long nativeUiControllerAndroid, AutofillAssistantUiController caller);
+        void onFeedbackButtonClicked(
+                long nativeUiControllerAndroid, AutofillAssistantUiController caller, int index);
         void onKeyboardVisibilityChanged(long nativeUiControllerAndroid,
                 AutofillAssistantUiController caller, boolean visible);
         void setVisible(long nativeUiControllerAndroid, AutofillAssistantUiController caller,

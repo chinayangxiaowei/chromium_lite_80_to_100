@@ -18,6 +18,7 @@
 <translation id="2178608107313874732">Chromium non pode usar a cámara neste momento</translation>
 <translation id="2195025571279539885">Queres que a próxima vez Chromium che ofreza a posibilidade de traducir as páxinas en <ph name="LANGUAGE_NAME" /> deste sitio?</translation>
 <translation id="2590893390871230428">Sincronizar os teus datos de Chromium</translation>
+<translation id="259614951763923692">Se permites que Chromium saiba cal é a túa localización, este enviaralla ao teu motor de busca predeterminado e aos sitios aos que lles concedas a autorización pertinente. Os sitios poderán preguntarche pola túa localización se teñen información local que mostrarche (por exemplo, noticias ou tendas próximas).</translation>
 <translation id="2650312721222849884">Para ver as túas pestanas desde calquera dispositivo no que utilices Chromium, activa a sincronización</translation>
 <translation id="2730884209570016437">Chromium non pode usar a cámara porque a está usando outra aplicación</translation>
 <translation id="2915596697727466327">Chromium utiliza Face ID para garantir o acceso autorizado aos contrasinais.</translation>
@@ -46,6 +47,7 @@
 <translation id="602807004951640891">Ao usar Chromium, aceptas as <ph name="BEGIN_LINK_TOS" />Condicións de servizo<ph name="END_LINK_TOS" />.</translation>
 <translation id="6268381023930128611">Pechar sesión en Chromium?</translation>
 <translation id="6424492062988593837">Chromium introduciu melloras. Está dispoñible unha nova versión.</translation>
+<translation id="6604711459180487467">Obtén unha mellor experiencia en Chromium baseada na túa localización.</translation>
 <translation id="6820823224820483452">Chromium non puido comprobar todos os contrasinais. Téntao de novo mañá.</translation>
 <translation id="7018284295775193585">Chromium non se pode actualizar</translation>
 <translation id="7099326575020694068">Chromium non pode usar a cámara no modo Vista dividida</translation>
@@ -61,7 +63,6 @@
 <translation id="7746854981345936341">Consello sobre Chromium: Agora algúns botóns, como Atrás, Adiante e Buscar, están na parte inferior da pantalla.</translation>
 <translation id="786327964234957808">Estás cambiando a conta de sincronización <ph name="USER_EMAIL1" /> por <ph name="USER_EMAIL2" />. <ph name="DOMAIN" /> xestiona os datos de Chromium actuais. Ao realizar esta acción, eliminaranse os teus datos deste dispositivo, pero conservaranse en <ph name="USER_EMAIL1" />.</translation>
 <translation id="7890287942691234100">Comeza a utilizar o escáner de Chromium</translation>
-<translation id="7980860476903281594">Chromium comparte a localización cos sitios que queiras.</translation>
 <translation id="8013573822802650211">Para ver as túas pestanas desde calquera dispositivo no que utilices Chromium, inicia sesión en todos eles</translation>
 <translation id="8073677936375100957">Queres borrar os teus datos de Chromium deste dispositivo?</translation>
 <translation id="8175055321229419309">Consello: <ph name="BEGIN_LINK" />Engade Chromium á barra de aplicacións<ph name="END_LINK" /></translation>

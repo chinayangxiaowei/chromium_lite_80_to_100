@@ -14,7 +14,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/numerics/ranges.h"
-#include "base/stl_util.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -224,14 +224,6 @@ class TabStripModel::WebContentsData : public content::WebContentsObserver {
   bool blocked_ = false;
 
   // The group that contains this tab, if any.
-  // TODO(https://crbug.com/915956): While tab groups are being prototyped
-  // (behind a feature flag), we are tracking group membership in the simplest
-  // possible way. There are some known issues intentionally punted here:
-  //   - Groups are meant to be contiguous, but this data organization doesn't
-  //     help to ensure that they stay contiguous. Any kind of tab movement may
-  //     break that guarantee, with undefined results.
-  //   - The exact shape of the group-related changes to the TabStripModel API
-  //     (and the relevant bits of the extension API) are TBD.
   base::Optional<tab_groups::TabGroupId> group_ = base::nullopt;
 };
 
@@ -619,11 +611,7 @@ int TabStripModel::MoveWebContentsAt(int index,
 
   DCHECK(ContainsIndex(index));
 
-  // Ensure pinned and non-pinned tabs do not mix.
-  const int first_non_pinned_tab = IndexOfFirstNonPinnedTab();
-  to_position = IsTabPinned(index)
-                    ? std::min(first_non_pinned_tab - 1, to_position)
-                    : std::max(first_non_pinned_tab, to_position);
+  to_position = ConstrainMoveIndex(to_position, IsTabPinned(index));
 
   if (index == to_position)
     return to_position;
@@ -850,6 +838,24 @@ base::Optional<tab_groups::TabGroupId> TabStripModel::GetTabGroupForTab(
   return ContainsIndex(index) ? contents_data_[index]->group() : base::nullopt;
 }
 
+base::Optional<tab_groups::TabGroupId> TabStripModel::GetSurroundingTabGroup(
+    int index) const {
+  if (!ContainsIndex(index - 1) || !ContainsIndex(index))
+    return base::nullopt;
+
+  // If the tab before is not in a group, a tab inserted at |index|
+  // wouldn't be surrounded by one group.
+  base::Optional<tab_groups::TabGroupId> group = GetTabGroupForTab(index - 1);
+  if (!group)
+    return base::nullopt;
+
+  // If the tab after is in a different (or no) group, a new tab at
+  // |index| isn't surrounded.
+  if (group != GetTabGroupForTab(index))
+    return base::nullopt;
+  return group;
+}
+
 int TabStripModel::IndexOfFirstNonPinnedTab() const {
   for (size_t i = 0; i < contents_data_.size(); ++i) {
     if (!IsTabPinned(static_cast<int>(i)))
@@ -955,7 +961,7 @@ void TabStripModel::AddWebContents(
   if (group.has_value()) {
     auto grouped_tabs = group_model_->GetTabGroup(group.value())->ListTabs();
     if (grouped_tabs.size() > 0) {
-      DCHECK(base::STLIsSorted(grouped_tabs));
+      DCHECK(base::ranges::is_sorted(grouped_tabs));
       index = base::ClampToRange(index, grouped_tabs.front(),
                                  grouped_tabs.back() + 1);
     }
@@ -1038,6 +1044,10 @@ tab_groups::TabGroupId TabStripModel::AddToNewGroup(
     const std::vector<int>& indices) {
   ReentrancyCheck reentrancy_check(&reentrancy_guard_);
 
+  // Ensure that the indices are sorted and unique.
+  DCHECK(base::ranges::is_sorted(indices));
+  DCHECK(std::adjacent_find(indices.begin(), indices.end()) == indices.end());
+
   // The odds of |new_group| colliding with an existing group are astronomically
   // low. If there is a collision, a DCHECK will fail in |AddToNewGroupImpl()|,
   // in which case there is probably something wrong with
@@ -1053,12 +1063,17 @@ void TabStripModel::AddToExistingGroup(const std::vector<int>& indices,
                                        const tab_groups::TabGroupId& group) {
   ReentrancyCheck reentrancy_check(&reentrancy_guard_);
 
+  // Ensure that the indices are sorted and unique.
+  DCHECK(base::ranges::is_sorted(indices));
+  DCHECK(std::adjacent_find(indices.begin(), indices.end()) == indices.end());
+
   AddToExistingGroupImpl(indices, group);
 }
 
-void TabStripModel::MoveTabsAndSetGroup(const std::vector<int>& indices,
-                                        int destination_index,
-                                        const tab_groups::TabGroupId& group) {
+void TabStripModel::MoveTabsAndSetGroup(
+    const std::vector<int>& indices,
+    int destination_index,
+    base::Optional<tab_groups::TabGroupId> group) {
   ReentrancyCheck reentrancy_check(&reentrancy_guard_);
 
   MoveTabsAndSetGroupImpl(indices, destination_index, group);
@@ -1587,10 +1602,17 @@ bool TabStripModel::ShouldRunUnloadListenerBeforeClosing(
          delegate_->ShouldRunUnloadListenerBeforeClosing(contents);
 }
 
-int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) {
+int TabStripModel::ConstrainInsertionIndex(int index, bool pinned_tab) const {
   return pinned_tab
              ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab())
              : base::ClampToRange(index, IndexOfFirstNonPinnedTab(), count());
+}
+
+int TabStripModel::ConstrainMoveIndex(int index, bool pinned_tab) const {
+  return pinned_tab
+             ? base::ClampToRange(index, 0, IndexOfFirstNonPinnedTab() - 1)
+             : base::ClampToRange(index, IndexOfFirstNonPinnedTab(),
+                                  count() - 1);
 }
 
 std::vector<int> TabStripModel::GetIndicesForCommand(int index) const {
@@ -1982,25 +2004,34 @@ void TabStripModel::AddToNewGroupImpl(const std::vector<int>& indices,
 
   group_model_->AddTabGroup(new_group, base::nullopt);
 
-  // Find a destination for the first tab that's not inside another group. We
-  // will stack the rest of the tabs up to its right.
+  // Find a destination for the first tab that's not pinned or inside another
+  // group. We will stack the rest of the tabs up to its right.
   int destination_index = -1;
   for (int i = indices[0]; i < count(); i++) {
     const int destination_candidate = i + 1;
-    const bool end_of_strip = !ContainsIndex(destination_candidate);
-    if (end_of_strip || !GetTabGroupForTab(destination_candidate).has_value() ||
-        GetTabGroupForTab(destination_candidate) !=
-            GetTabGroupForTab(indices[0])) {
+
+    // Grouping at the end of the tabstrip is always valid.
+    if (!ContainsIndex(destination_candidate)) {
+      destination_index = destination_candidate;
+      break;
+    }
+
+    // Grouping in the middle of pinned tabs is never valid.
+    if (IsTabPinned(destination_candidate))
+      continue;
+
+    // Otherwise, grouping is valid if the destination is not in the middle of a
+    // different group.
+    base::Optional<tab_groups::TabGroupId> destination_group =
+        GetTabGroupForTab(destination_candidate);
+    if (!destination_group.has_value() ||
+        destination_group != GetTabGroupForTab(indices[0])) {
       destination_index = destination_candidate;
       break;
     }
   }
 
-  // Unpin tabs when grouping -- the states should be mutually exclusive.
-  std::vector<int> new_indices = indices;
-  new_indices = SetTabsPinned(new_indices, false);
-
-  MoveTabsAndSetGroupImpl(new_indices, destination_index, new_group);
+  MoveTabsAndSetGroupImpl(indices, destination_index, new_group);
 }
 
 void TabStripModel::AddToExistingGroupImpl(
@@ -2017,26 +2048,23 @@ void TabStripModel::AddToExistingGroupImpl(
   if (!group_model_->ContainsTabGroup(group))
     return;
 
-  // Unpin tabs when grouping -- the states should be mutually exclusive.
-  std::vector<int> new_indices = SetTabsPinned(indices, false);
-
   std::vector<int> tabs_in_group = group_model_->GetTabGroup(group)->ListTabs();
-  DCHECK(base::STLIsSorted(tabs_in_group));
+  DCHECK(base::ranges::is_sorted(tabs_in_group));
 
-  // Split |new_indices| into |tabs_left_of_group| and |tabs_right_of_group| to
+  // Split |indices| into |tabs_left_of_group| and |tabs_right_of_group| to
   // be moved to proper destination index. Directly set the group for indices
   // that are inside the group.
   std::vector<int> tabs_left_of_group;
   std::vector<int> tabs_right_of_group;
-  for (int new_index : new_indices) {
-    if (new_index >= tabs_in_group.front() &&
-        new_index <= tabs_in_group.back()) {
-      GroupTab(new_index, group);
-    } else if (new_index < tabs_in_group.front()) {
-      tabs_left_of_group.push_back(new_index);
+  for (int index : indices) {
+    if (index >= tabs_in_group.front() &&
+        index <= tabs_in_group.back()) {
+      GroupTab(index, group);
+    } else if (index < tabs_in_group.front()) {
+      tabs_left_of_group.push_back(index);
     } else {
-      DCHECK(new_index > tabs_in_group.back());
-      tabs_right_of_group.push_back(new_index);
+      DCHECK(index > tabs_in_group.back());
+      tabs_right_of_group.push_back(index);
     }
   }
 
@@ -2076,12 +2104,22 @@ void TabStripModel::MoveAndSetGroup(
     int index,
     int new_index,
     base::Optional<tab_groups::TabGroupId> new_group) {
-  DCHECK(!IsTabPinned(index));
+  if (new_group.has_value()) {
+    // Unpin tabs when grouping -- the states should be mutually exclusive.
+    // Here we manually unpin the tab to avoid moving the tab twice, which can
+    // potentially cause race conditions.
+    if (IsTabPinned(index)) {
+      contents_data_[index]->set_pinned(false);
+      for (auto& observer : observers_) {
+        observer.TabPinnedStateChanged(
+            this, contents_data_[index]->web_contents(), index);
+      }
+    }
 
-  if (new_group.has_value())
     GroupTab(index, new_group.value());
-  else
+  } else {
     UngroupTab(index);
+  }
 
   if (index != new_index)
     MoveWebContentsAtImpl(index, new_index, false);
@@ -2090,7 +2128,6 @@ void TabStripModel::MoveAndSetGroup(
 void TabStripModel::AddToReadLaterImpl(const std::vector<int>& indices) {
   ReadingListModel* model =
       ReadingListModelFactory::GetForBrowserContext(profile_);
-  std::vector<WebContents*> closing_contents;
   if (!model || !model->loaded())
     return;
 
@@ -2102,11 +2139,8 @@ void TabStripModel::AddToReadLaterImpl(const std::vector<int>& indices) {
     if (model->IsUrlSupported(url)) {
       model->AddEntry(url, base::UTF16ToUTF8(title),
                       reading_list::EntrySource::ADDED_VIA_CURRENT_APP);
-      closing_contents.push_back(contents);
     }
   }
-  InternalCloseTabs(closing_contents,
-                    CLOSE_CREATE_HISTORICAL_TAB | CLOSE_USER_GESTURE);
 }
 
 base::Optional<tab_groups::TabGroupId> TabStripModel::UngroupTab(int index) {
@@ -2225,7 +2259,7 @@ void TabStripModel::SetSitesMuted(const std::vector<int>& indices,
         setting = CONTENT_SETTING_DEFAULT;
       }
       settings->SetContentSettingDefaultScope(
-          url, url, ContentSettingsType::SOUND, std::string(), setting);
+          url, url, ContentSettingsType::SOUND, setting);
     }
   }
 }

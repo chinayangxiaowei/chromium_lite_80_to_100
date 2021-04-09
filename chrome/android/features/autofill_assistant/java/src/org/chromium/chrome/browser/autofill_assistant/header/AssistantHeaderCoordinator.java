@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.autofill_assistant.header;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -17,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.chrome.autofill_assistant.R;
 import org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiController;
+import org.chromium.chrome.browser.autofill_assistant.LayoutUtils;
 import org.chromium.chrome.browser.autofill_assistant.carousel.AssistantChipAdapter;
 import org.chromium.chrome.browser.autofill_assistant.header.AssistantHeaderViewBinder.ViewHolder;
 import org.chromium.chrome.browser.signin.DisplayableProfileData;
@@ -44,7 +44,7 @@ public class AssistantHeaderCoordinator implements ProfileDataCache.Observer {
         // Create the poodle and insert it before the status message. We have to create a view
         // bigger than the desired poodle size (24dp) because the actual downstream implementation
         // needs extra space for the animation.
-        mView = (ViewGroup) LayoutInflater.from(context).inflate(
+        mView = (ViewGroup) LayoutUtils.createInflater(context).inflate(
                 R.layout.autofill_assistant_header, /* root= */ null);
         AnimatedPoodle poodle = new AnimatedPoodle(context,
                 context.getResources().getDimensionPixelSize(
@@ -111,8 +111,6 @@ public class AssistantHeaderCoordinator implements ProfileDataCache.Observer {
                 new AssistantHeaderViewBinder.ViewHolder(context, mView, poodle, mChipsContainer);
         AssistantHeaderViewBinder viewBinder = new AssistantHeaderViewBinder();
         PropertyModelChangeProcessor.create(model, mViewHolder, viewBinder);
-
-        model.set(AssistantHeaderModel.PROGRESS_VISIBLE, true);
     }
 
     @Override

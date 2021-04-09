@@ -10,9 +10,8 @@
 <translation id="2009224836393115614">Chrome, şifrelerinizi kontrol edemedi. İnternet bağlantınızı kontrol etmeyi deneyin.</translation>
 <translation id="2147651015520127414">Chrome, bu web sitesi sertifikasının <ph name="ISSUER" /> tarafından yayınlandığını doğruladı.</translation>
 <translation id="2199719347983604670">Chrome senkronizasyonundan veriler</translation>
-<translation id="2342919707875585281">Chrome, konumunuzu izin verdiğiniz sitelerle paylaşır.</translation>
 <translation id="2347208864470321755">Bu özellik açık durumdayken Chrome, diğer dillerde yazılmış sayfaları Google Çeviri'yi kullanarak çevirmeyi teklif eder. <ph name="BEGIN_LINK" />Daha fazla bilgi edinin<ph name="END_LINK" /></translation>
-<translation id="2415682770504543561">Chrome'u Varsayılan Tarayıcınız Yapın</translation>
+<translation id="2415682770504543561">Chrome'u Varsayılan Tarayıcınız Yapma</translation>
 <translation id="2574249610672786438">Chrome kullandığınız her yerde sekmelerinizi görmek için tüm cihazlarınızda oturum açın.</translation>
 <translation id="2576431527583832481">Chrome daha da iyi hale geldi! Yeni bir sürüm var.</translation>
 <translation id="257708665678654955">Google Chrome'un bir dahaki sefere bu siteden <ph name="LANGUAGE_NAME" /> dilindeki sayfaları çevirmeyi önermesini ister misiniz?</translation>
@@ -20,6 +19,7 @@
 <translation id="2732745070297234559">Chrome, şifrelerin tümünü kontrol edemedi. Yarın tekrar deneyin.</translation>
 <translation id="2919738076569633423">Chrome'u kullanarak <ph name="BEGIN_LINK_TOS" />Hizmet Şartları<ph name="END_LINK_TOS" />'nı kabul etmiş sayılırsınız.</translation>
 <translation id="3030414234702425231"><ph name="SIGNOUT_MANAGED_DOMAIN" /> tarafından yönetilen bir hesabın oturumunu kapattığınız için Chrome verileriniz bu cihazdan silinecek. Ancak verileriniz Google Hesabınızda kalmaya devam edecek.</translation>
+<translation id="3148688391461398285">Konumunuza dayalı olarak Chrome'da daha iyi deneyim elde edin.</translation>
 <translation id="3167189358072330585">Hesabınız Google Chrome'da kullanılamıyor. Lütfen alan adı yöneticinizle iletişim kurun veya oturum açmak için normal bir Google Hesabı kullanın.</translation>
 <translation id="3173834708294760622">Google Chrome Sayfası</translation>
 <translation id="3196546062792660320">Chrome, hesaplarınızı web'e getirerek size zaman kazandırır. Hesapları Ayarlar'dan ekleyebilir veya kaldırabilirsiniz.</translation>
@@ -76,4 +76,5 @@
 <translation id="840168496893712993">Bazı eklentiler Chrome'un kilitlenmesine neden oluyor. Lütfen bunların yüklemesini kaldırmayı deneyin.</translation>
 <translation id="8459495907675268833">Seçilen veriler Chrome'dan ve senkronize edilen cihazlardan kaldırıldı. Diğer Google hizmetlerinden yapılan aramalar ve etkinlikler gibi Google Hesabınızla ilişkili başka biçimlerde tarama geçmişi history.google.com adresinde bulunabilir.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
+<translation id="9135668017386497357">Chrome'un konumunuzu bilmesine izin verirseniz Chrome, konumunuzu varsayılan arama motorunuza ve izin verdiğiniz tüm sitelere gönderir. Siteler, yakındaki mağazalar veya haberler gibi size gösterecek yerel bilgileri olduğunda konumunuza erişmek isteyebilir.</translation>
 </translationbundle>

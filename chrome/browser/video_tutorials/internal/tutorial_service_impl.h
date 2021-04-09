@@ -25,15 +25,13 @@ class TutorialServiceImpl : public VideoTutorialService {
   void GetTutorials(MultipleItemCallback callback) override;
   void GetTutorial(FeatureType feature_type,
                    SingleItemCallback callback) override;
-  const std::vector<Language>& GetSupportedLanguages() override;
-  std::string GetPreferredLocale() override;
+  const std::vector<std::string>& GetSupportedLanguages() override;
+  const std::vector<std::string>& GetAvailableLanguagesForTutorial(
+      FeatureType feature_type) override;
+  base::Optional<std::string> GetPreferredLocale() override;
   void SetPreferredLocale(const std::string& locale) override;
 
  private:
-  void OnGetTutorials(SingleItemCallback callback,
-                      FeatureType feature_type,
-                      std::vector<Tutorial> tutorials);
-
   // Called at service startup to determine if a network fetch is necessary
   // based on the last fetch timestamp.
   void StartFetchIfNecessary();

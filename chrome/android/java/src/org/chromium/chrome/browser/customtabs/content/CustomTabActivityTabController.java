@@ -405,7 +405,9 @@ public class CustomTabActivityTabController implements InflationObserver {
                                 mConnection.getClientPackageNameForSession(mSession)));
         // clang-format on
 
-        mConnection.setClientDataHeaderForNewTab(mSession, webContents);
+        if (!tab.isIncognito()) {
+            mConnection.setClientDataHeaderForNewTab(mSession, webContents);
+        }
 
         initializeTab(tab);
 
@@ -444,13 +446,11 @@ public class CustomTabActivityTabController implements InflationObserver {
         }
 
         recordWebContentsStateOnLaunch(WebContentsState.NO_WEBCONTENTS);
-        if (mCustomTabIncognitoManager.get().isEnabledIncognitoCCT()) {
+        if (mIntentDataProvider.isIncognito()) {
             return mWebContentsFactory.createWebContentsWithWarmRenderer(
                     mCustomTabIncognitoManager.get().getProfile(), false);
         } else {
-            Profile profile = mIntentDataProvider.isIncognito()
-                    ? mProfileProvider.getPrimaryOTRProfile()
-                    : mProfileProvider.getLastUsedRegularProfile();
+            Profile profile = mProfileProvider.getLastUsedRegularProfile();
             return mWebContentsFactory.createWebContentsWithWarmRenderer(profile, false);
         }
     }

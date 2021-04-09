@@ -11,8 +11,7 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
-#include "components/safe_browsing/core/features.h"
-#import "components/signin/ios/browser/features.h"
+#include "components/signin/public/base/account_consistency_method.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/ukm/ios/features.h"
@@ -30,6 +29,7 @@
 #import "ios/chrome/browser/ui/settings/cells/sync_switch_item.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/google_services/google_services_settings_constants.h"
+#import "ios/chrome/browser/ui/settings/google_services/sync_error_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/ui/settings/utils/observable_boolean.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
@@ -49,7 +49,6 @@
 #endif
 
 using l10n_util::GetNSString;
-using safe_browsing::kSafeBrowsingAvailableOnIOS;
 
 typedef NSArray<TableViewItem*>* ItemArray;
 
@@ -123,7 +122,7 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 @property(nonatomic, assign, readonly) BOOL isSyncDisabledByAdministrator;
 // Returns YES if the user is allowed to turn on sync (even if there is a sync
 // error).
-@property(nonatomic, assign, readonly) BOOL isSyncCanBeAvailable;
+@property(nonatomic, assign, readonly) BOOL shouldDisplaySync;
 // Sync setup service.
 @property(nonatomic, assign, readonly) SyncSetupService* syncSetupService;
 // ** Identity section.
@@ -254,14 +253,12 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
   }
   [model addItem:self.accountItem
       toSectionWithIdentifier:IdentitySectionIdentifier];
-  if (signin::IsSSOEditingEnabled()) {
-    TableViewImageItem* manageGoogleAccount =
-        [[TableViewImageItem alloc] initWithType:ManageGoogleAccountItemType];
-    manageGoogleAccount.title =
-        GetNSString(IDS_IOS_MANAGE_YOUR_GOOGLE_ACCOUNT_TITLE);
-    [model addItem:manageGoogleAccount
-        toSectionWithIdentifier:IdentitySectionIdentifier];
-  }
+  TableViewImageItem* manageGoogleAccount =
+      [[TableViewImageItem alloc] initWithType:ManageGoogleAccountItemType];
+  manageGoogleAccount.title =
+      GetNSString(IDS_IOS_MANAGE_YOUR_GOOGLE_ACCOUNT_TITLE);
+  [model addItem:manageGoogleAccount
+      toSectionWithIdentifier:IdentitySectionIdentifier];
 }
 
 // Creates, removes or updates the identity section as needed. And notifies the
@@ -325,6 +322,11 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 // Updates the sync section. If |notifyConsumer| is YES, the consumer is
 // notified about model changes.
 - (void)updateSyncSection:(BOOL)notifyConsumer {
+  if (base::FeatureList::IsEnabled(signin::kMobileIdentityConsistency)) {
+    // Chrome adds the sync section within "Manage Your Settings" for the MICE
+    // experiment.
+    return;
+  }
   BOOL needsAccountSigninItemUpdate = [self updateAccountSignInItem];
   BOOL needsSyncErrorItemsUpdate = [self updateSyncErrorItems];
   BOOL needsSyncChromeDataItemUpdate = [self updateSyncChromeDataItem];
@@ -447,7 +449,7 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 // reloaded.
 - (BOOL)updateManageSyncItem {
   TableViewModel* model = self.consumer.tableViewModel;
-  if (self.isSyncCanBeAvailable) {
+  if (self.shouldDisplaySync) {
     BOOL needsUpdate = NO;
     if (!self.manageSyncItem) {
       self.manageSyncItem =
@@ -481,7 +483,7 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
 // updated.
 - (BOOL)updateSyncChromeDataItem {
   TableViewModel* model = self.consumer.tableViewModel;
-  if (self.isSyncCanBeAvailable) {
+  if (self.shouldDisplaySync) {
     BOOL needsUpdate = NO;
     if (!self.syncChromeDataSwitchItem) {
       self.syncChromeDataSwitchItem =
@@ -597,7 +599,7 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
           self.mode == GoogleServicesSettingsModeAdvancedSigninSettings);
 }
 
-- (BOOL)isSyncCanBeAvailable {
+- (BOOL)shouldDisplaySync {
   return self.isAuthenticated && !self.isSyncDisabledByAdministrator;
 }
 
@@ -625,31 +627,28 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
                         dataType:0];
       [items addObject:autocompleteItem];
     }
-    if (base::FeatureList::IsEnabled(kSafeBrowsingAvailableOnIOS)) {
-      if (base::FeatureList::IsEnabled(kEnableIOSManagedSettingsUI) &&
-          self.userPrefService->IsManagedPreference(
-              prefs::kSafeBrowsingEnabled)) {
-        TableViewInfoButtonItem* safeBrowsingManagedItem = [self
-            TableViewInfoButtonItemType:
-                AutocompleteSearchesAndURLsManagedItemType
-                           textStringID:
-                               IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_TEXT
-                         detailStringID:
-                             IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_DETAIL
-                                 status:self.safeBrowsingPreference];
-        [items addObject:safeBrowsingManagedItem];
-      } else {
-        SyncSwitchItem* safeBrowsingItem = [self
-            switchItemWithItemType:SafeBrowsingItemType
-                      textStringID:
-                          IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_TEXT
-                    detailStringID:
-                        IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_DETAIL
-                          dataType:0];
-        safeBrowsingItem.accessibilityIdentifier =
-            kSafeBrowsingItemAccessibilityIdentifier;
-        [items addObject:safeBrowsingItem];
-      }
+    if (base::FeatureList::IsEnabled(kEnableIOSManagedSettingsUI) &&
+        self.userPrefService->IsManagedPreference(
+            prefs::kSafeBrowsingEnabled)) {
+      TableViewInfoButtonItem* safeBrowsingManagedItem = [self
+          TableViewInfoButtonItemType:AutocompleteSearchesAndURLsManagedItemType
+                         textStringID:
+                             IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_TEXT
+                       detailStringID:
+                           IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_DETAIL
+                               status:self.safeBrowsingPreference];
+      [items addObject:safeBrowsingManagedItem];
+    } else {
+      SyncSwitchItem* safeBrowsingItem = [self
+          switchItemWithItemType:SafeBrowsingItemType
+                    textStringID:
+                        IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_TEXT
+                  detailStringID:
+                      IDS_IOS_GOOGLE_SERVICES_SETTINGS_SAFE_BROWSING_DETAIL
+                        dataType:0];
+      safeBrowsingItem.accessibilityIdentifier =
+          kSafeBrowsingItemAccessibilityIdentifier;
+      [items addObject:safeBrowsingItem];
     }
     [items addObject:self.passwordLeakCheckItem];
     SyncSwitchItem* improveChromeItem =
@@ -812,7 +811,11 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
     (GoogleServicesSettingsViewController*)controller {
   DCHECK_EQ(self.consumer, controller);
   [self loadIdentitySection];
-  [self loadSyncSection];
+  // For the MICE experiment Chrome will display the Sync section within "Manage
+  // Sync Settings".
+  if (!base::FeatureList::IsEnabled(signin::kMobileIdentityConsistency)) {
+    [self loadSyncSection];
+  }
   [self loadNonPersonalizedSection];
   _identityManagerObserverBridge.reset(
       new signin::IdentityManagerObserverBridge(self.identityManager, self));
@@ -902,16 +905,16 @@ NSString* kGoogleServicesSyncErrorImage = @"google_services_sync_error";
       [self.commandHandler showSignIn];
       break;
     case RestartAuthenticationFlowErrorItemType:
-      [self.commandHandler restartAuthenticationFlow];
+      [self.syncErrorHandler restartAuthenticationFlow];
       break;
     case ReauthDialogAsSyncIsInAuthErrorItemType:
-      [self.commandHandler openReauthDialogAsSyncIsInAuthError];
+      [self.syncErrorHandler openReauthDialogAsSyncIsInAuthError];
       break;
     case ShowPassphraseDialogErrorItemType:
-      [self.commandHandler openPassphraseDialog];
+      [self.syncErrorHandler openPassphraseDialog];
       break;
     case SyncNeedsTrustedVaultKeyErrorItemType:
-      [self.commandHandler openTrustedVaultReauth];
+      [self.syncErrorHandler openTrustedVaultReauth];
       break;
     case ManageSyncItemType:
       [self.commandHandler openManageSyncSettings];

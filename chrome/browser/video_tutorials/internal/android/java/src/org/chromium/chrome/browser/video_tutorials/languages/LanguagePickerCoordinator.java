@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.video_tutorials.languages;
 import android.content.Context;
 import android.view.View;
 
+import org.chromium.chrome.browser.video_tutorials.FeatureType;
+import org.chromium.chrome.browser.video_tutorials.LanguageInfoProvider;
 import org.chromium.chrome.browser.video_tutorials.VideoTutorialService;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -27,22 +29,26 @@ public class LanguagePickerCoordinator {
      * @param view The view representing this language picker.
      * @param videoTutorialService The video tutorial service backend.
      */
-    public LanguagePickerCoordinator(View view, VideoTutorialService videoTutorialService) {
+    public LanguagePickerCoordinator(View view, VideoTutorialService videoTutorialService,
+            LanguageInfoProvider languageInfoProvider) {
         mContext = view.getContext();
         mVideoTutorialService = videoTutorialService;
         mModel = new PropertyModel(LanguagePickerProperties.ALL_KEYS);
         mListModel = new ModelList();
         mView = new LanguagePickerView(view, mModel, mListModel);
-        mMediator = new LanguagePickerMediator(mContext, mModel, mListModel, videoTutorialService);
+        mMediator = new LanguagePickerMediator(
+                mContext, mModel, mListModel, videoTutorialService, languageInfoProvider);
     }
 
     /**
      * Called to open the language picker UI.
+     * @param feature The tutorial for which the language options will be shown.
      * @param doneCallback The callback to be invoked when the watch button is clicked.
      * @param closeCallback The callback to be invoked when the close button is clicked.
      */
-    public void showLanguagePicker(Runnable doneCallback, Runnable closeCallback) {
-        mMediator.showLanguagePicker(doneCallback, closeCallback);
+    public void showLanguagePicker(
+            @FeatureType int feature, Runnable doneCallback, Runnable closeCallback) {
+        mMediator.showLanguagePicker(feature, doneCallback, closeCallback);
     }
 
     /** @return A {@link View} representing this coordinator. */

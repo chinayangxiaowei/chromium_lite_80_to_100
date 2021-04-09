@@ -15,17 +15,26 @@ namespace video_tutorials {
 class TutorialManager {
  public:
   using SuccessCallback = base::OnceCallback<void(bool)>;
-  using GetTutorialsCallback = base::OnceCallback<void(std::vector<Tutorial>)>;
+  using MultipleItemCallback = base::OnceCallback<void(std::vector<Tutorial>)>;
+  using SingleItemCallback = base::OnceCallback<void(base::Optional<Tutorial>)>;
 
   // Loads video tutorials. Must be called again if the locale was changed by
   // the user.
-  virtual void GetTutorials(GetTutorialsCallback callback) = 0;
+  virtual void GetTutorials(MultipleItemCallback callback) = 0;
+
+  // Called to retrieve the tutorial associated with |feature_type|.
+  virtual void GetTutorial(FeatureType feature_type,
+                           SingleItemCallback callback) = 0;
 
   // Returns a list of languages for which video tutorials are available.
-  virtual const std::vector<Language>& GetSupportedLanguages() = 0;
+  virtual const std::vector<std::string>& GetSupportedLanguages() = 0;
+
+  // Returns a list of languages in which a given tutorial is available.
+  virtual const std::vector<std::string>& GetAvailableLanguagesForTutorial(
+      FeatureType feature_type) = 0;
 
   // Returns the preferred locale for the video tutorials.
-  virtual std::string GetPreferredLocale() = 0;
+  virtual base::Optional<std::string> GetPreferredLocale() = 0;
 
   // Sets the user preferred locale for watching the video tutorials. This
   // doesn't update the cached tutorials. GetTutorials must be called for the
@@ -34,8 +43,8 @@ class TutorialManager {
 
   // Saves a fresh set of video tutorials into database. Called after a network
   // fetch.
-  virtual void SaveGroups(std::unique_ptr<std::vector<TutorialGroup>> groups,
-                          SuccessCallback callback) = 0;
+  virtual void SaveGroups(
+      std::unique_ptr<std::vector<TutorialGroup>> groups) = 0;
 
   virtual ~TutorialManager() = default;
 

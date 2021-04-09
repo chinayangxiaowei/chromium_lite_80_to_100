@@ -14,10 +14,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.video_tutorials.FeatureType;
+import org.chromium.chrome.browser.video_tutorials.LanguageInfoProvider;
 import org.chromium.chrome.browser.video_tutorials.test.TestVideoTutorialService;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -37,7 +40,9 @@ public class LanguagePickerMediatorUnitTest {
     private ModelList mListModel;
     private LanguagePickerMediator mMediator;
     @Mock
-    PropertyObservable.PropertyObserver<PropertyKey> mPropertyObserver;
+    private PropertyObservable.PropertyObserver<PropertyKey> mPropertyObserver;
+    @Mock
+    private LanguageInfoProvider mLanguageProvider;
 
     @Before
     public void setUp() {
@@ -49,13 +54,13 @@ public class LanguagePickerMediatorUnitTest {
 
         mListModel = new ModelList();
         mTestVideoTutorialService = new TestVideoTutorialService();
-        mMediator =
-                new LanguagePickerMediator(mContext, mModel, mListModel, mTestVideoTutorialService);
+        mMediator = new LanguagePickerMediator(
+                mContext, mModel, mListModel, mTestVideoTutorialService, mLanguageProvider);
     }
 
     @Test
     public void checkCallbacks() {
-        mMediator.showLanguagePicker(() -> {}, () -> {});
+        mMediator.showLanguagePicker(FeatureType.CHROME_INTRO, () -> {}, () -> {});
         verify(mPropertyObserver)
                 .onPropertyChanged(mModel, LanguagePickerProperties.CLOSE_CALLBACK);
         verify(mPropertyObserver)
@@ -64,7 +69,14 @@ public class LanguagePickerMediatorUnitTest {
 
     @Test
     public void loadsLanguagesInTheList() {
-        mMediator.showLanguagePicker(() -> {}, () -> {});
+        Mockito.when(mLanguageProvider.getLanguageInfo("hi"))
+                .thenReturn(TestVideoTutorialService.HINDI);
+        Mockito.when(mLanguageProvider.getLanguageInfo("ta"))
+                .thenReturn(TestVideoTutorialService.TAMIL);
+        Mockito.when(mLanguageProvider.getLanguageInfo("en"))
+                .thenReturn(TestVideoTutorialService.ENGLISH);
+
+        mMediator.showLanguagePicker(FeatureType.CHROME_INTRO, () -> {}, () -> {});
 
         assertThat(mListModel.size(), equalTo(mTestVideoTutorialService.getTestLanguages().size()));
         ListItem listItem = mListModel.get(0);

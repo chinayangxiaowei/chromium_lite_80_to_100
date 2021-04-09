@@ -16,10 +16,10 @@
 #include <vector>
 
 #include "base/callback.h"
-#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/fuchsia/startup_context.h"
+#include "base/optional.h"
 #include "fuchsia/runners/cast/cast_component.h"
 #include "fuchsia/runners/cast/pending_cast_component.h"
 
@@ -52,9 +52,11 @@ class CastRunner : public fuchsia::sys::Runner,
                       fidl::InterfaceRequest<fuchsia::sys::ComponentController>
                           controller_request) final;
 
-  // Returns a fuchsia.web.FrameHost interface to the main web.Context used to
-  // host non-isolated Cast applications.
-  fuchsia::web::FrameHost* main_context_frame_host() const;
+  // Enables the special component that provides the fuchsia.web.FrameHost API,
+  // hosted using the same WebEngine instance as the main web.Context.
+  void set_enable_frame_host_component() {
+    enable_frame_host_component_ = true;
+  }
 
   // Disables use of the VULKAN feature when creating Contexts. Must be set
   // before calling StartComponent().
@@ -100,6 +102,21 @@ class CastRunner : public fuchsia::sys::Runner,
   void OnMetricsRecorderServiceRequest(
       fidl::InterfaceRequest<fuchsia::legacymetrics::MetricsRecorder> request);
 
+  // Internal implementation of StartComponent(), called after validating the
+  // component URL and ensuring that CORS-exempt headers have been fetched.
+  void StartComponentInternal(
+      const GURL& url,
+      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
+      fidl::InterfaceRequest<fuchsia::sys::ComponentController>
+          controller_request);
+
+  // Moves all data persisted by the main Context to a staging directory,
+  // which will be deleted the next time the Runner starts up.
+  // Requests to launch new components in the main Context will be rejected
+  // until this Runner instance is shutdown.
+  // Returns true on success and false in case of I/O error.
+  bool DeletePersistentData();
+
   // True if this Runner uses Context(s) with the HEADLESS feature set.
   const bool is_headless_;
 
@@ -123,17 +140,38 @@ class CastRunner : public fuchsia::sys::Runner,
                  base::UniquePtrComparator>
       pending_components_;
 
-  // List of HTTP headers to exempt from CORS checks.
-  std::vector<std::vector<uint8_t>> cors_exempt_headers_;
+  // True if this Runner should offer the fuchsia.web.FrameHost component.
+  bool enable_frame_host_component_ = false;
 
-  // Last component that was created with permission to access MICROPHONE.
-  CastComponent* audio_capturer_component_ = nullptr;
+  // Used to fetch & cache the list of CORS exempt HTTP headers to configure
+  // each web.Context with.
+  base::Optional<std::vector<std::vector<uint8_t>>> cors_exempt_headers_;
+  chromium::cast::CorsExemptHeaderProviderPtr cors_exempt_headers_provider_;
+  std::vector<base::OnceClosure> on_have_cors_exempt_headers_;
 
-  // Last component that was created with permission to access CAMERA.
-  CastComponent* video_capturer_component_ = nullptr;
+  // Reference to the service directory of the most recent FrameHost component.
+  // Used to route MetricsRecorder requests from the web.Context, if there are
+  // no CastComponents available through which to do so.
+  base::WeakPtr<const sys::ServiceDirectory>
+      frame_host_component_incoming_services_;
+
+  // List of components created with permission to access MICROPHONE.
+  base::flat_set<CastComponent*> audio_capturer_components_;
+
+  // List of components created with permission to access CAMERA.
+  base::flat_set<CastComponent*> video_capturer_components_;
+
+  // The URL of the agent first using the respective capturer component.
+  std::string first_audio_capturer_agent_url_;
+  std::string first_video_capturer_agent_url_;
 
   // True if Contexts should be created without VULKAN set.
   bool disable_vulkan_for_test_ = false;
+
+  // True if cast runner entered data reset mode. Prevents new components
+  // in the main context from being launched. This is set to true once data
+  // reset starts and does not switch back to false upon completion.
+  bool data_reset_in_progress_ = false;
 };
 
 #endif  // FUCHSIA_RUNNERS_CAST_CAST_RUNNER_H_

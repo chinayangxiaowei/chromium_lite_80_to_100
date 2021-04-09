@@ -17,6 +17,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
+import org.chromium.chrome.browser.autofill_assistant.trigger_scripts.AssistantTriggerScriptBridge;
 import org.chromium.chrome.browser.signin.IdentityServicesProvider;
 import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.components.signin.AccessTokenData;
@@ -35,7 +36,7 @@ import java.util.Map;
  * This mainly a bridge to autofill_assistant::ClientAndroid.
  */
 @JNINamespace("autofill_assistant")
-class AutofillAssistantClient {
+public class AutofillAssistantClient {
     /** OAuth2 scope that RPCs require. */
     private static final String AUTH_TOKEN_TYPE =
             "oauth2:https://www.googleapis.com/auth/userinfo.profile";
@@ -108,13 +109,13 @@ class AutofillAssistantClient {
      */
     boolean start(String initialUrl, Map<String, String> parameters, String experimentIds,
             @Nullable String callerAccount, @Nullable String userName, boolean isChromeCustomTab,
-            @Nullable AssistantOnboardingCoordinator onboardingCoordinator) {
+            @Nullable BaseOnboardingCoordinator onboardingCoordinator) {
         if (mNativeClientAndroid == 0) return false;
 
         checkNativeClientIsAliveOrThrow();
         chooseAccountAsyncIfNecessary(userName);
-        return AutofillAssistantClientJni.get().start(mNativeClientAndroid,
-                AutofillAssistantClient.this, initialUrl, experimentIds, callerAccount,
+        return AutofillAssistantClientJni.get().start(mNativeClientAndroid, this, initialUrl,
+                experimentIds, callerAccount,
                 parameters.keySet().toArray(new String[parameters.size()]),
                 parameters.values().toArray(new String[parameters.size()]), isChromeCustomTab,
                 onboardingCoordinator,
@@ -123,13 +124,26 @@ class AutofillAssistantClient {
                 AutofillAssistantServiceInjector.getServiceToInject());
     }
 
+    public void startTriggerScript(AssistantTriggerScriptBridge delegate, String initialUrl,
+            Map<String, String> parameters, String experimentIds) {
+        if (mNativeClientAndroid == 0) {
+            return;
+        }
+        checkNativeClientIsAliveOrThrow();
+        AutofillAssistantClientJni.get().startTriggerScript(mNativeClientAndroid, this, delegate,
+                initialUrl, experimentIds,
+                parameters.keySet().toArray(new String[parameters.size()]),
+                parameters.values().toArray(new String[parameters.size()]),
+                AutofillAssistantServiceInjector.getServiceRequestSenderToInject());
+    }
+
     /**
      * Gets rid of the UI, if there is one. Leaves Autofill Assistant running.
      */
     public void destroyUi() {
         if (mNativeClientAndroid == 0) return;
 
-        AutofillAssistantClientJni.get().destroyUI(
+        AutofillAssistantClientJni.get().onJavaDestroyUI(
                 mNativeClientAndroid, AutofillAssistantClient.this);
     }
 
@@ -199,7 +213,7 @@ class AutofillAssistantClient {
      */
     public boolean performDirectAction(String actionId, String experimentIds,
             Map<String, String> arguments,
-            @Nullable AssistantOnboardingCoordinator onboardingCoordinator) {
+            @Nullable BaseOnboardingCoordinator onboardingCoordinator) {
         if (mNativeClientAndroid == 0) return false;
 
         // Note that only fetchWebsiteActions can start AA, so only it needs
@@ -385,12 +399,15 @@ class AutofillAssistantClient {
         boolean start(long nativeClientAndroid, AutofillAssistantClient caller, String initialUrl,
                 String experimentIds, String callerAccount, String[] parameterNames,
                 String[] parameterValues, boolean isChromeCustomTab,
-                @Nullable AssistantOnboardingCoordinator onboardingCoordinator,
-                boolean onboardingShown, long nativeService);
+                @Nullable BaseOnboardingCoordinator onboardingCoordinator, boolean onboardingShown,
+                long nativeService);
+        void startTriggerScript(long nativeClientAndroid, AutofillAssistantClient caller,
+                AssistantTriggerScriptBridge delegate, String initialUrl, String experimentIds,
+                String[] parameterNames, String[] parameterValues, long nativeServiceRequestSender);
         void onAccessToken(long nativeClientAndroid, AutofillAssistantClient caller,
                 boolean success, String accessToken);
         String getPrimaryAccountName(long nativeClientAndroid, AutofillAssistantClient caller);
-        void destroyUI(long nativeClientAndroid, AutofillAssistantClient caller);
+        void onJavaDestroyUI(long nativeClientAndroid, AutofillAssistantClient caller);
         void transferUITo(
                 long nativeClientAndroid, AutofillAssistantClient caller, Object otherWebContents);
         void fetchWebsiteActions(long nativeClientAndroid, AutofillAssistantClient caller,
@@ -403,7 +420,6 @@ class AutofillAssistantClient {
 
         boolean performDirectAction(long nativeClientAndroid, AutofillAssistantClient caller,
                 String actionId, String experimentId, String[] argumentNames,
-                String[] argumentValues,
-                @Nullable AssistantOnboardingCoordinator onboardingCoordinator);
+                String[] argumentValues, @Nullable BaseOnboardingCoordinator onboardingCoordinator);
     }
 }

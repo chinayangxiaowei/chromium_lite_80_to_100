@@ -18,15 +18,12 @@ import org.chromium.chrome.browser.browserservices.BrowserServicesIntentDataProv
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityNavigationController;
 import org.chromium.chrome.browser.customtabs.content.CustomTabActivityTabProvider;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.Destroyable;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.profiles.OTRProfileID;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.tabmodel.IncognitoTabHost;
-import org.chromium.chrome.browser.tabmodel.IncognitoTabHostRegistry;
 import org.chromium.ui.base.WindowAndroid;
 
 import javax.inject.Inject;
@@ -46,15 +43,10 @@ public class CustomTabIncognitoManager implements NativeInitObserver, Destroyabl
             new UnownedUserDataKey<>(CustomTabIncognitoManager.class);
 
     private final ChromeActivity<?> mChromeActivity;
-    private final CustomTabActivityNavigationController mNavigationController;
     private final BrowserServicesIntentDataProvider mIntentDataProvider;
-    private final CustomTabActivityTabProvider mTabProvider;
     private final WindowAndroid mWindowAndroid;
 
     private OTRProfileID mOTRProfileID;
-
-    @Nullable
-    private IncognitoTabHost mIncognitoTabHost;
 
     @Inject
     public CustomTabIncognitoManager(ChromeActivity<?> customTabActivity,
@@ -65,8 +57,6 @@ public class CustomTabIncognitoManager implements NativeInitObserver, Destroyabl
         mChromeActivity = customTabActivity;
         mWindowAndroid = windowAndroid;
         mIntentDataProvider = intentDataProvider;
-        mNavigationController = navigationController;
-        mTabProvider = tabProvider;
 
         lifecycleDispatcher.register(this);
 
@@ -111,11 +101,6 @@ public class CustomTabIncognitoManager implements NativeInitObserver, Destroyabl
         KEY.detachFromAllHosts(manager);
     }
 
-    public boolean isEnabledIncognitoCCT() {
-        return mIntentDataProvider.isIncognito()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_INCOGNITO);
-    }
-
     public Profile getProfile() {
         if (mOTRProfileID == null) mOTRProfileID = OTRProfileID.createUnique("CCT:Incognito");
         return Profile.getLastUsedRegularProfile().getOffTheRecordProfile(mOTRProfileID);
@@ -123,17 +108,13 @@ public class CustomTabIncognitoManager implements NativeInitObserver, Destroyabl
 
     @Override
     public void onFinishNativeInitialization() {
-        if (isEnabledIncognitoCCT()) {
+        if (mIntentDataProvider.isIncognito()) {
             initializeIncognito();
         }
     }
 
     @Override
     public void destroy() {
-        if (mIncognitoTabHost != null) {
-            IncognitoTabHostRegistry.getInstance().unregister(mIncognitoTabHost);
-        }
-
         if (mOTRProfileID != null) {
             Profile.getLastUsedRegularProfile()
                     .getOffTheRecordProfile(mOTRProfileID)
@@ -145,26 +126,10 @@ public class CustomTabIncognitoManager implements NativeInitObserver, Destroyabl
     }
 
     private void initializeIncognito() {
-        mIncognitoTabHost = new IncognitoCustomTabHost();
-        IncognitoTabHostRegistry.getInstance().register(mIncognitoTabHost);
         if (!CommandLine.getInstance().hasSwitch(
                     ChromeSwitches.ENABLE_INCOGNITO_SNAPSHOTS_IN_ANDROID_RECENTS)) {
             // Disable taking screenshots and seeing snapshots in recents.
             mChromeActivity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }
-    }
-
-    private class IncognitoCustomTabHost implements IncognitoTabHost {
-        public IncognitoCustomTabHost() {
-            assert mIntentDataProvider.isIncognito();
-        }
-        @Override
-        public boolean hasIncognitoTabs() {
-            return !mChromeActivity.isFinishing();
-        }
-        @Override
-        public void closeAllIncognitoTabs() {
-            mNavigationController.finish(CustomTabActivityNavigationController.FinishReason.OTHER);
         }
     }
 }

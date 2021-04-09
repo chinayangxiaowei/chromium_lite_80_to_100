@@ -47,14 +47,6 @@
 
 using base::ScopedCFTypeRef;
 
-extern "C" {
-// Declared in <Security/SecTrust.h>, available in 10.14.2+
-// TODO(mattm): Remove this weak_import once chromium compiles against the
-// macOS 10.14 SDK.
-OSStatus SecTrustSetSignedCertificateTimestamps(SecTrustRef, CFArrayRef)
-    __attribute__((weak_import));
-}  // extern "C"
-
 namespace net {
 
 namespace {
@@ -341,15 +333,15 @@ void CopyCertChainToVerifyResult(CFArrayRef cert_chain,
                                  CertVerifyResult* verify_result) {
   DCHECK_LT(0, CFArrayGetCount(cert_chain));
 
-  base::ScopedCFTypeRef<SecCertificateRef> verified_cert;
-  std::vector<base::ScopedCFTypeRef<SecCertificateRef>> verified_chain;
+  SecCertificateRef verified_cert = NULL;
+  std::vector<SecCertificateRef> verified_chain;
   for (CFIndex i = 0, count = CFArrayGetCount(cert_chain); i < count; ++i) {
     SecCertificateRef chain_cert = reinterpret_cast<SecCertificateRef>(
         const_cast<void*>(CFArrayGetValueAtIndex(cert_chain, i)));
     if (i == 0) {
-      verified_cert.reset(chain_cert, base::scoped_policy::RETAIN);
+      verified_cert = chain_cert;
     } else {
-      verified_chain.emplace_back(chain_cert, base::scoped_policy::RETAIN);
+      verified_chain.push_back(chain_cert);
     }
   }
   if (!verified_cert) {

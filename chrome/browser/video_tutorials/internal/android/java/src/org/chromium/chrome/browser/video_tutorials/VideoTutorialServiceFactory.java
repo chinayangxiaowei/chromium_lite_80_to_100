@@ -6,17 +6,18 @@ package org.chromium.chrome.browser.video_tutorials;
 
 import android.content.Context;
 import android.util.Pair;
+import android.view.ViewGroup;
 import android.view.ViewStub;
-
-import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.Callback;
 import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcher;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.video_tutorials.iph.TryNowTrackerImpl;
 import org.chromium.chrome.browser.video_tutorials.iph.VideoIPHCoordinator;
 import org.chromium.chrome.browser.video_tutorials.iph.VideoIPHCoordinatorImpl;
+import org.chromium.chrome.browser.video_tutorials.iph.VideoTutorialTryNowTracker;
 import org.chromium.chrome.browser.video_tutorials.list.TutorialListCoordinator;
 import org.chromium.chrome.browser.video_tutorials.list.TutorialListCoordinatorImpl;
 import org.chromium.chrome.browser.video_tutorials.player.VideoPlayerCoordinator;
@@ -51,21 +52,32 @@ public class VideoTutorialServiceFactory {
     /** See {@link VideoPlayerCoordinator}.*/
     public static VideoPlayerCoordinator createVideoPlayerCoordinator(Context context,
             VideoTutorialService videoTutorialService,
-            Supplier<Pair<WebContents, ContentView>> webContentsFactory, Runnable closeCallback) {
-        return new VideoPlayerCoordinatorImpl(
-                context, videoTutorialService, webContentsFactory, closeCallback);
+            Supplier<Pair<WebContents, ContentView>> webContentsFactory,
+            LanguageInfoProvider languageInfoProvider, Callback<Tutorial> tryNowCallback,
+            Runnable closeCallback) {
+        return new VideoPlayerCoordinatorImpl(context, videoTutorialService, webContentsFactory,
+                languageInfoProvider, tryNowCallback, closeCallback);
     }
 
     /** See {@link TutorialListCoordinator}.*/
-    public static TutorialListCoordinator createTutorialListCoordinator(RecyclerView recyclerView,
+    public static TutorialListCoordinator createTutorialListCoordinator(ViewGroup mainView,
             VideoTutorialService videoTutorialService, ImageFetcher imageFetcher,
             Callback<Tutorial> clickCallback) {
         return new TutorialListCoordinatorImpl(
-                recyclerView, videoTutorialService, imageFetcher, clickCallback);
+                mainView, videoTutorialService, imageFetcher, clickCallback);
+    }
+
+    /** @return The tracker to track Try Now button clicks. */
+    public static VideoTutorialTryNowTracker getTryNowTracker() {
+        return LazyHolder.TRY_NOW_TRACKER;
     }
 
     public static void setVideoTutorialServiceForTesting(VideoTutorialService provider) {
         sVideoTutorialServiceForTesting = provider;
+    }
+
+    private static final class LazyHolder {
+        private static final VideoTutorialTryNowTracker TRY_NOW_TRACKER = new TryNowTrackerImpl();
     }
 
     @NativeMethods
