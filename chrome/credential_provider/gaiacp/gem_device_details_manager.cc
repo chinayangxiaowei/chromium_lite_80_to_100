@@ -59,6 +59,10 @@ const char kObfuscatedGaiaId[] = "obfuscated_gaia_id";
 const wchar_t kUploadDeviceDetailsFromEsaEnabledRegKey[] =
     L"upload_device_details_from_esa";
 
+// The period of uploading device details to the backend.
+const base::TimeDelta kUploadDeviceDetailsExecutionPeriod =
+    base::TimeDelta::FromHours(3);
+
 // True when upload device details from ESA feature  is enabled.
 bool g_upload_device_details_from_esa_enabled = false;
 
@@ -74,8 +78,12 @@ class UploadDeviceDetailsTask : public extension::Task {
   }
 
   // ESA calls this to retrieve a configuration for the task execution. Return
-  // a default config for now.
-  extension::Config GetConfig() final { return extension::Config(); }
+  // 3 hours period for uploading device details.
+  extension::Config GetConfig() final {
+    extension::Config config;
+    config.execution_period = kUploadDeviceDetailsExecutionPeriod;
+    return config;
+  }
 
   // ESA calls this to set all the user-device contexts for the execution of the
   // task.
@@ -127,7 +135,7 @@ GemDeviceDetailsManager::GemDeviceDetailsManager(
     : upload_device_details_request_timeout_(
           upload_device_details_request_timeout) {
   g_upload_device_details_from_esa_enabled =
-      GetGlobalFlagOrDefault(kUploadDeviceDetailsFromEsaEnabledRegKey, 0) == 1;
+      GetGlobalFlagOrDefault(kUploadDeviceDetailsFromEsaEnabledRegKey, 1) == 1;
 }
 
 GemDeviceDetailsManager::~GemDeviceDetailsManager() = default;

@@ -21,6 +21,7 @@
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/fuchsia/process_context.h"
 #include "base/logging.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "fuchsia/base/agent_manager.h"
@@ -46,7 +47,7 @@ static constexpr const char* kServices[] = {
     "fuchsia.mediacodec.CodecFactory",
     "fuchsia.memorypressure.Provider",
     "fuchsia.net.NameLookup",
-    "fuchsia.netstack.Netstack",
+    "fuchsia.net.interfaces.State",
     "fuchsia.posix.socket.Provider",
     "fuchsia.process.Launcher",
     "fuchsia.settings.Display",
@@ -77,6 +78,10 @@ bool IsPermissionGrantedInAppConfig(
 // Names used to partition the Runner's persistent storage for different uses.
 constexpr char kCdmDataSubdirectoryName[] = "cdm_data";
 constexpr char kProfileSubdirectoryName[] = "web_profile";
+
+// Name of the file used to detect cache erasure.
+// TODO(crbug.com/1188780): Remove once an explicit cache flush signal exists.
+constexpr char kSentinelFileName[] = ".sentinel";
 
 // Ephemeral remote debugging port used by child contexts.
 const uint16_t kEphemeralRemoteDebuggingPort = 0;
@@ -181,7 +186,7 @@ class FrameHostComponent : public fuchsia::sys::ComponentController {
   // it to connect to the MetricsRecorder.
   static base::WeakPtr<const sys::ServiceDirectory>
   StartAndReturnIncomingServiceDirectory(
-      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
+      std::unique_ptr<base::StartupContext> startup_context,
       fidl::InterfaceRequest<fuchsia::sys::ComponentController>
           controller_request,
       fuchsia::web::FrameHost* const frame_host_impl) {
@@ -193,11 +198,10 @@ class FrameHostComponent : public fuchsia::sys::ComponentController {
   }
 
  private:
-  FrameHostComponent(
-      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
-      fidl::InterfaceRequest<fuchsia::sys::ComponentController>
-          controller_request,
-      fuchsia::web::FrameHost* const frame_host_impl)
+  FrameHostComponent(std::unique_ptr<base::StartupContext> startup_context,
+                     fidl::InterfaceRequest<fuchsia::sys::ComponentController>
+                         controller_request,
+                     fuchsia::web::FrameHost* const frame_host_impl)
       : startup_context_(std::move(startup_context)),
         frame_host_binding_(startup_context_->outgoing(), frame_host_impl),
         weak_incoming_services_(startup_context_->svc()) {
@@ -214,7 +218,7 @@ class FrameHostComponent : public fuchsia::sys::ComponentController {
     delete this;
   }
 
-  const std::unique_ptr<base::fuchsia::StartupContext> startup_context_;
+  const std::unique_ptr<base::StartupContext> startup_context_;
   const base::fuchsia::ScopedServiceBinding<fuchsia::web::FrameHost>
       frame_host_binding_;
   fidl::Binding<fuchsia::sys::ComponentController> binding_{this};
@@ -228,22 +232,20 @@ class DataResetComponent : public fuchsia::sys::ComponentController,
                            public chromium::cast::DataReset {
  public:
   // Creates a DataResetComponent with lifetime managed by |controller_request|.
-  static void Start(
-      base::OnceCallback<bool()> delete_persistent_data,
-      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
-      fidl::InterfaceRequest<fuchsia::sys::ComponentController>
-          controller_request) {
+  static void Start(base::OnceCallback<bool()> delete_persistent_data,
+                    std::unique_ptr<base::StartupContext> startup_context,
+                    fidl::InterfaceRequest<fuchsia::sys::ComponentController>
+                        controller_request) {
     new DataResetComponent(std::move(delete_persistent_data),
                            std::move(startup_context),
                            std::move(controller_request));
   }
 
  private:
-  DataResetComponent(
-      base::OnceCallback<bool()> delete_persistent_data,
-      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
-      fidl::InterfaceRequest<fuchsia::sys::ComponentController>
-          controller_request)
+  DataResetComponent(base::OnceCallback<bool()> delete_persistent_data,
+                     std::unique_ptr<base::StartupContext> startup_context,
+                     fidl::InterfaceRequest<fuchsia::sys::ComponentController>
+                         controller_request)
       : delete_persistent_data_(std::move(delete_persistent_data)),
         startup_context_(std::move(startup_context)),
         data_reset_handler_binding_(startup_context_->outgoing(), this) {
@@ -272,7 +274,7 @@ class DataResetComponent : public fuchsia::sys::ComponentController,
   }
 
   base::OnceCallback<bool()> delete_persistent_data_;
-  std::unique_ptr<base::fuchsia::StartupContext> startup_context_;
+  std::unique_ptr<base::StartupContext> startup_context_;
   const base::fuchsia::ScopedServiceBinding<chromium::cast::DataReset>
       data_reset_handler_binding_;
   fidl::Binding<fuchsia::sys::ComponentController> binding_{this};
@@ -335,7 +337,17 @@ void CastRunner::StartComponent(
   }
 
   auto startup_context =
-      std::make_unique<base::fuchsia::StartupContext>(std::move(startup_info));
+      std::make_unique<base::StartupContext>(std::move(startup_info));
+
+  // If the persistent cache directory was erased then re-create the main Cast
+  // app Context.
+  if (WasPersistedCacheErased()) {
+    LOG(WARNING) << "Cache erased. Restarting web.Context.";
+    // The sentinel file will be re-created the next time CreateContextParams
+    // are request for the main web.Context.
+    was_cache_sentinel_created_ = false;
+    main_context_->DestroyWebContext();
+  }
 
   if (cors_exempt_headers_) {
     StartComponentInternal(cast_url, std::move(startup_context),
@@ -435,7 +447,8 @@ void CastRunner::LaunchPendingComponent(PendingCastComponent* pending_component,
   }
 
   auto cast_component = std::make_unique<CastComponent>(
-      component_owner, std::move(params), is_headless_);
+      base::StrCat({"cast:", pending_component->app_id()}), component_owner,
+      std::move(params), is_headless_);
 
   // Start the component, which creates and configures the web.Frame, and load
   // the specified web content into it.
@@ -553,6 +566,10 @@ fuchsia::web::CreateContextParams CastRunner::GetMainContextParams() {
     SetCdmParamsForMainContext(&params);
 
   SetDataParamsForMainContext(&params);
+
+  // Create a sentinel file to detect if the cache is erased.
+  // TODO(crbug.com/1188780): Remove once an explicit cache flush signal exists.
+  CreatePersistedCacheSentinel();
 
   // TODO(crbug.com/1023514): Remove this switch when it is no longer
   // necessary.
@@ -693,7 +710,7 @@ void CastRunner::OnMetricsRecorderServiceRequest(
 
 void CastRunner::StartComponentInternal(
     const GURL& url,
-    std::unique_ptr<base::fuchsia::StartupContext> startup_context,
+    std::unique_ptr<base::StartupContext> startup_context,
     fidl::InterfaceRequest<fuchsia::sys::ComponentController>
         controller_request) {
   // TODO(crbug.com/1120914): Remove this once Component Framework v2 can be
@@ -719,4 +736,20 @@ void CastRunner::StartComponentInternal(
   pending_components_.emplace(std::make_unique<PendingCastComponent>(
       this, std::move(startup_context), std::move(controller_request),
       url.GetContent()));
+}
+
+static base::FilePath SentinelFilePath() {
+  return base::FilePath(base::kPersistedCacheDirectoryPath)
+      .Append(kSentinelFileName);
+}
+
+void CastRunner::CreatePersistedCacheSentinel() {
+  base::WriteFile(SentinelFilePath(), "");
+  was_cache_sentinel_created_ = true;
+}
+
+bool CastRunner::WasPersistedCacheErased() {
+  if (!was_cache_sentinel_created_)
+    return false;
+  return !base::PathExists(SentinelFilePath());
 }

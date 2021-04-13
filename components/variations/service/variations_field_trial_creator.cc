@@ -26,6 +26,7 @@
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
 #include "build/build_config.h"
+#include "build/chromeos_buildflags.h"
 #include "components/language/core/browser/locale_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/field_trial_config/field_trial_util.h"
@@ -163,7 +164,7 @@ std::string VariationsFieldTrialCreator::GetLatestCountry() const {
 }
 
 bool VariationsFieldTrialCreator::CreateTrialsFromSeed(
-    const base::FieldTrial::EntropyProvider& low_entropy_provider,
+    const base::FieldTrial::EntropyProvider* low_entropy_provider,
     base::FeatureList* feature_list,
     SafeSeedManager* safe_seed_manager) {
   TRACE_EVENT0("startup", "VariationsFieldTrialCreator::CreateTrialsFromSeed");
@@ -240,7 +241,7 @@ VariationsFieldTrialCreator::GetClientFilterableStateForVersion(
   state->form_factor = GetCurrentFormFactor();
   state->platform = GetPlatform();
   // TODO(crbug/1111131): Expand to other platforms.
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
+#if BUILDFLAG(IS_CHROMEOS_ASH) || defined(OS_ANDROID)
   state->hardware_class = base::SysInfo::HardwareModelName();
 #endif
 #if defined(OS_ANDROID)
@@ -523,12 +524,12 @@ bool VariationsFieldTrialCreator::SetupFieldTrials(
 #endif  // BUILDFLAG(FIELDTRIAL_TESTING_ENABLED)
   bool used_seed = false;
   if (!used_testing_config) {
-    used_seed = CreateTrialsFromSeed(*low_entropy_provider, feature_list.get(),
-                                     safe_seed_manager);
+    used_seed = CreateTrialsFromSeed(low_entropy_provider.get(),
+                                     feature_list.get(), safe_seed_manager);
   }
 
   platform_field_trials->SetupFeatureControllingFieldTrials(
-      used_seed, *low_entropy_provider, feature_list.get());
+      used_seed, low_entropy_provider.get(), feature_list.get());
 
   base::FeatureList::SetInstance(std::move(feature_list));
 

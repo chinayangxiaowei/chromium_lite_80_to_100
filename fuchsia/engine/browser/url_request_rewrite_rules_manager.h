@@ -7,7 +7,7 @@
 
 #include <fuchsia/web/cpp/fidl.h>
 
-#include "base/sequence_checker.h"
+#include "base/synchronization/lock.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "fuchsia/engine/common/web_engine_url_loader_throttle.h"
@@ -23,7 +23,8 @@ class WebContents;
 // Adapts the UrlRequestRewrite FIDL API to be sent to the renderers over the
 // over the UrlRequestRewrite Mojo API.
 class WEB_ENGINE_EXPORT UrlRequestRewriteRulesManager
-    : public content::WebContentsObserver {
+    : public content::WebContentsObserver,
+      public WebEngineURLLoaderThrottle::CachedRulesProvider {
  public:
   static std::unique_ptr<UrlRequestRewriteRulesManager> CreateForTesting();
 
@@ -37,8 +38,9 @@ class WEB_ENGINE_EXPORT UrlRequestRewriteRulesManager
       std::vector<fuchsia::web::UrlRequestRewriteRule> rules,
       fuchsia::web::Frame::SetUrlRequestRewriteRulesCallback callback);
 
-  scoped_refptr<WebEngineURLLoaderThrottle::UrlRequestRewriteRules>&
-  GetCachedRules();
+  // WebEngineURLLoaderThrottle::CachedRulesProvider implementation.
+  scoped_refptr<WebEngineURLLoaderThrottle::UrlRequestRewriteRules>
+  GetCachedRules() override;
 
  private:
   // Test-only constructor.
@@ -48,15 +50,14 @@ class WEB_ENGINE_EXPORT UrlRequestRewriteRulesManager
   void RenderFrameCreated(content::RenderFrameHost* render_frame_host) override;
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
 
+  base::Lock lock_;
   scoped_refptr<WebEngineURLLoaderThrottle::UrlRequestRewriteRules>
-      cached_rules_;
+      cached_rules_ GUARDED_BY(lock_);
 
   // Map of GlobalRoutingID to their current associated remote.
   std::map<content::GlobalFrameRoutingId,
            mojo::AssociatedRemote<mojom::UrlRequestRulesReceiver>>
       active_remotes_;
-
-  SEQUENCE_CHECKER(sequence_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(UrlRequestRewriteRulesManager);
 };

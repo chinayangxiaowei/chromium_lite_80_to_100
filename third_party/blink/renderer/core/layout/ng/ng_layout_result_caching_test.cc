@@ -101,20 +101,30 @@ TEST_F(NGLayoutResultCachingTest, HitDifferentBFCOffset) {
           /* offset */ {LayoutUnit(), LayoutUnit()},
           /* available_inline_size */ LayoutUnit(100));
 
-  EXPECT_EQ(opportunities.size(), 3u);
+  EXPECT_EQ(opportunities.size(), 4u);
+
+  // This first opportunity is superfluous, but harmless. It isn't needed for
+  // correct positioning, but having it in the opportunity list shouldn't
+  // trigger any bad behaviour (if something doesn't fit, in this case it'll
+  // proceed to the next layout opportunity).
   EXPECT_EQ(opportunities[0].rect.start_offset,
             NGBfcOffset(LayoutUnit(50), LayoutUnit()));
   EXPECT_EQ(opportunities[0].rect.end_offset,
-            NGBfcOffset(LayoutUnit(100), LayoutUnit::Max()));
-
-  EXPECT_EQ(opportunities[1].rect.start_offset,
-            NGBfcOffset(LayoutUnit(), LayoutUnit(20)));
-  EXPECT_EQ(opportunities[1].rect.end_offset,
             NGBfcOffset(LayoutUnit(100), LayoutUnit(45)));
 
+  EXPECT_EQ(opportunities[1].rect.start_offset,
+            NGBfcOffset(LayoutUnit(50), LayoutUnit()));
+  EXPECT_EQ(opportunities[1].rect.end_offset,
+            NGBfcOffset(LayoutUnit(100), LayoutUnit::Max()));
+
   EXPECT_EQ(opportunities[2].rect.start_offset,
-            NGBfcOffset(LayoutUnit(), LayoutUnit(65)));
+            NGBfcOffset(LayoutUnit(), LayoutUnit(20)));
   EXPECT_EQ(opportunities[2].rect.end_offset,
+            NGBfcOffset(LayoutUnit(100), LayoutUnit(45)));
+
+  EXPECT_EQ(opportunities[3].rect.start_offset,
+            NGBfcOffset(LayoutUnit(), LayoutUnit(65)));
+  EXPECT_EQ(opportunities[3].rect.end_offset,
             NGBfcOffset(LayoutUnit(100), LayoutUnit::Max()));
 }
 
@@ -1834,6 +1844,43 @@ TEST_F(NGLayoutResultCachingTest, MissTableCellBaselineAlignment) {
   EXPECT_EQ(result->GetConstraintSpaceForCaching().CacheSlot(),
             NGCacheSlot::kLayout);
   EXPECT_NE(result.get(), measure.get());
+}
+
+TEST_F(NGLayoutResultCachingTest, MissTablePercent) {
+  ScopedLayoutNGTableForTest table_ng(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      .bfc { display: flow-root; width: 100px; }
+      table { height: 100%; }
+      caption { height: 50px; }
+    </style>
+    <div class="bfc" style="height: 50px;">
+      <table id="test">
+        <caption></caption>
+        <td></td>
+      </table>
+    </div>
+    <div class="bfc" style="height: 100px;">
+      <table id="src">
+        <caption></caption>
+        <td></td>
+      </table>
+    </div>
+  )HTML");
+
+  auto* test = To<LayoutBlock>(GetLayoutObjectByElementId("test"));
+  auto* src = To<LayoutBlock>(GetLayoutObjectByElementId("src"));
+
+  NGLayoutCacheStatus cache_status;
+  base::Optional<NGFragmentGeometry> fragment_geometry;
+  const NGConstraintSpace& space =
+      src->GetCachedLayoutResult()->GetConstraintSpaceForCaching();
+  scoped_refptr<const NGLayoutResult> result = test->CachedLayoutResult(
+      space, nullptr, nullptr, &fragment_geometry, &cache_status);
+
+  EXPECT_EQ(cache_status, NGLayoutCacheStatus::kNeedsLayout);
+  EXPECT_EQ(result.get(), nullptr);
 }
 
 }  // namespace

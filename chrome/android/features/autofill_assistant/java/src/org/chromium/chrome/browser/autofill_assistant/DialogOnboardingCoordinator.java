@@ -17,7 +17,6 @@ import androidx.appcompat.app.AlertDialog;
 
 import org.chromium.base.Callback;
 import org.chromium.chrome.autofill_assistant.R;
-import org.chromium.ui.UiUtils;
 
 import java.util.Map;
 
@@ -57,8 +56,8 @@ class DialogOnboardingCoordinator extends BaseOnboardingCoordinator {
 
     @Override
     void initViewImpl(Callback<Integer> callback) {
-        mDialog = new UiUtils
-                          .CompatibleAlertDialogBuilder(getContext(),
+        mDialog = new AlertDialog
+                          .Builder(getContext(),
                                   org.chromium.chrome.autofill_assistant.R.style
                                           .Theme_Chromium_AlertDialog)
                           .create();

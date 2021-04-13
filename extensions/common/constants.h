@@ -9,7 +9,6 @@
 #include "base/strings/string_piece_forward.h"
 #include "build/chromeos_buildflags.h"
 #include "components/services/app_service/public/mojom/types.mojom.h"
-#include "components/version_info/channel.h"
 #include "ui/base/layout.h"
 
 namespace extensions {
@@ -262,8 +261,9 @@ extern const char kScreensaverNocturneAppId[];
 // The extension id of the atlas Demo Mode screensaver app.
 extern const char kScreensaverAtlasAppId[];
 
-// The extension id of the kukui Demo Mode screensaver app.
-extern const char kScreensaverKukuiAppId[];
+// The extension id of the krane Demo Mode screensaver app. That app is only
+// run on KRANE-ZDKS devices.
+extern const char kScreensaverKraneZdksAppId[];
 
 // The id of the testing extension allowed in the signin profile.
 extern const char kSigninProfileTestExtensionId[];
@@ -288,10 +288,6 @@ extern const int kContentVerificationDefaultBlockSize;
 
 // The minimum severity of a log or error in order to report it to the browser.
 extern const logging::LogSeverity kMinimumSeverityToReportError;
-
-// The minimum channel where Service Worker based extensions can run.
-constexpr version_info::Channel kMinChannelForServiceWorkerBasedExtension =
-    version_info::Channel::STABLE;
 
 // IDs for the Media Router Component Extension.
 extern const char kCastExtensionIdRelease[];

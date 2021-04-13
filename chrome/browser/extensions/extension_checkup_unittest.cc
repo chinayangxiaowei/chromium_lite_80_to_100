@@ -91,7 +91,14 @@ TEST_P(ExtensionCheckupTest, MAYBE_NoInstalledExtensions) {
 
 // Checkup is not shown if the only extensions installed are policy
 // installed, component extensions, or installed by default.
-TEST_P(ExtensionCheckupTest, NoUserInstalledExtensions) {
+//
+// Flaky on various Linux bots.  http://crbug.com/1163917
+#if defined(OS_LINUX)
+#define MAYBE_NoUserInstalledExtensions DISABLED_NoUserInstalledExtensions
+#else
+#define MAYBE_NoUserInstalledExtensions NoUserInstalledExtensions
+#endif
+TEST_P(ExtensionCheckupTest, MAYBE_NoUserInstalledExtensions) {
   AddExemptExtensions();
   VerifyNonExperimentCheckupDisabled();
   EXPECT_FALSE(ShouldShowExperimentCheckup());

@@ -8,7 +8,6 @@
 #include <string>
 #include <utility>
 
-#include "base/command_line.h"
 #include "base/i18n/rtl.h"
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
@@ -108,22 +107,13 @@ std::string WebEngineContentBrowserClient::GetProduct() {
 }
 
 std::string WebEngineContentBrowserClient::GetUserAgent() {
-  std::string user_agent;
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kUseLegacyAndroidUserAgent)) {
-    user_agent =
-        content::BuildUserAgentFromOSAndProduct("Linux; Android", GetProduct());
-  } else {
-    user_agent = content::BuildUserAgentFromProduct(GetProduct());
-  }
-
+  std::string user_agent = content::BuildUserAgentFromProduct(GetProduct());
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kUserAgentProductAndVersion)) {
     user_agent +=
         " " + base::CommandLine::ForCurrentProcess()->GetSwitchValueNative(
                   switches::kUserAgentProductAndVersion);
   }
-
   return user_agent;
 }
 
@@ -262,13 +252,9 @@ WebEngineContentBrowserClient::CreateURLLoaderThrottles(
   }
 
   std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles;
-  scoped_refptr<WebEngineURLLoaderThrottle::UrlRequestRewriteRules>& rules =
+  throttles.emplace_back(std::make_unique<WebEngineURLLoaderThrottle>(
       FrameImpl::FromWebContents(wc_getter.Run())
-          ->url_request_rewrite_rules_manager()
-          ->GetCachedRules();
-  if (rules) {
-    throttles.emplace_back(std::make_unique<WebEngineURLLoaderThrottle>(rules));
-  }
+          ->url_request_rewrite_rules_manager()));
   return throttles;
 }
 

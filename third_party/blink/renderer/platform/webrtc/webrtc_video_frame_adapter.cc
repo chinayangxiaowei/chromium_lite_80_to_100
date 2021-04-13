@@ -7,6 +7,7 @@
 #include "base/callback_helpers.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
+#include "media/base/video_util.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
@@ -195,55 +196,11 @@ void IsValidFrame(const media::VideoFrame& frame) {
   }
 }
 
-scoped_refptr<media::VideoFrame> WrapGmbVideoFrameForMappedMemoryAccess(
-    scoped_refptr<media::VideoFrame> source_frame) {
-  DCHECK_EQ(source_frame->natural_size(), source_frame->visible_rect().size());
-  gfx::GpuMemoryBuffer* gmb = source_frame->GetGpuMemoryBuffer();
-  if (!gmb || !gmb->Map()) {
-    return nullptr;
-  }
-  // Y and UV planes from the gmb.
-  uint8_t* plane_addresses[2] = {static_cast<uint8_t*>(gmb->memory(0)),
-                                 static_cast<uint8_t*>(gmb->memory(1))};
-  scoped_refptr<media::VideoFrame> destination_frame =
-      media::VideoFrame::WrapExternalYuvData(
-          media::VideoPixelFormat::PIXEL_FORMAT_NV12,
-          source_frame->coded_size(), source_frame->visible_rect(),
-          source_frame->natural_size(), gmb->stride(0), gmb->stride(1),
-          plane_addresses[0], plane_addresses[1], source_frame->timestamp());
-  if (!destination_frame) {
-    gmb->Unmap();
-    LOG(ERROR) << "Failed to wrap gmb buffer";
-    return nullptr;
-  }
-  destination_frame->set_color_space(source_frame->ColorSpace());
-  destination_frame->metadata()->MergeMetadataFrom(source_frame->metadata());
-  destination_frame->AddDestructionObserver(WTF::Bind(
-      [](scoped_refptr<media::VideoFrame> frame) {
-        CHECK(frame->HasGpuMemoryBuffer());
-        frame->GetGpuMemoryBuffer()->Unmap();
-      },
-      std::move(source_frame)));
-  return destination_frame;
-}
-
 scoped_refptr<media::VideoFrame> MakeScaledI420VideoFrame(
     scoped_refptr<media::VideoFrame> source_frame,
     scoped_refptr<blink::WebRtcVideoFrameAdapter::BufferPoolOwner>
         scaled_frame_pool) {
-  gfx::GpuMemoryBuffer* gmb = source_frame->GetGpuMemoryBuffer();
-  if (!gmb || !gmb->Map()) {
-    return nullptr;
-  }
-  // Crop to the visible rectangle specified in |source_frame|.
-  const uint8_t* src_y = (reinterpret_cast<const uint8_t*>(gmb->memory(0)) +
-                          source_frame->visible_rect().x() +
-                          (source_frame->visible_rect().y() * gmb->stride(0)));
-  const uint8_t* src_uv =
-      (reinterpret_cast<const uint8_t*>(gmb->memory(1)) +
-       ((source_frame->visible_rect().x() / 2) * 2) +
-       ((source_frame->visible_rect().y() / 2) * gmb->stride(1)));
-
+  auto mapped_frame = media::ConvertToMemoryMappedFrame(source_frame);
   // Convert to I420 and scale to the natural size specified in
   // |source_frame|.
   auto dst_frame = scaled_frame_pool->CreateFrame(
@@ -251,25 +208,26 @@ scoped_refptr<media::VideoFrame> MakeScaledI420VideoFrame(
       gfx::Rect(source_frame->natural_size()), source_frame->natural_size(),
       source_frame->timestamp());
   if (!dst_frame) {
-    gmb->Unmap();
     LOG(ERROR) << "Failed to create I420 frame from pool.";
     return nullptr;
   }
-  dst_frame->metadata()->MergeMetadataFrom(source_frame->metadata());
+  dst_frame->metadata().MergeMetadataFrom(source_frame->metadata());
   const auto& i420_planes = dst_frame->layout().planes();
   webrtc::NV12ToI420Scaler scaler;
-  scaler.NV12ToI420Scale(src_y, gmb->stride(0), src_uv, gmb->stride(1),
-                         source_frame->visible_rect().width(),
-                         source_frame->visible_rect().height(),
-                         dst_frame->data(media::VideoFrame::kYPlane),
-                         i420_planes[media::VideoFrame::kYPlane].stride,
-                         dst_frame->data(media::VideoFrame::kUPlane),
-                         i420_planes[media::VideoFrame::kUPlane].stride,
-                         dst_frame->data(media::VideoFrame::kVPlane),
-                         i420_planes[media::VideoFrame::kVPlane].stride,
-                         dst_frame->coded_size().width(),
-                         dst_frame->coded_size().height());
-  gmb->Unmap();
+  scaler.NV12ToI420Scale(
+      mapped_frame->visible_data(media::VideoFrame::kYPlane),
+      mapped_frame->stride(media::VideoFrame::kYPlane),
+      mapped_frame->visible_data(media::VideoFrame::kUVPlane),
+      mapped_frame->stride(media::VideoFrame::kUVPlane),
+      source_frame->visible_rect().width(),
+      source_frame->visible_rect().height(),
+      dst_frame->data(media::VideoFrame::kYPlane),
+      i420_planes[media::VideoFrame::kYPlane].stride,
+      dst_frame->data(media::VideoFrame::kUPlane),
+      i420_planes[media::VideoFrame::kUPlane].stride,
+      dst_frame->data(media::VideoFrame::kVPlane),
+      i420_planes[media::VideoFrame::kVPlane].stride,
+      dst_frame->coded_size().width(), dst_frame->coded_size().height());
   return dst_frame;
 }
 
@@ -277,26 +235,17 @@ scoped_refptr<media::VideoFrame> MakeScaledNV12VideoFrame(
     scoped_refptr<media::VideoFrame> source_frame,
     scoped_refptr<blink::WebRtcVideoFrameAdapter::BufferPoolOwner>
         scaled_frame_pool) {
-  gfx::GpuMemoryBuffer* gmb = source_frame->GetGpuMemoryBuffer();
-  if (!gmb || !gmb->Map()) {
-    return nullptr;
-  }
-  // Crop to the visible rectangle specified in |source_frame|.
-  const uint8_t* src_y = (reinterpret_cast<const uint8_t*>(gmb->memory(0)) +
-                          source_frame->visible_rect().x() +
-                          (source_frame->visible_rect().y() * gmb->stride(0)));
-  const uint8_t* src_uv =
-      (reinterpret_cast<const uint8_t*>(gmb->memory(1)) +
-       ((source_frame->visible_rect().x() / 2) * 2) +
-       ((source_frame->visible_rect().y() / 2) * gmb->stride(1)));
-
+  auto mapped_frame = media::ConvertToMemoryMappedFrame(source_frame);
   auto dst_frame = scaled_frame_pool->CreateFrame(
       media::PIXEL_FORMAT_NV12, source_frame->natural_size(),
       gfx::Rect(source_frame->natural_size()), source_frame->natural_size(),
       source_frame->timestamp());
-  dst_frame->metadata()->MergeMetadataFrom(source_frame->metadata());
+  dst_frame->metadata().MergeMetadataFrom(source_frame->metadata());
   const auto& nv12_planes = dst_frame->layout().planes();
-  libyuv::NV12Scale(src_y, gmb->stride(0), src_uv, gmb->stride(1),
+  libyuv::NV12Scale(mapped_frame->visible_data(media::VideoFrame::kYPlane),
+                    mapped_frame->stride(media::VideoFrame::kYPlane),
+                    mapped_frame->visible_data(media::VideoFrame::kUVPlane),
+                    mapped_frame->stride(media::VideoFrame::kUVPlane),
                     source_frame->visible_rect().width(),
                     source_frame->visible_rect().height(),
                     dst_frame->data(media::VideoFrame::kYPlane),
@@ -305,7 +254,6 @@ scoped_refptr<media::VideoFrame> MakeScaledNV12VideoFrame(
                     nv12_planes[media::VideoFrame::kUVPlane].stride,
                     dst_frame->coded_size().width(),
                     dst_frame->coded_size().height(), libyuv::kFilterBox);
-  gmb->Unmap();
   return dst_frame;
 }
 
@@ -328,7 +276,7 @@ scoped_refptr<media::VideoFrame> ConstructVideoFrameFromGpu(
                                     std::move(scaled_frame_pool));
   } else if (source_frame->natural_size() ==
              source_frame->visible_rect().size()) {
-    return WrapGmbVideoFrameForMappedMemoryAccess(std::move(source_frame));
+    return media::ConvertToMemoryMappedFrame(std::move(source_frame));
   } else {
     return MakeScaledNV12VideoFrame(std::move(source_frame),
                                     std::move(scaled_frame_pool));

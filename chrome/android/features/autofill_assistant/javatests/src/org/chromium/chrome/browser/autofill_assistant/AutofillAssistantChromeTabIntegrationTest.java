@@ -530,6 +530,7 @@ public class AutofillAssistantChromeTabIntegrationTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Flaky - https://crbug.com/1157506")
     public void interactingWithLocationBarDoesNotShowHiddenScrim() {
         ArrayList<ActionProto> list = new ArrayList<>();
         list.add((ActionProto) ActionProto.newBuilder()
@@ -611,6 +612,7 @@ public class AutofillAssistantChromeTabIntegrationTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "Flaky - https://crbug.com/1157339")
     // Restricted to phones due to https://crbug.com/429671
     @Restriction(UiRestriction.RESTRICTION_TYPE_PHONE)
     public void newTabButtonHidesAndRecoversOnboarding() {
@@ -624,8 +626,8 @@ public class AutofillAssistantChromeTabIntegrationTest {
                                    .getSpec()
                                    .equals(getURL(TEST_PAGE_A)));
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), isCompletelyDisplayed());
-        onView(is(mScrimCoordinator.getViewForTesting()))
-                .check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        waitUntilViewMatchesCondition(is(mScrimCoordinator.getViewForTesting()),
+                withEffectiveVisibility(Visibility.VISIBLE));
 
         onView(withId(org.chromium.chrome.R.id.tab_switcher_button)).perform(click());
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), not(isDisplayed()));
@@ -633,8 +635,8 @@ public class AutofillAssistantChromeTabIntegrationTest {
 
         Espresso.pressBack();
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), isCompletelyDisplayed());
-        onView(is(mScrimCoordinator.getViewForTesting()))
-                .check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        waitUntilViewMatchesCondition(is(mScrimCoordinator.getViewForTesting()),
+                withEffectiveVisibility(Visibility.VISIBLE));
     }
 
     @Test
@@ -650,8 +652,8 @@ public class AutofillAssistantChromeTabIntegrationTest {
                                    .getSpec()
                                    .equals(getURL(TEST_PAGE_A)));
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), isCompletelyDisplayed());
-        onView(is(mScrimCoordinator.getViewForTesting()))
-                .check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        waitUntilViewMatchesCondition(is(mScrimCoordinator.getViewForTesting()),
+                withEffectiveVisibility(Visibility.VISIBLE));
 
         // Clicking location bar hides UI and shows the keyboard.
         onView(withId(org.chromium.chrome.R.id.url_bar)).perform(click());
@@ -661,7 +663,7 @@ public class AutofillAssistantChromeTabIntegrationTest {
         // Closing keyboard brings it back.
         Espresso.pressBack();
         waitUntilViewMatchesCondition(withId(R.id.button_init_ok), isCompletelyDisplayed());
-        onView(is(mScrimCoordinator.getViewForTesting()))
-                .check(matches(withEffectiveVisibility(Visibility.VISIBLE)));
+        waitUntilViewMatchesCondition(is(mScrimCoordinator.getViewForTesting()),
+                withEffectiveVisibility(Visibility.VISIBLE));
     }
 }

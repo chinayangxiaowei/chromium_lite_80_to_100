@@ -11,18 +11,16 @@
 #include <winternl.h>
 
 #define _NTDEF_  // Prevent redefition errors, must come after <winternl.h>
-#include <ntsecapi.h>  // For LsaLookupAuthenticationPackage()
-#include <sddl.h>      // For ConvertSidToStringSid()
-#include <security.h>  // For NEGOSSP_NAME_A
-#include <wbemidl.h>
-
 #include <atlbase.h>
 #include <atlcom.h>
 #include <atlcomcli.h>
-
 #include <malloc.h>
 #include <memory.h>
+#include <ntsecapi.h>  // For LsaLookupAuthenticationPackage()
+#include <sddl.h>      // For ConvertSidToStringSid()
+#include <security.h>  // For NEGOSSP_NAME_A
 #include <stdlib.h>
+#include <wbemidl.h>
 
 #include <iomanip>
 #include <memory>
@@ -84,6 +82,11 @@ bool g_use_test_chrome_path = false;
 base::FilePath g_test_chrome_path(L"");
 
 const wchar_t kKernelLibFile[] = L"kernel32.dll";
+const wchar_t kOsRegistryPath[] =
+    L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+const wchar_t kOsMajorName[] = L"CurrentMajorVersionNumber";
+const wchar_t kOsMinorName[] = L"CurrentMinorVersionNumber";
+const wchar_t kOsBuildName[] = L"CurrentBuildNumber";
 const int kVersionStringSize = 128;
 
 constexpr wchar_t kDefaultMdmUrl[] =
@@ -92,6 +95,12 @@ constexpr wchar_t kDefaultMdmUrl[] =
 constexpr int kMaxNumConsecutiveUploadDeviceFailures = 3;
 const base::TimeDelta kMaxTimeDeltaSinceLastUserPolicyRefresh =
     base::TimeDelta::FromDays(1);
+const base::TimeDelta kMaxTimeDeltaSinceLastExperimentsFetch =
+    base::TimeDelta::FromDays(1);
+
+// Path elements for the path where the experiments are stored on disk.
+const wchar_t kGcpwExperimentsDirectory[] = L"Experiments";
+const wchar_t kGcpwUserExperimentsFileName[] = L"ExperimentsFetchResponse";
 
 namespace {
 
@@ -109,6 +118,7 @@ constexpr base::win::i18n::LanguageSelector::LangToOffset
 #define HANDLE_LANGUAGE(l_, o_) {L## #l_, o_},
         DO_LANGUAGES
 #undef HANDLE_LANGUAGE
+
 };
 
 base::FilePath GetStartupSentinelLocation(const base::string16& version) {
@@ -231,6 +241,23 @@ HRESULT GetGCPWDmTokenInternal(const base::string16& sid,
   }
 
   return S_OK;
+}
+
+// Get the path to the directory under DIR_COMMON_APP_DATA with the given |sid|
+// and |file_dir|.
+base::FilePath GetDirectoryFilePath(const base::string16& sid,
+                                    const base::string16& file_dir) {
+  base::FilePath path;
+  if (!base::PathService::Get(base::DIR_COMMON_APP_DATA, &path)) {
+    HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+    LOGFN(ERROR) << "PathService::Get(DIR_COMMON_APP_DATA) hr=" << putHR(hr);
+    return base::FilePath();
+  }
+  path = path.Append(GetInstallParentDirectoryName())
+             .Append(kCredentialProviderFolder)
+             .Append(file_dir)
+             .Append(sid);
+  return path;
 }
 
 }  // namespace
@@ -1095,15 +1122,7 @@ std::vector<std::string> GetMacAddresses() {
   return mac_addresses;
 }
 
-// The current solution is based on the version of the "kernel32.dll" file. A
-// cleaner alternative would be to use the GetVersionEx API. However, since
-// Windows 8.1 the values returned by that API are dependent on how
-// the application is manifested, and might not be the actual OS version.
-void GetOsVersion(std::string* version) {
-  if (g_use_test_os_version) {
-    *version = g_test_os_version;
-    return;
-  }
+void GetOsVersionFallback(std::string* version) {
   int buffer_size = GetFileVersionInfoSize(kKernelLibFile, nullptr);
   if (buffer_size) {
     std::vector<wchar_t> buffer(buffer_size, 0);
@@ -1124,6 +1143,45 @@ void GetOsVersion(std::string* version) {
       }
     }
   }
+}
+
+// The current solution is based on registries or the version of the
+// "kernel32.dll" file. A cleaner alternative would be to use the GetVersionEx
+// API. However, since Windows 8.1 the values returned by that API are dependent
+// on how the application is manifested, and might not be the actual OS version.
+// The format of the OS version is <Major>.<Minor>.<BuildNumber>. Eg: 10.0.18363
+void GetOsVersion(std::string* version) {
+  if (g_use_test_os_version) {
+    *version = g_test_os_version;
+    return;
+  }
+
+  // Fetching Windows version from registries.
+  // https://stackoverflow.com/questions/32729244
+  // https://stackoverflow.com/questions/31072543
+  DWORD major;
+  DWORD minor;
+  wchar_t build[32];
+  ULONG length = base::size(build);
+
+  HRESULT hr1 = GetMachineRegDWORD(kOsRegistryPath, kOsMajorName, &major);
+  HRESULT hr2 = GetMachineRegDWORD(kOsRegistryPath, kOsMinorName, &minor);
+  HRESULT hr3 =
+      GetMachineRegString(kOsRegistryPath, kOsBuildName, build, &length);
+
+  if (SUCCEEDED(hr1) && SUCCEEDED(hr2) && SUCCEEDED(hr3)) {
+    char version_buffer[kVersionStringSize];
+    snprintf(version_buffer, kVersionStringSize, "%lu.%lu.%ls", major, minor,
+             build);
+    *version = version_buffer;
+    return;
+  }
+  LOGFN(ERROR) << "Error while fetching Os version hr=" << hr1 << "," << hr2
+               << "," << hr3;
+
+  // Try getting the version from kernel.dll in case there is a issue with
+  // getting OS version from registries.
+  GetOsVersionFallback(version);
 }
 
 HRESULT GenerateDeviceId(std::string* device_id) {
@@ -1253,6 +1311,64 @@ base::string16 GetDevelopmentUrl(const base::string16& url,
         base::JoinString({url_prefix + project, "sandbox", final_part}, "."));
   }
   return url;
+}
+
+std::unique_ptr<base::File> GetOpenedFileForUser(
+    const base::string16& sid,
+    uint32_t open_flags,
+    const base::string16& file_dir,
+    const base::string16& file_name) {
+  base::FilePath experiments_dir = GetDirectoryFilePath(sid, file_dir);
+  if (!base::DirectoryExists(experiments_dir)) {
+    base::File::Error error;
+    if (!CreateDirectoryAndGetError(experiments_dir, &error)) {
+      LOGFN(ERROR) << "Experiments data directory could not be created for "
+                   << sid << " Error: " << error;
+      return nullptr;
+    }
+  }
+
+  base::FilePath experiments_file_path = experiments_dir.Append(file_name);
+  std::unique_ptr<base::File> experiments_file(
+      new base::File(experiments_file_path, open_flags));
+
+  if (!experiments_file->IsValid()) {
+    LOGFN(ERROR) << "Error opening experiments file for user " << sid
+                 << " with flags " << open_flags
+                 << " Error: " << experiments_file->error_details();
+    return nullptr;
+  }
+
+  base::File::Error lock_error =
+      experiments_file->Lock(base::File::LockMode::kExclusive);
+  if (lock_error != base::File::FILE_OK) {
+    LOGFN(ERROR)
+        << "Failed to obtain exclusive lock on experiments file! Error: "
+        << lock_error;
+    return nullptr;
+  }
+
+  return experiments_file;
+}
+
+base::TimeDelta GetTimeDeltaSinceLastFetch(const base::string16& sid,
+                                           const base::string16& flag) {
+  wchar_t last_fetch_millis[512];
+  ULONG last_fetch_size = base::size(last_fetch_millis);
+  HRESULT hr = GetUserProperty(sid, flag, last_fetch_millis, &last_fetch_size);
+
+  if (FAILED(hr)) {
+    return base::TimeDelta::Max();
+  }
+
+  int64_t last_fetch_millis_int64;
+  base::StringToInt64(last_fetch_millis, &last_fetch_millis_int64);
+
+  int64_t time_delta_from_last_fetch_ms =
+      base::Time::Now().ToDeltaSinceWindowsEpoch().InMilliseconds() -
+      last_fetch_millis_int64;
+
+  return base::TimeDelta::FromMilliseconds(time_delta_from_last_fetch_ms);
 }
 
 }  // namespace credential_provider

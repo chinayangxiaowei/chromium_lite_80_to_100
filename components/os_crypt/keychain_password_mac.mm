@@ -80,6 +80,6 @@ std::string KeychainPassword::GetPassword() const {
     return password;
   }
 
-  OSSTATUS_LOG(ERROR, error) << "Keychain lookup failed";
+  OSSTATUS_DLOG(ERROR, error) << "Keychain lookup failed";
   return std::string();
 }

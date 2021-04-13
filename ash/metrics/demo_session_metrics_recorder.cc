@@ -59,7 +59,7 @@ DemoModeApp GetAppFromAppId(const std::string& app_id) {
       app_id == extension_misc::kScreensaverEveAppId ||
       app_id == extension_misc::kScreensaverNocturneAppId ||
       app_id == extension_misc::kScreensaverAtlasAppId ||
-      app_id == extension_misc::kScreensaverKukuiAppId) {
+      app_id == extension_misc::kScreensaverKraneZdksAppId) {
     return DemoModeApp::kScreensaver;
   }
 
@@ -136,10 +136,6 @@ DemoModeApp GetAppFromPackageName(const std::string& package_name) {
 
 AppType GetAppType(const aura::Window* window) {
   return static_cast<AppType>(window->GetProperty(aura::client::kAppType));
-}
-
-bool IsArcWindow(const aura::Window* window) {
-  return (GetAppType(window) == AppType::ARC_APP);
 }
 
 const std::string* GetArcPackageName(const aura::Window* window) {
