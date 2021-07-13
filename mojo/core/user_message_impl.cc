@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/atomicops.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
@@ -16,6 +17,7 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "base/trace_event/trace_event.h"
+#include "mojo/core/configuration.h"
 #include "mojo/core/core.h"
 #include "mojo/core/node_channel.h"
 #include "mojo/core/node_controller.h"
@@ -415,7 +417,14 @@ Channel::MessagePtr UserMessageImpl::FinalizeEventMessage(
   if (channel_message) {
     void* data;
     size_t size;
-    NodeChannel::GetEventMessageData(channel_message.get(), &data, &size);
+    // The `channel_message` must either be produced locally or must have
+    // already been validated by the caller, as is done for example by
+    // NodeController::DeserializeEventMessage before
+    // NodeController::OnBroadcast re-serializes each copy of the message it
+    // received.
+    bool result =
+        NodeChannel::GetEventMessageData(*channel_message, &data, &size);
+    DCHECK(result);
     message_event->Serialize(data);
   }
 
@@ -511,6 +520,15 @@ MojoResult UserMessageImpl::AppendData(uint32_t additional_payload_size,
           user_payload_offset;
       user_payload_size_ += additional_payload_size;
     }
+  }
+
+  if (user_payload_size_ > GetConfiguration().max_message_num_bytes) {
+    // We want to be aware of new undocumented cases of very large IPCs. Crashes
+    // which result from this stack should be addressed by either marking the
+    // corresponding mojom interface method with an [UnlimitedSize] attribute;
+    // or preferably by refactoring to avoid such large message contents, for
+    // example by batching calls or leveraging shared memory where feasible.
+    base::debug::DumpWithoutCrashing();
   }
 
   return MOJO_RESULT_OK;

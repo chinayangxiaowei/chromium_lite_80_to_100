@@ -62,9 +62,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   // URL used by the SiteInstance associated with the WebViewGuest. See
   // GetGuestPartitionConfigForSite for the URL format.
   static GURL GetSiteForGuestPartitionConfig(
-      const std::string& partition_domain,
-      const std::string& partition_name,
-      bool in_memory);
+      const content::StoragePartitionConfig& storage_partition_config);
 
   // Returns the WebView partition ID associated with the render process
   // represented by |render_process_host|, if any. Otherwise, an empty string is
@@ -112,9 +110,9 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   bool allow_transparency() const { return allow_transparency_; }
 
   // Loads a data URL with a specified base URL and virtual URL.
-  bool LoadDataWithBaseURL(const std::string& data_url,
-                           const std::string& base_url,
-                           const std::string& virtual_url,
+  bool LoadDataWithBaseURL(const GURL& data_url,
+                           const GURL& base_url,
+                           const GURL& virtual_url,
                            std::string* error);
 
   // Begin or continue a find request.
@@ -299,7 +297,6 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void RequestNewWindowPermission(
       WindowOpenDisposition disposition,
       const gfx::Rect& initial_bounds,
-      bool user_gesture,
       content::WebContents* new_contents);
 
   // Requests resolution of a potentially relative URL.

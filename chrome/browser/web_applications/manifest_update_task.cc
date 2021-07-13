@@ -21,6 +21,7 @@
 #include "chrome/browser/web_applications/components/web_app_ui_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/web_application_info.h"
+#include "content/public/common/content_features.h"
 #include "ui/gfx/skia_util.h"
 
 namespace web_app {
@@ -97,6 +98,7 @@ void ManifestUpdateTask::DidFinishLoad(
   InstallableParams params;
   params.valid_primary_icon = true;
   params.valid_manifest = true;
+  params.check_webapp_manifest_display = false;
   InstallableManager::FromWebContents(web_contents())
       ->GetData(params,
                 base::BindOnce(&ManifestUpdateTask::OnDidGetInstallableData,
@@ -113,6 +115,7 @@ void ManifestUpdateTask::WebContentsDestroyed() {
       return;
     case Stage::kPendingIconReadFromDisk:
     case Stage::kPendingWindowsClosed:
+    case Stage::kPendingMaybeReadExistingIcons:
     case Stage::kPendingInstallation:
       // These stages should have stopped listening to the web contents.
       NOTREACHED();
@@ -159,13 +162,24 @@ bool ManifestUpdateTask::IsUpdateNeededForManifest() const {
     return true;
   }
 
-  if (web_application_info_->icon_infos != registrar_.GetAppIconInfos(app_id_))
+  if (base::FeatureList::IsEnabled(features::kWebAppManifestDisplayOverride) &&
+      web_application_info_->display_override !=
+          registrar_.GetAppDisplayModeOverride(app_id_)) {
     return true;
+  }
+
+  // Allow app icon updating if the existing icons are empty - this means the
+  // app icon download during install failed.
+  if (base::FeatureList::IsEnabled(features::kWebAppManifestIconUpdating) &&
+      web_application_info_->icon_infos !=
+          registrar_.GetAppIconInfos(app_id_)) {
+    return true;
+  }
 
   if (base::FeatureList::IsEnabled(
           features::kDesktopPWAsAppIconShortcutsMenu) &&
-      web_application_info_->shortcut_infos !=
-          registrar_.GetAppShortcutInfos(app_id_)) {
+      web_application_info_->shortcuts_menu_item_infos !=
+          registrar_.GetAppShortcutsMenuItemInfos(app_id_)) {
     return true;
   }
 
@@ -215,24 +229,43 @@ void ManifestUpdateTask::OnIconsDownloaded(bool success, IconsMap icons_map) {
                               std::move(icons_map)));
 }
 
-void ManifestUpdateTask::OnAllIconsRead(
-    IconsMap downloaded_icons_map,
-    std::map<SquareSizePx, SkBitmap> disk_icon_bitmaps) {
+void ManifestUpdateTask::OnAllIconsRead(IconsMap downloaded_icons_map,
+                                        IconBitmaps disk_icon_bitmaps) {
   DCHECK(stage_ == Stage::kPendingIconReadFromDisk);
 
   if (disk_icon_bitmaps.empty()) {
     DestroySelf(ManifestUpdateResult::kIconReadFromDiskFailed);
     return;
   }
-
   DCHECK(web_application_info_.has_value());
-  FilterAndResizeIconsGenerateMissing(&web_application_info_.value(),
-                                      &downloaded_icons_map);
 
-  // TODO: compare in a BEST_EFFORT blocking PostTaskAndReply.
-  if (IsUpdateNeededForIconContents(disk_icon_bitmaps)) {
-    UpdateAfterWindowsClose();
-    return;
+  // Allow app icon updating if the existing icons are empty - this means the
+  // app icon download during install failed.
+  if (base::FeatureList::IsEnabled(features::kWebAppManifestIconUpdating)) {
+    // This call populates the |web_application_info_| with all icon bitmap
+    // data.
+    // If this data does not match what we already have on disk, then an update
+    // is necessary.
+    // TODO(https://crbug.com/1184911): Reuse this data in the web app install
+    // task.
+    FilterAndResizeIconsGenerateMissing(&web_application_info_.value(),
+                                        &downloaded_icons_map);
+    // TODO: compare in a BEST_EFFORT blocking PostTaskAndReply.
+    if (IsUpdateNeededForIconContents(disk_icon_bitmaps)) {
+      UpdateAfterWindowsClose();
+      return;
+    }
+  } else if (base::FeatureList::IsEnabled(
+                 features::kDesktopPWAsAppIconShortcutsMenu)) {
+    // FilterAndResizeIconsGenerateMissing calls PopulateShortcutItemIcons. We
+    // need that call to happen still if redownloading app icons is disabled, so
+    // manually call that here.
+    // This call allows us to compare the shortcut icons on disk with the ones
+    // that would be generated after an update.
+    // TODO(https://crbug.com/1184911): Reuse this data in the web app install
+    // task.
+    PopulateShortcutItemIcons(&web_application_info_.value(),
+                              &downloaded_icons_map);
   }
 
   if (base::FeatureList::IsEnabled(
@@ -247,12 +280,20 @@ void ManifestUpdateTask::OnAllIconsRead(
 }
 
 bool ManifestUpdateTask::IsUpdateNeededForIconContents(
-    const std::map<SquareSizePx, SkBitmap>& disk_icon_bitmaps) const {
+    const IconBitmaps& disk_icon_bitmaps) const {
   DCHECK(web_application_info_.has_value());
-  const std::map<SquareSizePx, SkBitmap>& downloaded_icon_bitmaps =
-      web_application_info_->icon_bitmaps;
-  if (HaveIconContentsChanged(disk_icon_bitmaps, downloaded_icon_bitmaps))
+  const std::map<SquareSizePx, SkBitmap>& downloaded_icon_bitmaps_any =
+      web_application_info_->icon_bitmaps_any;
+  if (HaveIconContentsChanged(disk_icon_bitmaps.any,
+                              downloaded_icon_bitmaps_any)) {
     return true;
+  }
+  const std::map<SquareSizePx, SkBitmap>& downloaded_icon_bitmaps_maskable =
+      web_application_info_->icon_bitmaps_maskable;
+  if (HaveIconContentsChanged(disk_icon_bitmaps.maskable,
+                              downloaded_icon_bitmaps_maskable)) {
+    return true;
+  }
 
   return false;
 }
@@ -319,9 +360,32 @@ void ManifestUpdateTask::OnAllAppWindowsClosed() {
       break;
   }
 
+  stage_ = Stage::kPendingMaybeReadExistingIcons;
+  // Allow app icon updating if the existing icons are empty - this means the
+  // app icon download during install failed.
+  if (base::FeatureList::IsEnabled(features::kWebAppManifestIconUpdating)) {
+    OnExistingIconsRead(IconBitmaps());
+    return;
+  }
+  icon_manager_.ReadAllIcons(
+      app_id_,
+      base::BindOnce(&ManifestUpdateTask::OnExistingIconsRead, AsWeakPtr()));
+}
+
+void ManifestUpdateTask::OnExistingIconsRead(IconBitmaps icon_bitmaps) {
+  DCHECK_EQ(stage_, Stage::kPendingMaybeReadExistingIcons);
+
+  bool redownload_app_icons = icon_bitmaps.empty();
+  if (!redownload_app_icons) {
+    web_application_info_->icon_bitmaps_any = std::move(icon_bitmaps.any);
+    web_application_info_->icon_bitmaps_maskable =
+        std::move(icon_bitmaps.maskable);
+  }
+
   stage_ = Stage::kPendingInstallation;
   install_manager_.UpdateWebAppFromInfo(
       app_id_, std::make_unique<WebApplicationInfo>(*web_application_info_),
+      /*redownload_app_icons=*/redownload_app_icons,
       base::BindOnce(&ManifestUpdateTask::OnInstallationComplete, AsWeakPtr()));
 }
 

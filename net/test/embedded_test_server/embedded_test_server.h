@@ -153,6 +153,14 @@ class EmbeddedTestServer {
     // and rerunning net/data/ssl/scripts/generate-test-certs.sh.
     CERT_TEST_NAMES,
 
+    // An RSA certificate with the keyUsage extension specifying that the key
+    // is only for encipherment.
+    CERT_KEY_USAGE_RSA_ENCIPHERMENT,
+
+    // An RSA certificate with the keyUsage extension specifying that the key
+    // is only for digital signatures.
+    CERT_KEY_USAGE_RSA_DIGITAL_SIGNATURE,
+
     // A certificate will be generated at runtime. A ServerCertificateConfig
     // passed to SetSSLConfig may be used to configure the details of the
     // generated certificate.
@@ -416,6 +424,10 @@ class EmbeddedTestServer {
   // Registers the default handlers and serve additional files from the
   // |directory| directory, relative to DIR_SOURCE_ROOT.
   void AddDefaultHandlers(const base::FilePath& directory);
+
+  // Adds all default handlers except, without serving additional files from any
+  // directory.
+  void AddDefaultHandlers();
 
   // Adds a request handler that can perform any general-purpose processing.
   // |callback| will be invoked on the server's IO thread. Note that:

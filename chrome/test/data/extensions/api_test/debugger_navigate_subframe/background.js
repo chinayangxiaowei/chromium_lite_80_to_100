@@ -5,41 +5,9 @@
 const protocolVersion = '1.3';
 const DETACHED_WHILE_HANDLING = 'Detached while handling command.';
 
-function openTab(url) {
-  return new Promise((resolve) => {
-    let createdTabId;
-    let completedTabIds = [];
-    chrome.tabs.onUpdated.addListener(
-        function listener(tabId, changeInfo, tab) {
-      if (changeInfo.status !== 'complete')
-        return;  // Tab not done.
-
-      if (createdTabId === undefined) {
-        // A tab completed loading before the chrome.tabs.create callback was
-        // triggered; stash the ID for later comparison to see if it was our
-        // tab.
-        completedTabIds.push(tabId);
-        return;
-      }
-
-      if (tabId !== createdTabId)
-        return;  // Not our tab.
-
-      // It's ours!
-      chrome.tabs.onUpdated.removeListener(listener);
-      resolve(tab);
-    });
-    chrome.tabs.create({url: url}, (tab) => {
-      if (completedTabIds.includes(tab.id))
-        resolve(tab);
-      else
-        createdTabId = tab.id;
-    });
-  });
-}
-
 chrome.test.getConfig(config => chrome.test.runTests([
   async function testNavigateSubframe() {
+    const {openTab} = await import('/_test_resources/test_util/tabs_util.js');
     const topURL = config.customArg;
     const subframeURL = topURL.replace('http://a.com', 'http://b.com');
     const tab = await openTab(topURL);

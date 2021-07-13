@@ -15,7 +15,6 @@
 #include "base/files/file_path.h"
 #include "base/lazy_instance.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop_current.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/stl_util.h"
@@ -23,6 +22,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_offset_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/current_thread.h"
 #include "base/win/message_window.h"
 #include "base/win/scoped_gdi_object.h"
 #include "base/win/scoped_hdc.h"
@@ -30,6 +30,7 @@
 #include "skia/ext/skia_utils_win.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/clipboard/clipboard_constants.h"
+#include "ui/base/clipboard/clipboard_data_endpoint.h"
 #include "ui/base/clipboard/clipboard_metrics.h"
 #include "ui/base/clipboard/clipboard_util_win.h"
 #include "ui/base/clipboard/custom_data_helper.h"
@@ -231,7 +232,7 @@ Clipboard* Clipboard::Create() {
 
 // ClipboardWin implementation.
 ClipboardWin::ClipboardWin() {
-  if (base::MessageLoopCurrentForUI::IsSet())
+  if (base::CurrentUIThread::IsSet())
     clipboard_owner_ = std::make_unique<base::win::MessageWindow>();
 }
 
@@ -245,8 +246,17 @@ uint64_t ClipboardWin::GetSequenceNumber(ClipboardBuffer buffer) const {
   return ::GetClipboardSequenceNumber();
 }
 
-bool ClipboardWin::IsFormatAvailable(const ClipboardFormatType& format,
-                                     ClipboardBuffer buffer) const {
+void ClipboardWin::SetClipboardDlpController(
+    std::unique_ptr<ClipboardDlpController> dlp_controller) {
+  NOTIMPLEMENTED();
+}
+
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
+bool ClipboardWin::IsFormatAvailable(
+    const ClipboardFormatType& format,
+    ClipboardBuffer buffer,
+    const ClipboardDataEndpoint* data_dst) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   return ::IsClipboardFormatAvailable(format.ToFormatEtc().cfFormat) != FALSE;
 }
@@ -260,8 +270,11 @@ void ClipboardWin::Clear(ClipboardBuffer buffer) {
   ::EmptyClipboard();
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadAvailableTypes(
     ClipboardBuffer buffer,
+    const ClipboardDataEndpoint* data_dst,
     std::vector<base::string16>* types) const {
   DCHECK(types);
 
@@ -292,9 +305,12 @@ void ClipboardWin::ReadAvailableTypes(
   ::GlobalUnlock(hdata);
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 std::vector<base::string16>
 ClipboardWin::ReadAvailablePlatformSpecificFormatNames(
-    ClipboardBuffer buffer) const {
+    ClipboardBuffer buffer,
+    const ClipboardDataEndpoint* data_dst) const {
   int count = ::CountClipboardFormats();
   if (!count)
     return {};
@@ -317,7 +333,10 @@ ClipboardWin::ReadAvailablePlatformSpecificFormatNames(
   return types;
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadText(ClipboardBuffer buffer,
+                            const ClipboardDataEndpoint* data_dst,
                             base::string16* result) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kText);
@@ -343,7 +362,10 @@ void ClipboardWin::ReadText(ClipboardBuffer buffer,
   TrimAfterNull(result);
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadAsciiText(ClipboardBuffer buffer,
+                                 const ClipboardDataEndpoint* data_dst,
                                  std::string* result) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kText);
@@ -369,7 +391,10 @@ void ClipboardWin::ReadAsciiText(ClipboardBuffer buffer,
   TrimAfterNull(result);
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadHTML(ClipboardBuffer buffer,
+                            const ClipboardDataEndpoint* data_dst,
                             base::string16* markup,
                             std::string* src_url,
                             uint32_t* fragment_start,
@@ -427,22 +452,32 @@ void ClipboardWin::ReadHTML(ClipboardBuffer buffer,
   *fragment_end = base::checked_cast<uint32_t>(end);
 }
 
-void ClipboardWin::ReadRTF(ClipboardBuffer buffer, std::string* result) const {
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
+void ClipboardWin::ReadRTF(ClipboardBuffer buffer,
+                           const ClipboardDataEndpoint* data_dst,
+                           std::string* result) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kRtf);
 
-  ReadData(ClipboardFormatType::GetRtfType(), result);
+  ReadData(ClipboardFormatType::GetRtfType(), data_dst, result);
   TrimAfterNull(result);
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadImage(ClipboardBuffer buffer,
+                             const ClipboardDataEndpoint* data_dst,
                              ReadImageCallback callback) const {
   RecordRead(ClipboardFormatMetric::kImage);
   std::move(callback).Run(ReadImageInternal(buffer));
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadCustomData(ClipboardBuffer buffer,
                                   const base::string16& type,
+                                  const ClipboardDataEndpoint* data_dst,
                                   base::string16* result) const {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
   RecordRead(ClipboardFormatMetric::kCustomData);
@@ -461,7 +496,11 @@ void ClipboardWin::ReadCustomData(ClipboardBuffer buffer,
   ::GlobalUnlock(hdata);
 }
 
-void ClipboardWin::ReadBookmark(base::string16* title, std::string* url) const {
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
+void ClipboardWin::ReadBookmark(const ClipboardDataEndpoint* data_dst,
+                                base::string16* title,
+                                std::string* url) const {
   RecordRead(ClipboardFormatMetric::kBookmark);
   if (title)
     title->clear();
@@ -487,7 +526,10 @@ void ClipboardWin::ReadBookmark(base::string16* title, std::string* url) const {
   ParseBookmarkClipboardFormat(bookmark, title, url);
 }
 
+// |data_dst| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::ReadData(const ClipboardFormatType& format,
+                            const ClipboardDataEndpoint* data_dst,
                             std::string* result) const {
   RecordRead(ClipboardFormatMetric::kData);
   if (!result) {
@@ -508,8 +550,12 @@ void ClipboardWin::ReadData(const ClipboardFormatType& format,
   ::GlobalUnlock(data);
 }
 
-void ClipboardWin::WritePortableRepresentations(ClipboardBuffer buffer,
-                                                const ObjectMap& objects) {
+// |data_src| is not used. It's only passed to be consistent with other
+// platforms.
+void ClipboardWin::WritePortableRepresentations(
+    ClipboardBuffer buffer,
+    const ObjectMap& objects,
+    std::unique_ptr<ClipboardDataEndpoint> data_src) {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
 
   ScopedClipboard clipboard;
@@ -522,9 +568,12 @@ void ClipboardWin::WritePortableRepresentations(ClipboardBuffer buffer,
     DispatchPortableRepresentation(object.first, object.second);
 }
 
+// |data_src| is not used. It's only passed to be consistent with other
+// platforms.
 void ClipboardWin::WritePlatformRepresentations(
     ClipboardBuffer buffer,
-    std::vector<Clipboard::PlatformRepresentation> platform_representations) {
+    std::vector<Clipboard::PlatformRepresentation> platform_representations,
+    std::unique_ptr<ClipboardDataEndpoint> data_src) {
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
 
   ScopedClipboard clipboard;
@@ -585,48 +634,16 @@ void ClipboardWin::WriteWebSmartPaste() {
       nullptr);
 }
 
-void ClipboardWin::WriteBitmap(const SkBitmap& in_bitmap) {
-  HDC dc = ::GetDC(nullptr);
-
-  SkBitmap bitmap;
-  // Either points bitmap at in_bitmap, or allocates and converts pixels.
-  if (!skia::SkBitmapToN32OpaqueOrPremul(in_bitmap, &bitmap)) {
-    NOTREACHED() << "Unable to convert bitmap for clipboard";
-    return;
-  }
-
+void ClipboardWin::WriteBitmap(const SkBitmap& bitmap) {
   // This doesn't actually cost us a memcpy when the bitmap comes from the
   // renderer as we load it into the bitmap using setPixels which just sets a
   // pointer.  Someone has to memcpy it into GDI, it might as well be us here.
-
-  // TODO(darin): share data in gfx/bitmap_header.cc somehow
-  BITMAPINFO bm_info = {};
-  bm_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-  bm_info.bmiHeader.biWidth = bitmap.width();
-  bm_info.bmiHeader.biHeight = -bitmap.height();  // sets vertical orientation
-  bm_info.bmiHeader.biPlanes = 1;
-  bm_info.bmiHeader.biBitCount = 32;
-  bm_info.bmiHeader.biCompression = BI_RGB;
-
-  // ::CreateDIBSection allocates memory for us to copy our bitmap into.
-  // Unfortunately, we can't write the created bitmap to the clipboard,
-  // (see
-  // https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createdibsection)
-  void* bits;
-  HBITMAP source_hbitmap =
-      ::CreateDIBSection(dc, &bm_info, DIB_RGB_COLORS, &bits, nullptr, 0);
-
-  if (bits && source_hbitmap) {
-    // Copy the bitmap out of shared memory and into GDI
-    memcpy(bits, bitmap.getPixels(), bitmap.computeByteSize());
-
+  base::win::ScopedBitmap hbitmap = skia::CreateHBitmapFromN32SkBitmap(bitmap);
+  if (hbitmap.is_valid()) {
     // Now we have an HBITMAP, we can write it to the clipboard
-    WriteBitmapFromHandle(source_hbitmap,
+    WriteBitmapFromHandle(hbitmap.get(),
                           gfx::Size(bitmap.width(), bitmap.height()));
   }
-
-  ::DeleteObject(source_hbitmap);
-  ::ReleaseDC(nullptr, dc);
 }
 
 void ClipboardWin::WriteData(const ClipboardFormatType& format,
@@ -734,14 +751,13 @@ SkBitmap ClipboardWin::ReadImageInternal(ClipboardBuffer buffer) const {
 
   void* dst_bits;
   // dst_hbitmap is freed by the release_proc in skia_bitmap (below)
-  HBITMAP dst_hbitmap =
-      skia::CreateHBitmap(bitmap->bmiHeader.biWidth, bitmap->bmiHeader.biHeight,
-                          false, 0, &dst_bits);
+  base::win::ScopedBitmap dst_hbitmap = skia::CreateHBitmapXRGB8888(
+      bitmap->bmiHeader.biWidth, bitmap->bmiHeader.biHeight, 0, &dst_bits);
 
   {
     base::win::ScopedCreateDC hdc(CreateCompatibleDC(nullptr));
     HBITMAP old_hbitmap =
-        static_cast<HBITMAP>(SelectObject(hdc.Get(), dst_hbitmap));
+        static_cast<HBITMAP>(SelectObject(hdc.Get(), dst_hbitmap.get()));
     ::SetDIBitsToDevice(hdc.Get(), 0, 0, bitmap->bmiHeader.biWidth,
                         bitmap->bmiHeader.biHeight, 0, 0, 0,
                         bitmap->bmiHeader.biHeight, bitmap_bits, bitmap,
@@ -776,7 +792,7 @@ SkBitmap ClipboardWin::ReadImageInternal(ClipboardBuffer buffer) const {
       [](void* pixels, void* hbitmap) {
         DeleteObject(static_cast<HBITMAP>(hbitmap));
       },
-      dst_hbitmap);
+      dst_hbitmap.release());
   return skia_bitmap;
 }
 

@@ -370,9 +370,9 @@ class TabStripModel : public TabGroupController {
   // Extends the selection from the anchor to |index|.
   void ExtendSelectionTo(int index);
 
-  // Toggles the selection at |index|. This does nothing if |index| is selected
-  // and there are no other selected tabs.
-  void ToggleSelectionAt(int index);
+  // Returns true if the selection was toggled; this can fail if the tabstrip
+  // is not editable.
+  bool ToggleSelectionAt(int index);
 
   // Makes sure the tabs from the anchor to |index| are selected. This only
   // adds to the selection.
@@ -463,6 +463,7 @@ class TabStripModel : public TabGroupController {
 
   // TabGroupController:
   void CreateTabGroup(const tab_groups::TabGroupId& group) override;
+  void OpenTabGroupEditor(const tab_groups::TabGroupId& group) override;
   void ChangeTabGroupContents(const tab_groups::TabGroupId& group) override;
   void ChangeTabGroupVisuals(const tab_groups::TabGroupId& group) override;
   void MoveTabGroup(const tab_groups::TabGroupId& group) override;
@@ -495,10 +496,6 @@ class TabStripModel : public TabGroupController {
     CommandMoveTabsToNewWindow,
     CommandLast
   };
-
-  // Range of command IDs reserved for the "Move to another window" submenu.
-  static const int kMinExistingWindowCommandId = 1001;
-  static const int kMaxExistingWindowCommandId = 1200;
 
   // Returns true if the specified command is enabled. If |context_index| is
   // selected the response applies to all selected tabs.
@@ -603,7 +600,9 @@ class TabStripModel : public TabGroupController {
   bool RunUnloadListenerBeforeClosing(content::WebContents* contents);
   bool ShouldRunUnloadListenerBeforeClosing(content::WebContents* contents);
 
-  int ConstrainInsertionIndex(int index, bool pinned_tab);
+  int ConstrainInsertionIndex(int index, bool pinned_tab) const;
+
+  int ConstrainMoveIndex(int index, bool pinned_tab) const;
 
   // If |index| is selected all the selected indices are returned, otherwise a
   // vector with |index| is returned. This is used when executing commands to

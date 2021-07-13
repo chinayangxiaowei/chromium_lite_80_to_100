@@ -116,7 +116,7 @@ class ReadOnlyOriginView : public views::View {
         views::GridLayout::LEADING, views::GridLayout::CENTER, 1.0,
         views::GridLayout::ColumnSize::kUsePreferred, 0, 0);
     const bool has_icon = icon_bitmap && !icon_bitmap->drawsNothing();
-    float adjusted_width = base::checked_cast<float>(icon_bitmap->width());
+    float adjusted_width = base::checked_cast<float>(has_icon ? icon_bitmap->width() : 0);
     if (has_icon) {
       adjusted_width =
           adjusted_width *
@@ -150,9 +150,9 @@ class ReadOnlyOriginView : public views::View {
 };
 
 PaymentHandlerWebFlowViewController::PaymentHandlerWebFlowViewController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog,
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog,
     content::WebContents* payment_request_web_contents,
     Profile* profile,
     GURL target,
@@ -171,10 +171,15 @@ PaymentHandlerWebFlowViewController::PaymentHandlerWebFlowViewController(
       dialog_manager_delegate_(
           static_cast<web_modal::WebContentsModalDialogManagerDelegate*>(
               chrome::FindBrowserWithWebContents(payment_request_web_contents))
-              ->GetWebContentsModalDialogHost()) {
-}
+              ->GetWebContentsModalDialogHost()) {}
 
 PaymentHandlerWebFlowViewController::~PaymentHandlerWebFlowViewController() {
+  if (web_contents()) {
+    auto* manager = web_modal::WebContentsModalDialogManager::FromWebContents(
+        web_contents());
+    if (manager)
+      manager->SetDelegate(nullptr);
+  }
   state()->OnPaymentAppWindowClosed();
 }
 

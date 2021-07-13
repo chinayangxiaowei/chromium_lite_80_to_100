@@ -51,10 +51,10 @@ OffscreenCanvas::OffscreenCanvas(ExecutionContext* context, const IntSize& size)
   // Other code in Blink watches for destruction of the context; be
   // robust here as well.
   if (!context->IsContextDestroyed()) {
-    if (context->IsDocument()) {
+    if (auto* window = DynamicTo<LocalDOMWindow>(context)) {
       // If this OffscreenCanvas is being created in the context of a
       // cross-origin iframe, it should prefer to use the low-power GPU.
-      LocalFrame* frame = To<LocalDOMWindow>(context)->GetFrame();
+      LocalFrame* frame = window->GetFrame();
       if (!(frame && frame->IsCrossOriginToMainFrame())) {
         AllowHighPerformancePowerPreference();
       }
@@ -103,6 +103,7 @@ void OffscreenCanvas::Commit(scoped_refptr<CanvasResource> canvas_resource,
 void OffscreenCanvas::Dispose() {
   // We need to drop frame dispatcher, to prevent mojo calls from completing.
   frame_dispatcher_ = nullptr;
+  DiscardResourceProvider();
 
   if (context_) {
     context_->DetachHost();
@@ -361,7 +362,8 @@ CanvasResourceProvider* OffscreenCanvas::GetOrCreateResourceProvider() {
   IntSize surface_size(width(), height());
   const bool can_use_gpu =
       SharedGpuContext::IsGpuCompositingEnabled() &&
-      (Is3d() || RuntimeEnabledFeatures::Accelerated2dCanvasEnabled());
+      (Is3d() || (RuntimeEnabledFeatures::Accelerated2dCanvasEnabled() &&
+                  !context_->CreationAttributes().will_read_frequently));
   const bool composited_mode =
       (Is3d() ? RuntimeEnabledFeatures::WebGLImageChromiumEnabled()
               : RuntimeEnabledFeatures::Canvas2dImageChromiumEnabled());

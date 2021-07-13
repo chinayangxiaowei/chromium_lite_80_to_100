@@ -4,7 +4,7 @@
 
 #include "build/build_config.h"
 // Disable all tests in this file on Mac for flake (crbug.com/1079249)
-#if !defined(OS_MACOSX)
+#if !defined(OS_MAC)
 
 #include <string>
 #include <tuple>
@@ -80,7 +80,6 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
-#include "net/url_request/url_request_status.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/base_event_utils.h"
@@ -1842,7 +1841,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, AutofillAfterReload) {
   // Reload the page.
   content::WebContents* web_contents = GetWebContents();
   web_contents->GetController().Reload(content::ReloadType::NORMAL, false);
-  content::WaitForLoadStop(web_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(web_contents));
 
   // Invoke Autofill.
   TryBasicFormFill();
@@ -2212,7 +2211,17 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
   ui_test_utils::NavigateToURL(browser(), url);
   PopulateForm("NAME_FIRST");
 
-  ExpectFieldValue("NAME_MIDDLE", "C");
+  // In the legacy implementation for names, the initial is always created
+  // without a trailing dot even if the user explicitely used a dot.
+  // For structured names, we leave the choice to the user.
+  // TODO(crbug.com/1103421): Clean legacy implementation once structured names
+  // are fully launched.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableSupportForMoreStructureInNames)) {
+    ExpectFieldValue("NAME_MIDDLE", "C.");
+  } else {
+    ExpectFieldValue("NAME_MIDDLE", "C");
+  }
 }
 
 // Test forms with multiple email addresses are filled properly.
@@ -2701,7 +2710,8 @@ IN_PROC_BROWSER_TEST_P(AutofillRestrictUnownedFieldsTest, SomeAutocomplete) {
 
 // Test that we do not fill formless non-checkout forms when we enable the
 // formless form restrictions.
-IN_PROC_BROWSER_TEST_P(AutofillRestrictUnownedFieldsTest, AllAutocomplete) {
+IN_PROC_BROWSER_TEST_P(AutofillRestrictUnownedFieldsTest,
+                       DISABLED_AllAutocomplete) {
   SCOPED_TRACE(base::StringPrintf("restrict_unowned_fields_ = %d",
                                   restrict_unowned_fields_));
   CreateTestProfile();
@@ -2771,7 +2781,14 @@ class AutofillInteractiveIsolationTest : public AutofillInteractiveTestBase {
   }
 };
 
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveIsolationTest, SimpleCrossSiteFill) {
+// Flaky on ChromeOS http://crbug.com/1175735
+#if defined(OS_CHROMEOS)
+#define MAYBE_SimpleCrossSiteFill DISABLED_SimpleCrossSiteFill
+#else
+#define MAYBE_SimpleCrossSiteFill SimpleCrossSiteFill
+#endif
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveIsolationTest,
+                       MAYBE_SimpleCrossSiteFill) {
   CreateTestProfile();
 
   // Main frame is on a.com, iframe is on b.com.
@@ -2814,7 +2831,8 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveIsolationTest, SimpleCrossSiteFill) {
 // This test verifies that credit card (payment card list) popup works when the
 // form is inside an OOPIF.
 // Flaky on Windows http://crbug.com/728488
-#if defined(OS_WIN)
+// Flaky on ChromeOS http://crbug.com/1175735
+#if defined(OS_WIN) || defined(OS_CHROMEOS)
 #define MAYBE_CrossSitePaymentForms DISABLED_CrossSitePaymentForms
 #else
 #define MAYBE_CrossSitePaymentForms CrossSitePaymentForms
@@ -2852,8 +2870,14 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, MAYBE_CrossSitePaymentForms) {
                        {ObservedUiEvents::kSuggestionShown});
 }
 
+// Flaky on ChromeOS http://crbug.com/1175735
+#if defined(OS_CHROMEOS)
+#define MAYBE_DeletingFrameUnderSuggestion DISABLED_DeletingFrameUnderSuggestion
+#else
+#define MAYBE_DeletingFrameUnderSuggestion DeletingFrameUnderSuggestion
+#endif
 IN_PROC_BROWSER_TEST_F(AutofillInteractiveIsolationTest,
-                       DeletingFrameUnderSuggestion) {
+                       MAYBE_DeletingFrameUnderSuggestion) {
   CreateTestProfile();
 
   // Main frame is on a.com, iframe is on b.com.
@@ -3543,4 +3567,4 @@ INSTANTIATE_TEST_SUITE_P(All,
                          testing::Combine(testing::Bool(), testing::Bool()));
 }  // namespace autofill
 
-#endif  // !defined(OS_MACOSX)
+#endif  // !defined(OS_MAC)

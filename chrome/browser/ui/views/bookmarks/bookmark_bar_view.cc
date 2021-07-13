@@ -40,6 +40,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_context_menu.h"
@@ -48,6 +49,7 @@
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
+#include "chrome/browser/ui/views/read_later/read_later_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/chrome_switches.h"
@@ -282,7 +284,7 @@ class BookmarkMenuButtonBase : public MenuButton {
  public:
   BookmarkMenuButtonBase(const base::string16& title,
                          BookmarkBarView::MenuButtonListener* button_listener)
-      : MenuButton(title, button_listener) {
+      : MenuButton(button_listener, title) {
     SetImageLabelSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
         DISTANCE_RELATED_LABEL_HORIZONTAL_LIST));
     views::InstallPillHighlightPathGenerator(this);
@@ -518,11 +520,8 @@ BookmarkBarView::~BookmarkBarView() {
   // it doesn't have a reference to us.
   if (bookmark_menu_) {
     bookmark_menu_->set_observer(nullptr);
-    bookmark_menu_->SetPageNavigator(nullptr);
     bookmark_menu_->clear_bookmark_bar();
   }
-  if (context_menu_.get())
-    context_menu_->SetPageNavigator(nullptr);
 
   StopShowFolderDropMenuTimer();
 }
@@ -542,10 +541,6 @@ void BookmarkBarView::RemoveObserver(BookmarkBarViewObserver* observer) {
 
 void BookmarkBarView::SetPageNavigator(content::PageNavigator* navigator) {
   page_navigator_ = navigator;
-  if (bookmark_menu_)
-    bookmark_menu_->SetPageNavigator(navigator);
-  if (context_menu_.get())
-    context_menu_->SetPageNavigator(navigator);
 }
 
 void BookmarkBarView::SetInfoBarVisible(bool infobar_visible) {
@@ -731,6 +726,12 @@ gfx::Size BookmarkBarView::GetMinimumSize() const {
     gfx::Size size = apps_page_shortcut_->GetPreferredSize();
     width += size.width() + bookmark_bar_button_padding;
   }
+  if (read_later_button_) {
+    gfx::Size separator_size = read_later_separator_view_->GetPreferredSize();
+    gfx::Size size = read_later_button_->GetPreferredSize();
+    width +=
+        separator_size.width() + size.width() + bookmark_bar_button_padding;
+  }
 
   return gfx::Size(width, height);
 }
@@ -785,6 +786,13 @@ void BookmarkBarView::Layout() {
               bookmarks_separator_pref.width();
   if (other_bookmarks_button_->GetVisible())
     max_x -= other_bookmarks_pref.width() + bookmark_bar_button_padding;
+
+  if (read_later_button_) {
+    if (bookmarks_separator_view_->GetVisible())
+      max_x -= bookmarks_separator_pref.width();
+    max_x -= read_later_button_->GetPreferredSize().width() +
+             bookmark_bar_button_padding;
+  }
 
   // Start with the apps page shortcut button.
   if (apps_page_shortcut_->GetVisible()) {
@@ -857,6 +865,19 @@ void BookmarkBarView::Layout() {
     other_bookmarks_button_->SetBounds(x, y, other_bookmarks_pref.width(),
                                        button_height);
     x += other_bookmarks_pref.width() + bookmark_bar_button_padding;
+  }
+
+  // Read-later button and separator.
+  if (read_later_button_) {
+    gfx::Size read_later_separator_pref =
+        read_later_separator_view_->GetPreferredSize();
+    gfx::Size read_later_pref = read_later_button_->GetPreferredSize();
+    read_later_separator_view_->SetBounds(
+        x, center_y(read_later_separator_pref.height()),
+        read_later_separator_pref.width(), read_later_separator_pref.height());
+    x += read_later_separator_pref.width();
+    read_later_button_->SetBounds(x, y, read_later_pref.width(), button_height);
+    x += read_later_pref.width() + bookmark_bar_button_padding;
   }
 }
 
@@ -1305,15 +1326,14 @@ void BookmarkBarView::OnMenuButtonPressed(views::Button* view,
   // opens all bookmarks in the folder in new tabs.
   if ((event.flags() & ui::EF_MIDDLE_MOUSE_BUTTON) ||
       (event.flags() & ui::EF_PLATFORM_ACCELERATOR)) {
-    WindowOpenDisposition disposition_from_event_flags =
-        ui::DispositionFromEventFlags(event.flags());
     RecordBookmarkFolderLaunch(BOOKMARK_LAUNCH_LOCATION_ATTACHED_BAR);
-    chrome::OpenAll(GetWidget()->GetNativeWindow(), page_navigator_, node,
-                    disposition_from_event_flags, browser_->profile());
+    chrome::OpenAllIfAllowed(browser_, GetPageNavigatorGetter(), {node},
+                             ui::DispositionFromEventFlags(event.flags()));
   } else {
     RecordBookmarkFolderOpen(BOOKMARK_LAUNCH_LOCATION_ATTACHED_BAR);
-    bookmark_menu_ = new BookmarkMenuController(
-        browser_, page_navigator_, GetWidget(), node, start_index, false);
+    bookmark_menu_ =
+        new BookmarkMenuController(browser_, GetPageNavigatorGetter(),
+                                   GetWidget(), node, start_index, false);
     bookmark_menu_->set_observer(this);
     bookmark_menu_->RunMenuAt(this);
   }
@@ -1391,8 +1411,7 @@ void BookmarkBarView::ShowContextMenuForViewImpl(
   const bool close_on_remove = true;
 
   context_menu_ = std::make_unique<BookmarkContextMenu>(
-      GetWidget(), browser_, browser_->profile(),
-      browser_->tab_strip_model()->GetActiveWebContents(),
+      GetWidget(), browser_, browser_->profile(), GetPageNavigatorGetter(),
       BOOKMARK_LAUNCH_LOCATION_ATTACHED_BAR, parent, nodes, close_on_remove);
   context_menu_->RunMenuAt(point, source_type);
 }
@@ -1416,6 +1435,13 @@ void BookmarkBarView::Init() {
   other_bookmarks_button_ = AddChildView(CreateOtherBookmarksButton());
   // We'll re-enable when the model is loaded.
   other_bookmarks_button_->SetEnabled(false);
+
+  if (base::FeatureList::IsEnabled(features::kReadLater)) {
+    read_later_separator_view_ =
+        AddChildView(std::make_unique<ButtonSeparatorView>());
+    read_later_button_ =
+        AddChildView(std::make_unique<ReadLaterButton>(browser_));
+  }
 
   profile_pref_registrar_.Init(browser_->profile()->GetPrefs());
   profile_pref_registrar_.Add(
@@ -1488,6 +1514,8 @@ std::unique_ptr<MenuButton> BookmarkBarView::CreateOverflowButton() {
   // Set accessibility name.
   button->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_ACCNAME_BOOKMARKS_CHEVRON));
+  button->SetTooltipText(
+      l10n_util::GetStringUTF16(IDS_BOOKMARK_BAR_OVERFLOW_BUTTON_TOOLTIP));
   return button;
 }
 
@@ -1660,7 +1688,7 @@ void BookmarkBarView::ShowDropFolderForNode(const BookmarkNode* node) {
 
   drop_info_->is_menu_showing = true;
   bookmark_drop_menu_ = new BookmarkMenuController(
-      browser_, page_navigator_, GetWidget(), node, start_index, true);
+      browser_, GetPageNavigatorGetter(), GetWidget(), node, start_index, true);
   bookmark_drop_menu_->set_observer(this);
   bookmark_drop_menu_->RunMenuAt(this);
 
@@ -1986,4 +2014,15 @@ size_t BookmarkBarView::GetIndexForButton(views::View* button) {
     return size_t{-1};
 
   return size_t{it - bookmark_buttons_.cbegin()};
+}
+
+base::RepeatingCallback<content::PageNavigator*()>
+BookmarkBarView::GetPageNavigatorGetter() {
+  auto getter = [](base::WeakPtr<BookmarkBarView> bookmark_bar)
+      -> content::PageNavigator* {
+    if (!bookmark_bar)
+      return nullptr;
+    return bookmark_bar->page_navigator_;
+  };
+  return base::BindRepeating(getter, weak_ptr_factory_.GetWeakPtr());
 }

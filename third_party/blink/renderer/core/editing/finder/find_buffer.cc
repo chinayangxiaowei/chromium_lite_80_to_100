@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/editing/iterators/text_searcher_icu.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
@@ -37,6 +38,8 @@ bool ShouldIgnoreContents(const Node& node) {
     return false;
   return (!element->ShouldSerializeEndTag() &&
           !IsA<HTMLInputElement>(*element)) ||
+         (IsA<TextControlElement>(*element) &&
+          !To<TextControlElement>(*element).SuggestedValue().IsEmpty()) ||
          IsA<HTMLIFrameElement>(*element) || IsA<HTMLImageElement>(*element) ||
          IsA<HTMLMeterElement>(*element) || IsA<HTMLObjectElement>(*element) ||
          IsA<HTMLProgressElement>(*element) ||
@@ -65,8 +68,12 @@ Node* GetNonSearchableAncestor(const Node& node) {
   return nullptr;
 }
 
+// TODO(gayane): Consider using |ComputedStyle::IsDisplayInlineType| or
+// |ElementInnerTextCollector::IsDisplayBlockLevel|. See
+// http://crrev.com/c/2283244/10/third_party/blink/renderer/core/editing/finder/find_buffer.cc#69
+// for context.
 // Returns true if the given |display| is considered a 'block'
-bool IsBlock(EDisplay display) {
+bool IsBlockLevel(EDisplay display) {
   return display == EDisplay::kBlock || display == EDisplay::kTable ||
          display == EDisplay::kFlowRoot || display == EDisplay::kGrid ||
          display == EDisplay::kFlex || display == EDisplay::kListItem;
@@ -104,20 +111,6 @@ Node* GetVisibleTextNode(Node& start_node) {
   return nullptr;
 }
 
-// Returns the closest ancestor of |start_node| (including the node itself) that
-// is a block.
-Node& GetLowestDisplayBlockInclusiveAncestor(const Node& start_node) {
-  // Gets lowest inclusive ancestor that has block display value.
-  // <div id=outer>a<div id=inner>b</div>c</div>
-  // If we run this on "a" or "c" text node in we will get the outer div.
-  // If we run it on the "b" text node we will get the inner div.
-  for (Node& ancestor : FlatTreeTraversal::InclusiveAncestorsOf(start_node)) {
-    const ComputedStyle* style = ancestor.EnsureComputedStyle();
-    if (style && !ancestor.IsTextNode() && IsBlock(style->Display()))
-      return ancestor;
-  }
-  return *start_node.GetDocument().documentElement();
-}
 }  // namespace
 
 // FindBuffer implementation.
@@ -192,6 +185,19 @@ EphemeralRangeInFlatTree FindBuffer::FindMatchInRange(
   return last_match_range;
 }
 
+Node& FindBuffer::GetFirstBlockLevelAncestorInclusive(const Node& start_node) {
+  // Gets lowest inclusive ancestor that has block display value.
+  // <div id=outer>a<div id=inner>b</div>c</div>
+  // If we run this on "a" or "c" text node in we will get the outer div.
+  // If we run it on the "b" text node we will get the inner div.
+  for (Node& ancestor : FlatTreeTraversal::InclusiveAncestorsOf(start_node)) {
+    const ComputedStyle* style = ancestor.EnsureComputedStyle();
+    if (style && !ancestor.IsTextNode() && IsBlockLevel(style->Display()))
+      return ancestor;
+  }
+  return *start_node.GetDocument().documentElement();
+}
+
 FindBuffer::Results FindBuffer::FindMatches(const WebString& search_text,
                                             const blink::FindOptions options) {
   // We should return empty result if it's impossible to get a match (buffer is
@@ -224,7 +230,7 @@ void FindBuffer::CollectTextUntilBlockBoundary(
   if (!node || !node->isConnected())
     return;
 
-  Node& block_ancestor = GetLowestDisplayBlockInclusiveAncestor(*node);
+  Node& block_ancestor = GetFirstBlockLevelAncestorInclusive(*node);
   const Node* just_after_block = FlatTreeTraversal::Next(
       FlatTreeTraversal::LastWithinOrSelf(block_ancestor));
   const LayoutBlockFlow* last_block_flow = nullptr;
@@ -274,7 +280,7 @@ void FindBuffer::CollectTextUntilBlockBoundary(
     // This node is in its own sub-block separate from our starting position.
     const auto* text_node = DynamicTo<Text>(node);
     if (first_traversed_node != node && !text_node &&
-        IsBlock(style->Display())) {
+        IsBlockLevel(style->Display())) {
       break;
     }
 

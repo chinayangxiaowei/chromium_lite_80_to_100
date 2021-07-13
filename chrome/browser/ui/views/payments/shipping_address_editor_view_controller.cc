@@ -45,9 +45,9 @@ const size_t kInvalidCountryIndex = static_cast<size_t>(-1);
 }  // namespace
 
 ShippingAddressEditorViewController::ShippingAddressEditorViewController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog,
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog,
     BackNavigationType back_navigation_type,
     base::OnceClosure on_edited,
     base::OnceCallback<void(const autofill::AutofillProfile&)> on_added,
@@ -151,8 +151,7 @@ ShippingAddressEditorViewController::GetComboboxModelForType(
       region_model_ = model.get();
       if (chosen_country_index_ < countries_.size()) {
         model->LoadRegionData(countries_[chosen_country_index_].first,
-                              state()->GetRegionDataLoader(),
-                              /*timeout_ms=*/5000);
+                              state()->GetRegionDataLoader());
         if (!model->IsPendingRegionDataLoad()) {
           // If the data was already pre-loaded, the observer won't get notified
           // so we have to check for failure here.
@@ -289,6 +288,9 @@ void ShippingAddressEditorViewController::ShippingAddressValidationDelegate::
 
 bool ShippingAddressEditorViewController::ShippingAddressValidationDelegate::
     ValidateValue(const base::string16& value, base::string16* error_message) {
+  if (!controller_->spec())
+    return false;
+
   // Show errors from merchant's retry() call. Note that changing the selected
   // shipping address will clear the validation errors from retry().
   autofill::AutofillProfile* invalid_shipping_profile =

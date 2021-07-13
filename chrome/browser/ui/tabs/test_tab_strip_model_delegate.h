@@ -6,7 +6,6 @@
 #define CHROME_BROWSER_UI_TABS_TEST_TAB_STRIP_MODEL_DELEGATE_H_
 
 #include "base/compiler_specific.h"
-#include "base/macros.h"
 #include "base/optional.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -19,6 +18,9 @@ class WebContents;
 class TestTabStripModelDelegate : public TabStripModelDelegate {
  public:
   TestTabStripModelDelegate();
+  TestTabStripModelDelegate(const TestTabStripModelDelegate&) = delete;
+  TestTabStripModelDelegate& operator=(const TestTabStripModelDelegate&) =
+      delete;
   ~TestTabStripModelDelegate() override;
 
   // Overridden from TabStripModelDelegate:
@@ -32,6 +34,7 @@ class TestTabStripModelDelegate : public TabStripModelDelegate {
   void WillAddWebContents(content::WebContents* contents) override;
   int GetDragActions() const override;
   bool CanDuplicateContentsAt(int index) override;
+  bool CanHighlightTabs() override;
   void DuplicateContentsAt(int index) override;
   void MoveToExistingWindow(const std::vector<int>& indices,
                             int browser_index) override;
@@ -44,9 +47,6 @@ class TestTabStripModelDelegate : public TabStripModelDelegate {
       content::WebContents* contents) override;
   bool RunUnloadListenerBeforeClosing(content::WebContents* contents) override;
   bool ShouldDisplayFavicon(content::WebContents* web_contents) const override;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(TestTabStripModelDelegate);
 };
 
 #endif  // CHROME_BROWSER_UI_TABS_TEST_TAB_STRIP_MODEL_DELEGATE_H_

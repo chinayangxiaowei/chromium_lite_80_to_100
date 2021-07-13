@@ -78,12 +78,12 @@ class PaymentRequestStateTest : public testing::Test,
         std::move(options), std::move(details), std::move(method_data),
         /*observer=*/nullptr, "en-US");
     PaymentAppServiceFactory::SetForTesting(
-        std::make_unique<PaymentAppService>());
+        std::make_unique<PaymentAppService>(/*context=*/nullptr));
     state_ = std::make_unique<PaymentRequestState>(
         /*web_contents=*/nullptr,
         /*render_frame_host=*/nullptr, GURL("https://example.com"),
         GURL("https://example.com/pay"),
-        url::Origin::Create(GURL("https://example.com")), spec_.get(), this,
+        url::Origin::Create(GURL("https://example.com")), spec_->AsWeakPtr(), this,
         "en-US", &test_personal_data_manager_, &test_payment_request_delegate_,
         &journey_logger_);
     state_->AddObserver(this);

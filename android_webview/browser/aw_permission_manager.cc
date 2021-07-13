@@ -341,6 +341,7 @@ int AwPermissionManager::RequestPermissions(
       case PermissionType::STORAGE_ACCESS_GRANT:
       case PermissionType::CAMERA_PAN_TILT_ZOOM:
       case PermissionType::WINDOW_PLACEMENT:
+      case PermissionType::FONT_ACCESS:
         NOTIMPLEMENTED() << "RequestPermissions is not implemented for "
                          << static_cast<int>(permissions[i]);
         pending_request_raw->SetPermissionStatus(permissions[i],
@@ -469,16 +470,17 @@ PermissionStatus AwPermissionManager::GetPermissionStatusForFrame(
           .GetOrigin());
 }
 
-int AwPermissionManager::SubscribePermissionStatusChange(
+AwPermissionManager::SubscriptionId
+AwPermissionManager::SubscribePermissionStatusChange(
     PermissionType permission,
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     base::RepeatingCallback<void(PermissionStatus)> callback) {
-  return content::PermissionController::kNoPendingOperation;
+  return SubscriptionId();
 }
 
 void AwPermissionManager::UnsubscribePermissionStatusChange(
-    int subscription_id) {}
+    SubscriptionId subscription_id) {}
 
 void AwPermissionManager::CancelPermissionRequest(int request_id) {
   PendingRequest* pending_request = pending_requests_.Lookup(request_id);
@@ -548,6 +550,7 @@ void AwPermissionManager::CancelPermissionRequest(int request_id) {
       case PermissionType::STORAGE_ACCESS_GRANT:
       case PermissionType::CAMERA_PAN_TILT_ZOOM:
       case PermissionType::WINDOW_PLACEMENT:
+      case PermissionType::FONT_ACCESS:
         NOTIMPLEMENTED() << "CancelPermission not implemented for "
                          << static_cast<int>(permission);
         break;

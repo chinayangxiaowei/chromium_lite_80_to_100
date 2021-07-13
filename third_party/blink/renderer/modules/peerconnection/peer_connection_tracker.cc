@@ -13,13 +13,12 @@
 #include <vector>
 
 #include "base/power_monitor/power_observer.h"
+#include "base/stl_util.h"
 #include "base/values.h"
 #include "third_party/blink/public/common/peerconnection/peer_connection_tracker_mojom_traits.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_media_stream.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_media_stream.h"
-#include "third_party/blink/public/platform/web_media_stream_source.h"
-#include "third_party/blink/public/platform/web_media_stream_track.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -147,6 +146,8 @@ String SerializeDirection(webrtc::RtpTransceiverDirection direction) {
       return "'recvonly'";
     case webrtc::RtpTransceiverDirection::kInactive:
       return "'inactive'";
+    case webrtc::RtpTransceiverDirection::kStopped:
+      return "'stopped'";
     default:
       NOTREACHED();
       return String();
@@ -169,7 +170,7 @@ String SerializeSender(const String& indent,
     result.Append("null");
   } else {
     result.Append("'");
-    result.Append(sender.Track()->Source()->Id());
+    result.Append(sender.Track()->Id());
     result.Append("'");
   }
   result.Append(",\n");
@@ -191,7 +192,7 @@ String SerializeReceiver(const String& indent,
   DCHECK(receiver.Track());
   result.Append(indent);
   result.Append("  track:'");
-  result.Append(receiver.Track()->Source()->Id());
+  result.Append(receiver.Track()->Id());
   result.Append("',\n");
   // streams:['id,'id'],
   result.Append(indent);
@@ -702,9 +703,20 @@ void PeerConnectionTracker::Bind(
 
 void PeerConnectionTracker::OnSuspend() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
-  for (auto it = peer_connection_local_id_map_.begin();
-       it != peer_connection_local_id_map_.end(); ++it) {
-    it->key->CloseClientPeerConnection();
+  // Closing peer connections fires events. If JavaScript triggers the creation
+  // or garbage collection of more peer connections, this would invalidate the
+  // |peer_connection_local_id_map_| iterator. Therefor we iterate on a copy.
+  PeerConnectionLocalIdMap peer_connection_map_copy =
+      peer_connection_local_id_map_;
+  for (const auto& pair : peer_connection_map_copy) {
+    RTCPeerConnectionHandler* peer_connection_handler = pair.key;
+    if (!base::Contains(peer_connection_local_id_map_,
+                        peer_connection_handler)) {
+      // Skip peer connections that have been unregistered during this method
+      // call. Avoids use-after-free.
+      continue;
+    }
+    peer_connection_handler->CloseClientPeerConnection();
   }
 }
 

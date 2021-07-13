@@ -33,11 +33,11 @@ class PaymentRequestItemList {
   // Represents an item in the item list.
   class Item : public views::ButtonListener, public PaymentRequestRowView {
    public:
-    // Creates an item that will be owned by |list| with the initial state set
-    // to |selected|. |clickable| indicates whether or not the user can interact
-    // with this row.
-    Item(PaymentRequestSpec* spec,
-         PaymentRequestState* state,
+    // Creates an item that will be owned by `list` with the initial state set
+    // to `selected`. `clickable` indicates whether or not the user can interact
+    // with this row. The `spec` parameter should not be null.
+    Item(base::WeakPtr<PaymentRequestSpec> spec,
+         base::WeakPtr<PaymentRequestState> state,
          PaymentRequestItemList* list,
          bool selected,
          bool clickable,
@@ -54,8 +54,8 @@ class PaymentRequestItemList {
 
     // Returns a pointer to the PaymentRequestSpec/State objects associated with
     // this instance of the UI.
-    PaymentRequestSpec* spec() { return spec_; }
-    PaymentRequestState* state() { return state_; }
+    base::WeakPtr<PaymentRequestSpec> spec() { return spec_; }
+    base::WeakPtr<PaymentRequestState> state() { return state_; }
 
    protected:
     // Initializes the layout and content of the row. Must be called by subclass
@@ -110,8 +110,8 @@ class PaymentRequestItemList {
     // status (selected/not).
     void UpdateAccessibleName();
 
-    PaymentRequestSpec* spec_;
-    PaymentRequestState* state_;
+    base::WeakPtr<PaymentRequestSpec> spec_;
+    base::WeakPtr<PaymentRequestState> state_;
     PaymentRequestItemList* list_;
     base::string16 accessible_item_description_;
     bool selected_;
@@ -120,7 +120,8 @@ class PaymentRequestItemList {
     DISALLOW_COPY_AND_ASSIGN(Item);
   };
 
-  explicit PaymentRequestItemList(PaymentRequestDialogView* dialog);
+  explicit PaymentRequestItemList(
+      base::WeakPtr<PaymentRequestDialogView> dialog);
   virtual ~PaymentRequestItemList();
 
   // Adds an item to this list. |item->list()| should return this object.
@@ -137,7 +138,7 @@ class PaymentRequestItemList {
   // Deselects the currently selected item and selects |item| instead.
   void SelectItem(Item* item);
 
-  PaymentRequestDialogView* dialog() { return dialog_; }
+  base::WeakPtr<PaymentRequestDialogView> dialog() { return dialog_; }
 
  private:
   // Unselects the currently selected item. This is private so that the list can
@@ -147,7 +148,7 @@ class PaymentRequestItemList {
 
   std::vector<std::unique_ptr<Item>> items_;
   Item* selected_item_;
-  PaymentRequestDialogView* dialog_;
+  base::WeakPtr<PaymentRequestDialogView> dialog_;
 
   DISALLOW_COPY_AND_ASSIGN(PaymentRequestItemList);
 };

@@ -74,9 +74,9 @@ std::unique_ptr<views::View> CreateErrorLabelView(
 }  // namespace
 
 EditorViewController::EditorViewController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog,
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog,
     BackNavigationType back_navigation_type,
     bool is_incognito)
     : PaymentRequestSheetController(spec, state, dialog),
@@ -129,8 +129,8 @@ bool EditorViewController::ValidateInputFields() {
 }
 
 std::unique_ptr<views::Button> EditorViewController::CreatePrimaryButton() {
-  auto button =
-      views::MdTextButton::Create(this, l10n_util::GetStringUTF16(IDS_DONE));
+  auto button = std::make_unique<views::MdTextButton>(
+      this, l10n_util::GetStringUTF16(IDS_DONE));
   button->SetProminent(true);
   button->set_tag(static_cast<int>(EditorViewControllerTags::SAVE_BUTTON));
   button->SetID(static_cast<int>(DialogViewID::EDITOR_SAVE_BUTTON));

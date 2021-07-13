@@ -8,7 +8,6 @@
 #include <string>
 
 #include "base/bind.h"
-#include "base/macros.h"
 #include "base/test/task_environment.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -61,7 +60,8 @@ views::View* FindTabView(views::View* view) {
 class TestAXEventObserver : public views::AXEventObserver {
  public:
   TestAXEventObserver() { views::AXEventManager::Get()->AddObserver(this); }
-
+  TestAXEventObserver(const TestAXEventObserver&) = delete;
+  TestAXEventObserver& operator=(const TestAXEventObserver&) = delete;
   ~TestAXEventObserver() override {
     views::AXEventManager::Get()->RemoveObserver(this);
   }
@@ -87,8 +87,6 @@ class TestAXEventObserver : public views::AXEventObserver {
   int add_count_ = 0;
   int change_count_ = 0;
   int remove_count_ = 0;
-
-  DISALLOW_COPY_AND_ASSIGN(TestAXEventObserver);
 };
 
 }  // namespace
@@ -98,7 +96,8 @@ class TestTabStripObserver : public TabStripObserver {
   explicit TestTabStripObserver(TabStrip* tab_strip) : tab_strip_(tab_strip) {
     tab_strip_->AddObserver(this);
   }
-
+  TestTabStripObserver(const TestTabStripObserver&) = delete;
+  TestTabStripObserver& operator=(const TestTabStripObserver&) = delete;
   ~TestTabStripObserver() override { tab_strip_->RemoveObserver(this); }
 
   int last_tab_added() const { return last_tab_added_; }
@@ -122,8 +121,6 @@ class TestTabStripObserver : public TabStripObserver {
   int last_tab_removed_ = -1;
   int last_tab_moved_from_ = -1;
   int last_tab_moved_to_ = -1;
-
-  DISALLOW_COPY_AND_ASSIGN(TestTabStripObserver);
 };
 
 class TabStripTest : public ChromeViewsTestBase,
@@ -133,8 +130,9 @@ class TabStripTest : public ChromeViewsTestBase,
       : touch_ui_scoper_(GetParam()),
         animation_mode_reset_(gfx::AnimationTestApi::SetRichAnimationRenderMode(
             gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {}
-
-  ~TabStripTest() override {}
+  TabStripTest(const TabStripTest&) = delete;
+  TabStripTest& operator=(const TabStripTest&) = delete;
+  ~TabStripTest() override = default;
 
   void SetUp() override {
     ChromeViewsTestBase::SetUp();
@@ -155,6 +153,11 @@ class TabStripTest : public ChromeViewsTestBase,
 
     widget_ = CreateTestWidget();
     tab_strip_parent_ = widget_->SetContentsView(std::move(tab_strip_parent));
+
+    // Prevent hover cards from appearing when the mouse is over the tab. Tests
+    // don't typically account for this possibly, so it can cause unrelated
+    // tests to fail due to tab data not being set. See crbug.com/1050012.
+    Tab::SetShowHoverCardOnMouseHoverForTesting(false);
   }
 
   void TearDown() override {
@@ -165,6 +168,10 @@ class TabStripTest : public ChromeViewsTestBase,
  protected:
   bool IsShowingAttentionIndicator(Tab* tab) {
     return tab->icon_->ShowingAttentionIndicator();
+  }
+
+  views::View* tab_controls_container() {
+    return tab_strip_->tab_controls_container_;
   }
 
   // Checks whether |tab| contains |point_in_tabstrip_coords|, where the point
@@ -281,8 +288,6 @@ class TabStripTest : public ChromeViewsTestBase,
   ui::TouchUiController::TouchUiScoperForTesting touch_ui_scoper_;
   std::unique_ptr<base::AutoReset<gfx::Animation::RichAnimationRenderMode>>
       animation_mode_reset_;
-
-  DISALLOW_COPY_AND_ASSIGN(TabStripTest);
 };
 
 TEST_P(TabStripTest, GetModelCount) {
@@ -865,7 +870,8 @@ TEST_P(TabStripTest, NewTabButtonStaysVisible) {
 
   CompleteAnimationAndLayout();
 
-  EXPECT_LE(tab_strip_->new_tab_button_ideal_bounds().right(), kTabStripWidth);
+  EXPECT_LE(tab_strip_->tab_controls_container_ideal_bounds().right(),
+            kTabStripWidth);
 }
 
 TEST_P(TabStripTest, NewTabButtonRightOfTabs) {
@@ -876,7 +882,7 @@ TEST_P(TabStripTest, NewTabButtonRightOfTabs) {
 
   AnimateToIdealBounds();
 
-  EXPECT_EQ(tab_strip_->new_tab_button_ideal_bounds().x(),
+  EXPECT_EQ(tab_strip_->tab_controls_container_ideal_bounds().x(),
             tab_strip_->ideal_bounds(0).right() + TabToNewTabButtonSpacing());
 }
 
@@ -1339,6 +1345,33 @@ TEST_P(TabStripTest, ChangingLayoutTypeResizesTabs) {
     // Normal -> touch.
     EXPECT_GT(tab->height(), initial_height);
   }
+}
+
+// We want to make sure that the new tab button sits flush with the top of the
+// tab strip. This is important in ensuring that we maximise the targetable area
+// of the new tab button and users are able to hit the new tab button when the
+// tab strip is flush with the top of the screen when the window is maximized
+// (https://crbug.com/1136557).
+TEST_P(TabStripTest, NewTabButtonFlushWithTopOfTabStrip) {
+  tab_strip_parent_->SetBounds(0, 0, 1000, 100);
+  controller_->AddTab(0, true);
+
+  AnimateToIdealBounds();
+
+  // |tab_controls_container_| should sit flush with the top of the tab strip.
+  EXPECT_EQ(0, tab_strip_->tab_controls_container_ideal_bounds().y());
+
+  // The new tab button should sit flush with the top of the
+  // |tab_controls_container_|.
+  EXPECT_EQ(0, tab_strip_->new_tab_button()->bounds().y());
+
+  // The new tab button should be positioned flush with the top of the tab
+  // strip.
+  gfx::RectF ntb_in_child_coords_f(tab_strip_->new_tab_button()->bounds());
+  views::View::ConvertRectToTarget(tab_controls_container(), tab_strip_,
+                                   &ntb_in_child_coords_f);
+  gfx::Rect ntb_in_child_coords = gfx::ToEnclosingRect(ntb_in_child_coords_f);
+  EXPECT_EQ(0, ntb_in_child_coords.y());
 }
 
 INSTANTIATE_TEST_SUITE_P(All, TabStripTest, ::testing::Values(false, true));

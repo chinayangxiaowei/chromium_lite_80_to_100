@@ -18,17 +18,17 @@
 namespace payments {
 
 ErrorMessageViewController::ErrorMessageViewController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog)
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog)
     : PaymentRequestSheetController(spec, state, dialog) {}
 
 ErrorMessageViewController::~ErrorMessageViewController() {}
 
 std::unique_ptr<views::Button>
 ErrorMessageViewController::CreatePrimaryButton() {
-  auto button =
-      views::MdTextButton::Create(this, l10n_util::GetStringUTF16(IDS_CLOSE));
+  auto button = std::make_unique<views::MdTextButton>(
+      this, l10n_util::GetStringUTF16(IDS_CLOSE));
   button->SetProminent(true);
   button->set_tag(static_cast<int>(PaymentRequestCommonTags::CLOSE_BUTTON_TAG));
   button->SetID(static_cast<int>(DialogViewID::CANCEL_BUTTON));

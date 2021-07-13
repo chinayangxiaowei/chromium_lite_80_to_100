@@ -70,10 +70,10 @@ void FullscreenHandler::SetFullscreenImpl(bool fullscreen) {
 
   fullscreen_ = fullscreen;
 
+  auto ref = weak_ptr_factory_.GetWeakPtr();
   if (fullscreen_) {
     // Set new window style and size.
-    SetWindowLong(hwnd_, GWL_STYLE,
-                  saved_window_info_.style & ~(WS_CAPTION | WS_THICKFRAME));
+    SetWindowLong(hwnd_, GWL_STYLE, saved_window_info_.style & ~WS_CAPTION);
     SetWindowLong(
         hwnd_, GWL_EXSTYLE,
         saved_window_info_.ex_style & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE |
@@ -102,6 +102,8 @@ void FullscreenHandler::SetFullscreenImpl(bool fullscreen) {
                  new_rect.height(),
                  SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
   }
+  if (!ref)
+    return;
 
   MarkFullscreen(fullscreen);
 }

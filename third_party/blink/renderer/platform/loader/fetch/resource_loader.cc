@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <utility>
+
 #include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
@@ -40,14 +41,15 @@
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/blocked_by_response_reason.mojom-shared.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/common/client_hints/client_hints.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink.h"
-#include "third_party/blink/public/platform/code_cache_loader.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/web_code_cache_loader.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url_error.h"
@@ -191,22 +193,23 @@ SchedulingPolicy::Feature GetFeatureFromRequestContextType(
 }  // namespace
 
 // CodeCacheRequest handles the requests to fetch data from code cache.
-// This owns CodeCacheLoader that actually loads the data from the
+// This owns WebCodeCacheLoader that actually loads the data from the
 // code cache. This class performs the necessary checks of matching the
-// resource response time and the code cache response time before sending
-// the data to the resource. It caches the data returned from the code cache
-// if the response wasn't received.  One CodeCacheRequest handles only one
-// request. On a restart new CodeCacheRequest is created.
+// resource response time and the code cache response time before sending the
+// data to the resource (see https://crbug.com/1099587). It caches the data
+// returned from the code cache if the response wasn't received. One
+// CodeCacheRequest handles only one request. On a restart new CodeCacheRequest
+// is created.
 class ResourceLoader::CodeCacheRequest {
   USING_FAST_MALLOC(ResourceLoader::CodeCacheRequest);
 
  public:
-  CodeCacheRequest(std::unique_ptr<CodeCacheLoader> code_cache_loader,
+  CodeCacheRequest(std::unique_ptr<WebCodeCacheLoader> code_cache_loader,
                    const KURL& url,
                    bool defers_loading)
       : status_(kNoRequestSent),
         code_cache_loader_(std::move(code_cache_loader)),
-        gurl_(url),
+        url_(url),
         defers_loading_(defers_loading) {
     DCHECK(RuntimeEnabledFeatures::IsolatedCodeCacheEnabled());
   }
@@ -238,7 +241,7 @@ class ResourceLoader::CodeCacheRequest {
     kReceivedResponse
   };
 
-  // Callback to receive data from CodeCacheLoader.
+  // Callback to receive data from WebCodeCacheLoader.
   void DidReceiveCachedCode(ResourceLoader* loader,
                             base::Time response_time,
                             mojo_base::BigBuffer data);
@@ -254,8 +257,8 @@ class ResourceLoader::CodeCacheRequest {
                            ResourceLoader* resource_loader);
 
   CodeCacheRequestStatus status_;
-  std::unique_ptr<CodeCacheLoader> code_cache_loader_;
-  const GURL gurl_;
+  std::unique_ptr<WebCodeCacheLoader> code_cache_loader_;
+  const WebURL url_;
   bool defers_loading_ = false;
   mojo_base::BigBuffer cached_code_;
   base::Time cached_code_response_time_;
@@ -278,12 +281,11 @@ bool ResourceLoader::CodeCacheRequest::FetchFromCodeCache(
   // through ResourceLoader.
   url_loader->SetDefersLoading(true);
 
-  CodeCacheLoader::FetchCodeCacheCallback callback =
+  WebCodeCacheLoader::FetchCodeCacheCallback callback =
       base::BindOnce(&ResourceLoader::CodeCacheRequest::DidReceiveCachedCode,
                      weak_ptr_factory_.GetWeakPtr(), resource_loader);
   auto cache_type = resource_loader->GetCodeCacheType();
-  code_cache_loader_->FetchFromCodeCache(cache_type, gurl_,
-                                         std::move(callback));
+  code_cache_loader_->FetchFromCodeCache(cache_type, url_, std::move(callback));
   return true;
 }
 
@@ -296,7 +298,7 @@ bool ResourceLoader::CodeCacheRequest::FetchFromCodeCacheSynchronously(
 
   base::Time response_time;
   mojo_base::BigBuffer data;
-  code_cache_loader_->FetchFromCodeCacheSynchronously(gurl_, &response_time,
+  code_cache_loader_->FetchFromCodeCacheSynchronously(url_, &response_time,
                                                       &data);
   ProcessCodeCacheResponse(response_time, std::move(data), resource_loader);
   return true;
@@ -368,8 +370,14 @@ void ResourceLoader::CodeCacheRequest::MaybeSendCachedCode(
   // If the resource was fetched for service worker script or was served from
   // CacheStorage via service worker then they maintain their own code cache.
   // We should not use the isolated cache.
-  if (!use_isolated_code_cache_ ||
-      resource_response_time_ != cached_code_response_time_) {
+  if (!use_isolated_code_cache_) {
+    resource_loader->ClearCachedCode();
+    return;
+  }
+
+  // If the timestamps don't match, the code cache data may be for a different
+  // response. See https://crbug.com/1099587.
+  if (resource_response_time_ != cached_code_response_time_) {
     resource_loader->ClearCachedCode();
     return;
   }
@@ -547,7 +555,7 @@ void ResourceLoader::DidFinishLoadingBody() {
   const ResourceResponse& response = resource_->GetResponse();
   if (deferred_finish_loading_info_) {
     DidFinishLoading(
-        deferred_finish_loading_info_->response_end,
+        deferred_finish_loading_info_->response_end_time,
         response.EncodedDataLength(), response.EncodedBodyLength(),
         response.DecodedBodyLength(),
         deferred_finish_loading_info_->should_report_corb_blocking);
@@ -555,7 +563,8 @@ void ResourceLoader::DidFinishLoadingBody() {
 }
 
 void ResourceLoader::DidFailLoadingBody() {
-  DidFail(WebURLError(ResourceError::Failure(resource_->Url())), 0, 0, 0);
+  DidFail(WebURLError(ResourceError::Failure(resource_->Url())),
+          base::TimeTicks::Now(), 0, 0, 0);
 }
 
 void ResourceLoader::DidCancelLoadingBody() {
@@ -721,6 +730,17 @@ bool ResourceLoader::WillFollowRedirect(
     return false;
   }
 
+  const ResourceRequestHead& initial_request = resource_->GetResourceRequest();
+  if (initial_request.GetRedirectMode() ==
+      network::mojom::RedirectMode::kError) {
+    // The network::cors::CorsURLLoader would reject the redirect in any case,
+    // but we reject the redirect here because otherwise we would see confusing
+    // errors such as MixedContent errors in the console during redirect
+    // handling.
+    HandleError(ResourceError::Failure(new_url));
+    return false;
+  }
+
   std::unique_ptr<ResourceRequest> new_request =
       resource_->LastResourceRequest().CreateRedirectRequest(
           new_url, new_method, new_site_for_cookies, new_referrer,
@@ -734,7 +754,6 @@ bool ResourceLoader::WillFollowRedirect(
 
   ResourceType resource_type = resource_->GetType();
 
-  const ResourceRequestHead& initial_request = resource_->GetResourceRequest();
   // The following parameters never change during the lifetime of a request.
   mojom::RequestContextType request_context =
       initial_request.GetRequestContext();
@@ -1000,7 +1019,9 @@ void ResourceLoader::DidReceiveResponseInternal(
       !response.CurrentRequestUrl().ProtocolIsData() &&
       !response.CurrentRequestUrl().ProtocolIs("blob")) {
     DCHECK(!base::FeatureList::IsEnabled(features::kPlzDedicatedWorker));
-    HandleError(ResourceError::Failure(response.CurrentRequestUrl()));
+    HandleError(ResourceError::BlockedByResponse(
+        response.CurrentRequestUrl(), network::mojom::BlockedByResponseReason::
+                                          kCoepFrameResourceNeedsCoepHeader));
     return;
   }
 
@@ -1192,7 +1213,7 @@ void ResourceLoader::DidFinishLoadingFirstPartInMultipart() {
                                0, false);
 }
 
-void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
+void ResourceLoader::DidFinishLoading(base::TimeTicks response_end_time,
                                       int64_t encoded_data_length,
                                       int64_t encoded_body_length,
                                       int64_t decoded_body_length,
@@ -1201,13 +1222,15 @@ void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
   resource_->SetEncodedBodyLength(encoded_body_length);
   resource_->SetDecodedBodyLength(decoded_body_length);
 
+  response_end_time_for_error_cases_ = response_end_time;
+
   if ((response_body_loader_ && !has_seen_end_of_body_ &&
        !response_body_loader_->IsAborted()) ||
       (is_downloading_to_blob_ && !blob_finished_ && blob_response_started_)) {
     // If the body is still being loaded, we defer the completion until all the
     // body is received.
-    deferred_finish_loading_info_ =
-        DeferredFinishLoadingInfo{response_end, should_report_corb_blocking};
+    deferred_finish_loading_info_ = DeferredFinishLoadingInfo{
+        response_end_time, should_report_corb_blocking};
 
     if (data_pipe_completion_notifier_)
       data_pipe_completion_notifier_->SignalComplete();
@@ -1230,15 +1253,17 @@ void ResourceLoader::DidFinishLoading(base::TimeTicks response_end,
       "endData", EndResourceLoadData(RequestOutcome::kSuccess));
 
   fetcher_->HandleLoaderFinish(
-      resource_.Get(), response_end, ResourceFetcher::kDidFinishLoading,
+      resource_.Get(), response_end_time, ResourceFetcher::kDidFinishLoading,
       inflight_keepalive_bytes_, should_report_corb_blocking);
 }
 
 void ResourceLoader::DidFail(const WebURLError& error,
+                             base::TimeTicks response_end_time,
                              int64_t encoded_data_length,
                              int64_t encoded_body_length,
                              int64_t decoded_body_length) {
   const ResourceRequestHead& request = resource_->GetResourceRequest();
+  response_end_time_for_error_cases_ = response_end_time;
 
   if (request.IsAutomaticUpgrade()) {
     mojo::PendingRemote<ukm::mojom::UkmRecorderInterface> pending_recorder;
@@ -1253,7 +1278,7 @@ void ResourceLoader::DidFail(const WebURLError& error,
   resource_->SetEncodedDataLength(encoded_data_length);
   resource_->SetEncodedBodyLength(encoded_body_length);
   resource_->SetDecodedBodyLength(decoded_body_length);
-  HandleError(error);
+  HandleError(ResourceError(error));
 }
 
 void ResourceLoader::HandleError(const ResourceError& error) {
@@ -1294,7 +1319,14 @@ void ResourceLoader::HandleError(const ResourceError& error) {
                           TRACE_ID_LOCAL(resource_->InspectorId())),
       "endData", EndResourceLoadData(RequestOutcome::kFail));
 
-  fetcher_->HandleLoaderError(resource_.Get(), error,
+  // Set Now() as the response time, in case a more accurate one wasn't set in
+  // DidFinishLoading or DidFail. This is important for error cases that don't
+  // go through those methods.
+  if (response_end_time_for_error_cases_.is_null()) {
+    response_end_time_for_error_cases_ = base::TimeTicks::Now();
+  }
+  fetcher_->HandleLoaderError(resource_.Get(),
+                              response_end_time_for_error_cases_, error,
                               inflight_keepalive_bytes_);
 }
 
@@ -1348,8 +1380,8 @@ void ResourceLoader::RequestSynchronously(const ResourceRequestHead& request) {
     return;
   int64_t decoded_body_length = data_out.size();
   if (error_out) {
-    DidFail(*error_out, encoded_data_length, encoded_body_length,
-            decoded_body_length);
+    DidFail(*error_out, base::TimeTicks::Now(), encoded_data_length,
+            encoded_body_length, decoded_body_length);
     return;
   }
   DidReceiveResponse(response_out);
@@ -1501,7 +1533,7 @@ void ResourceLoader::FinishedCreatingBlob(
   if (deferred_finish_loading_info_) {
     const ResourceResponse& response = resource_->GetResponse();
     DidFinishLoading(
-        deferred_finish_loading_info_->response_end,
+        deferred_finish_loading_info_->response_end_time,
         response.EncodedDataLength(), response.EncodedBodyLength(),
         response.DecodedBodyLength(),
         deferred_finish_loading_info_->should_report_corb_blocking);

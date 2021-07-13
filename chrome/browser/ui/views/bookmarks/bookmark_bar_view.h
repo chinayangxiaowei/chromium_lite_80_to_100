@@ -8,6 +8,7 @@
 #include <memory>
 #include <set>
 
+#include "base/callback_forward.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
@@ -33,6 +34,7 @@ class BookmarkContextMenu;
 class Browser;
 class BrowserView;
 class Profile;
+class ReadLaterButton;
 
 namespace bookmarks {
 class BookmarkModel;
@@ -144,6 +146,8 @@ class BookmarkBarView : public views::AccessiblePaneView,
 
   // Returns the button used when not all the items on the bookmark bar fit.
   views::MenuButton* overflow_button() const { return overflow_button_; }
+
+  ReadLaterButton* read_later_button() const { return read_later_button_; }
 
   const gfx::Animation& size_animation() { return size_animation_; }
 
@@ -385,6 +389,13 @@ class BookmarkBarView : public views::AccessiblePaneView,
   ButtonListener button_listener_{this};
   MenuButtonListener menu_button_listener_{this};
 
+  // Returns a callback that fetches the content::PageNavigator for
+  // opening bookmarks. This callback is passed to menus, eventually
+  // used by chrome::OpenAllIfAllowed(). A callback is used since
+  // opening many bookmarks is asynchronous and |page_navigator_| may
+  // change in the meantime.
+  base::RepeatingCallback<content::PageNavigator*()> GetPageNavigatorGetter();
+
   // Needed to react to kShowAppsShortcutInBookmarkBar changes.
   PrefChangeRegistrar profile_pref_registrar_;
 
@@ -431,6 +442,9 @@ class BookmarkBarView : public views::AccessiblePaneView,
 
   ButtonSeparatorView* bookmarks_separator_view_ = nullptr;
 
+  ReadLaterButton* read_later_button_ = nullptr;
+  ButtonSeparatorView* read_later_separator_view_ = nullptr;
+
   Browser* const browser_;
   BrowserView* browser_view_;
 
@@ -453,6 +467,10 @@ class BookmarkBarView : public views::AccessiblePaneView,
   base::WeakPtrFactory<BookmarkBarView> show_folder_method_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(BookmarkBarView);
+  
+  // Returns WeakPtrs used in GetPageNavigatorGetter(). Used to ensure
+  // safety if BookmarkBarView is deleted after getting the callback.
+  base::WeakPtrFactory<BookmarkBarView> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_BAR_VIEW_H_

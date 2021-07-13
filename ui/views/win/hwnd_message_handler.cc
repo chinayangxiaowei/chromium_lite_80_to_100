@@ -18,9 +18,9 @@
 #include "base/debug/alias.h"
 #include "base/location.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop_current.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/single_thread_task_runner.h"
+#include "base/task/current_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -791,7 +791,7 @@ bool HWNDMessageHandler::RunMoveLoop(const gfx::Vector2d& drag_offset,
   MoveLoopMouseWatcher watcher(this, hide_on_escape);
   // In Aura, we handle touch events asynchronously. So we need to allow nested
   // tasks while in windows move loop.
-  base::MessageLoopCurrent::ScopedNestableTaskAllower allow_nested;
+  base::CurrentThread::ScopedNestableTaskAllower allow_nested;
 
   SendMessage(hwnd(), WM_SYSCOMMAND, SC_MOVE | 0x0002, GetMessagePos());
   // Windows doesn't appear to offer a way to determine whether the user
@@ -895,7 +895,10 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
 
 void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
   background_fullscreen_hack_ = false;
+  auto ref = msg_handler_weak_factory_.GetWeakPtr();
   fullscreen_handler()->SetFullscreen(fullscreen);
+  if (!ref)
+    return;
 
   // Add the fullscreen window to the fullscreen window map which is used to
   // handle window activations.
@@ -1392,8 +1395,10 @@ void HWNDMessageHandler::ClientAreaSizeChanged() {
   // Ignore size changes due to fullscreen windows losing activation.
   if (background_fullscreen_hack_ && !sent_window_size_changing_)
     return;
-  gfx::Size s = GetClientAreaBounds().size();
-  delegate_->HandleClientSizeChanged(s);
+  auto ref = msg_handler_weak_factory_.GetWeakPtr();
+  delegate_->HandleClientSizeChanged(GetClientAreaBounds().size());
+  if (!ref)
+    return;
 
   current_window_size_message_++;
   sent_window_size_changing_ = false;
@@ -2532,8 +2537,7 @@ LRESULT HWNDMessageHandler::OnSetText(const wchar_t* text) {
 }
 
 void HWNDMessageHandler::OnSettingChange(UINT flags, const wchar_t* section) {
-  if (!GetParent(hwnd()) && (flags == SPI_SETWORKAREA) &&
-      !delegate_->WillProcessWorkAreaChange()) {
+  if (!GetParent(hwnd()) && (flags == SPI_SETWORKAREA)) {
     // Fire a dummy SetWindowPos() call, so we'll trip the code in
     // OnWindowPosChanging() below that notices work area changes.
     ::SetWindowPos(hwnd(), nullptr, 0, 0, 0, 0,
@@ -2910,8 +2914,11 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
 void HWNDMessageHandler::OnWindowPosChanged(WINDOWPOS* window_pos) {
   TRACE_EVENT0("ui", "HWNDMessageHandler::OnWindowPosChanged");
 
+  base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   if (DidClientAreaSizeChange(window_pos))
     ClientAreaSizeChanged();
+  if (!ref)
+    return;
   if (window_pos->flags & SWP_FRAMECHANGED)
     SetDwmFrameExtension(DwmFrameState::kOn);
   if (window_pos->flags & SWP_SHOWWINDOW) {

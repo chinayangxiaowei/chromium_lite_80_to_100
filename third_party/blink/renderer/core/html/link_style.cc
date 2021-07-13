@@ -88,7 +88,9 @@ void LinkStyle::NotifyFinished(Resource* resource) {
   auto* parser_context = MakeGarbageCollected<CSSParserContext>(
       GetDocument(), cached_style_sheet->GetResponse().ResponseUrl(),
       cached_style_sheet->GetResponse().IsCorsSameOrigin(),
-      cached_style_sheet->GetReferrerPolicy(), cached_style_sheet->Encoding());
+      Referrer(cached_style_sheet->GetResponse().ResponseUrl(),
+               cached_style_sheet->GetReferrerPolicy()),
+      cached_style_sheet->Encoding());
   if (cached_style_sheet->GetResourceRequest().IsAdResource()) {
     parser_context->SetIsAdRelated();
   }
@@ -121,8 +123,7 @@ void LinkStyle::NotifyFinished(Resource* resource) {
   if (owner_->IsInDocumentTree())
     SetSheetTitle(owner_->title());
 
-  style_sheet->ParseAuthorStyleSheet(cached_style_sheet,
-                                     GetDocument().GetSecurityOrigin());
+  style_sheet->ParseAuthorStyleSheet(cached_style_sheet);
 
   loading_ = false;
   style_sheet->NotifyLoadedSheet(cached_style_sheet);
@@ -336,11 +337,14 @@ void LinkStyle::Process() {
       params.href.IsValid() && !params.href.IsEmpty()) {
     if (!owner_->ShouldLoadLink())
       return;
-    if (!GetDocument().GetSecurityOrigin()->CanDisplay(params.href))
+    if (!GetExecutionContext()->GetSecurityOrigin()->CanDisplay(params.href))
       return;
-    if (!GetDocument().GetContentSecurityPolicy()->AllowImageFromSource(
-            params.href, params.href, RedirectStatus::kNoRedirect))
+    if (!GetExecutionContext()
+             ->GetContentSecurityPolicy()
+             ->AllowImageFromSource(params.href, params.href,
+                                    RedirectStatus::kNoRedirect)) {
       return;
+    }
     if (GetDocument().GetFrame())
       GetDocument().GetFrame()->UpdateFaviconURL();
   }

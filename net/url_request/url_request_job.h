@@ -27,6 +27,7 @@
 #include "net/http/http_response_headers.h"
 #include "net/socket/connection_attempts.h"
 #include "net/url_request/redirect_info.h"
+#include "net/url_request/referrer_policy.h"
 #include "net/url_request/url_request.h"
 #include "url/gurl.h"
 
@@ -44,6 +45,7 @@ class ProxyServer;
 class SSLCertRequestInfo;
 class SSLInfo;
 class SSLPrivateKey;
+struct TransportInfo;
 class UploadDataStream;
 class X509Certificate;
 
@@ -233,13 +235,16 @@ class NET_EXPORT URLRequestJob {
 
   // Sets a callback that will be invoked each time the request is about to
   // be actually sent and will receive actual request headers that are about
-  // to hit the wire, including SPDY/QUIC internal headers and any additional
-  // request headers set via BeforeSendHeaders hooks.
+  // to hit the wire, including SPDY/QUIC internal headers.
   virtual void SetRequestHeadersCallback(RequestHeadersCallback callback) {}
 
   // Sets a callback that will be invoked each time the response is received
   // from the remote party with the actual response headers recieved.
   virtual void SetResponseHeadersCallback(ResponseHeadersCallback callback) {}
+
+  // Causes the current transaction always close its active socket on
+  // destruction. Does not close H2/H3 sessions.
+  virtual void CloseConnectionOnDestruction();
 
   // Given |policy|, |original_referrer|, and |destination|, returns the
   // referrer URL mandated by |request|'s referrer policy.
@@ -250,12 +255,15 @@ class NET_EXPORT URLRequestJob {
   // (This allows reporting in a UMA whether the request is same-origin, without
   // recomputing that information.)
   static GURL ComputeReferrerForPolicy(
-      URLRequest::ReferrerPolicy policy,
+      ReferrerPolicy policy,
       const GURL& original_referrer,
       const GURL& destination,
       bool* same_origin_out_for_metrics = nullptr);
 
  protected:
+  // Notifies the job that we are connected.
+  int NotifyConnected(const TransportInfo& info);
+
   // Notifies the job that a certificate is requested.
   void NotifyCertificateRequested(SSLCertRequestInfo* cert_request_info);
 

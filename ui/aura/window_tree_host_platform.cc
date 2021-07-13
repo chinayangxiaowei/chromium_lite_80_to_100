@@ -29,6 +29,7 @@
 
 #if defined(USE_OZONE)
 #include "ui/base/ui_base_features.h"
+#include "ui/events/keycodes/dom/dom_keyboard_layout_map.h"
 #include "ui/ozone/public/ozone_platform.h"
 #endif
 
@@ -39,8 +40,6 @@
 
 #if defined(USE_X11)
 #include "ui/platform_window/x11/x11_window.h"  // nogncheck
-#else
-#include "ui/events/keycodes/dom/dom_keyboard_layout_map.h"
 #endif
 
 namespace aura {
@@ -172,12 +171,13 @@ bool WindowTreeHostPlatform::IsKeyLocked(ui::DomCode dom_code) {
 
 base::flat_map<std::string, std::string>
 WindowTreeHostPlatform::GetKeyboardLayoutMap() {
-#if !defined(USE_X11)
-  return ui::GenerateDomKeyboardLayoutMap();
-#else
+#if defined(USE_OZONE)
+  // USE_X11 supports keyboard layout map through LinuxUI.
+  if (features::IsUsingOzonePlatform())
+    return ui::GenerateDomKeyboardLayoutMap();
+#endif
   NOTIMPLEMENTED();
   return {};
-#endif
 }
 
 void WindowTreeHostPlatform::SetCursorNative(gfx::NativeCursor cursor) {
@@ -214,13 +214,21 @@ void WindowTreeHostPlatform::OnBoundsChanged(const gfx::Rect& new_bounds) {
   float current_scale = compositor()->device_scale_factor();
   float new_scale = ui::GetScaleFactorForNativeView(window());
   gfx::Rect old_bounds = bounds_in_pixels_;
+  auto weak_ref = GetWeakPtr();
   bounds_in_pixels_ = new_bounds;
-  if (bounds_in_pixels_.origin() != old_bounds.origin())
+  if (bounds_in_pixels_.origin() != old_bounds.origin()) {
     OnHostMovedInPixels(bounds_in_pixels_.origin());
+    // Changing the bounds may destroy this.
+    if (!weak_ref)
+      return;
+  }
   if (bounds_in_pixels_.size() != old_bounds.size() ||
       current_scale != new_scale) {
     pending_size_ = gfx::Size();
     OnHostResizedInPixels(bounds_in_pixels_.size());
+    // Changing the size may destroy this.
+    if (!weak_ref)
+      return;
   }
   DCHECK_GT(on_bounds_changed_recursion_depth_, 0);
   if (--on_bounds_changed_recursion_depth_ == 0) {
@@ -260,6 +268,8 @@ void WindowTreeHostPlatform::OnAcceleratedWidgetAvailable(
   if (compositor())
     WindowTreeHost::OnAcceleratedWidgetAvailable();
 }
+
+void WindowTreeHostPlatform::OnWillDestroyAcceleratedWidget() {}
 
 void WindowTreeHostPlatform::OnAcceleratedWidgetDestroyed() {
   gfx::AcceleratedWidget widget = compositor()->ReleaseAcceleratedWidget();

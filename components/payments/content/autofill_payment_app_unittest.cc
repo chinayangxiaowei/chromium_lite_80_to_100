@@ -21,7 +21,6 @@
 #include "components/autofill/core/browser/test_personal_data_manager.h"
 #include "components/payments/core/test_payment_request_delegate.h"
 #include "components/strings/grit/components_strings.h"
-#include "net/url_request/url_request_test_util.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -74,7 +73,7 @@ class FakePaymentRequestDelegate : public PaymentRequestDelegate {
         full_card_request_(&autofill_client_,
                            &payments_client_,
                            &personal_data_) {}
-  void ShowDialog(PaymentRequest* request) override {}
+  void ShowDialog(base::WeakPtr<PaymentRequest> request) override {}
 
   void CloseDialog() override {}
 

@@ -81,9 +81,7 @@ namespace blink {
 DOMWebSocket::EventQueue::EventQueue(EventTarget* target)
     : state_(kActive), target_(target) {}
 
-DOMWebSocket::EventQueue::~EventQueue() {
-  ContextDestroyed();
-}
+DOMWebSocket::EventQueue::~EventQueue() = default;
 
 void DOMWebSocket::EventQueue::Dispatch(Event* event) {
   switch (state_) {
@@ -498,9 +496,6 @@ void DOMWebSocket::ContextDestroyed() {
   NETWORK_DVLOG(1) << "WebSocket " << this << " contextDestroyed()";
   event_queue_->ContextDestroyed();
   if (channel_) {
-    if (common_.GetState() == kOpen) {
-      channel_->Close(WebSocketChannel::kCloseEventCodeGoingAway, String());
-    }
     ReleaseChannel();
   }
   if (common_.GetState() != kClosed) {

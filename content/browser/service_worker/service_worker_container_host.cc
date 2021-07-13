@@ -148,7 +148,7 @@ ServiceWorkerContainerHost::~ServiceWorkerContainerHost() {
     FrameTreeNodeIdRegistry::GetInstance()->Remove(fetch_request_window_id_);
 
   if (IsContainerForClient() && controller_)
-    controller_->OnControlleeDestroyed(client_uuid());
+    controller_->Uncontrol(client_uuid());
 
   // Remove |this| as an observer of ServiceWorkerRegistrations.
   // TODO(falken): Use ScopedObserver instead of this explicit call.
@@ -282,7 +282,7 @@ void ServiceWorkerContainerHost::GetRegistrations(
                            "ServiceWorkerContainerHost::GetRegistrations",
                            trace_id);
   context_->registry()->GetRegistrationsForOrigin(
-      url_.GetOrigin(),
+      url::Origin::Create(url_),
       base::AdaptCallbackForRepeating(base::BindOnce(
           &ServiceWorkerContainerHost::GetRegistrationsComplete,
           weak_factory_.GetWeakPtr(), std::move(callback), trace_id)));
@@ -1235,7 +1235,7 @@ void ServiceWorkerContainerHost::UpdateController(
     }
   }
   if (previous_version)
-    previous_version->RemoveControllee(client_uuid());
+    previous_version->Uncontrol(client_uuid());
 
   // SetController message should be sent only for clients.
   DCHECK(IsContainerForClient());

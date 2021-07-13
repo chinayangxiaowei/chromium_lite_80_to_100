@@ -150,7 +150,7 @@ void ProcessingInstruction::Process(const String& href, const String& charset) {
   if (is_xsl_ && !RuntimeEnabledFeatures::XSLTEnabled())
     return;
 
-  ResourceLoaderOptions options;
+  ResourceLoaderOptions options(GetExecutionContext()->GetCurrentWorld());
   options.initiator_info.name =
       fetch_initiator_type_names::kProcessinginstruction;
   FetchParameters params(ResourceRequest(GetDocument().CompleteURL(href)),
@@ -206,7 +206,9 @@ void ProcessingInstruction::NotifyFinished(Resource* resource) {
     auto* parser_context = MakeGarbageCollected<CSSParserContext>(
         GetDocument(), style_resource->GetResponse().ResponseUrl(),
         style_resource->GetResponse().IsCorsSameOrigin(),
-        style_resource->GetReferrerPolicy(), style_resource->Encoding());
+        Referrer(style_resource->GetResponse().ResponseUrl(),
+                 style_resource->GetReferrerPolicy()),
+        style_resource->Encoding());
     if (style_resource->GetResourceRequest().IsAdResource())
       parser_context->SetIsAdRelated();
 

@@ -145,7 +145,7 @@ bool SandboxBPF::SupportsSeccompSandbox(SeccompLevel level) {
   return false;
 }
 
-bool SandboxBPF::StartSandbox(SeccompLevel seccomp_level) {
+bool SandboxBPF::StartSandbox(SeccompLevel seccomp_level, bool enable_ibpb) {
   DCHECK(policy_);
   CHECK(seccomp_level == SeccompLevel::SINGLE_THREADED ||
         seccomp_level == SeccompLevel::MULTI_THREADED);
@@ -183,7 +183,7 @@ bool SandboxBPF::StartSandbox(SeccompLevel seccomp_level) {
   }
 
   // Install the filters.
-  InstallFilter(seccomp_level == SeccompLevel::MULTI_THREADED);
+  InstallFilter(seccomp_level == SeccompLevel::MULTI_THREADED, enable_ibpb);
 
   return true;
 }
@@ -222,7 +222,7 @@ CodeGen::Program SandboxBPF::AssembleFilter() {
   return compiler.Compile();
 }
 
-void SandboxBPF::InstallFilter(bool must_sync_threads) {
+void SandboxBPF::InstallFilter(bool must_sync_threads, bool enable_ibpb) {
   // We want to be very careful in not imposing any requirements on the
   // policies that are set with SetSandboxPolicy(). This means, as soon as
   // the sandbox is active, we shouldn't be relying on libraries that could
@@ -267,7 +267,9 @@ void SandboxBPF::InstallFilter(bool must_sync_threads) {
     // opt-out SSBD when process is single-threaded and tsync is not necessary.
   } else if (KernelSupportSeccompSpecAllow()) {
     seccomp_filter_flags |= SECCOMP_FILTER_FLAG_SPEC_ALLOW;
-    DisableIBSpec();
+    if (enable_ibpb) {
+      DisableIBSpec();
+    }
 #endif
   } else {
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
@@ -291,26 +293,21 @@ void SandboxBPF::DisableIBSpec() {
   // misfeature will fail.
   const int rv =
       prctl(PR_GET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH, 0, 0, 0);
-  // Kernel control of the speculation misfeature is not supported.
-  if (rv < 0) {
+  // Kernel control of the speculation misfeature is not supported or the
+  // misfeature is already force disabled.
+  if (rv < 0 || (rv & PR_SPEC_FORCE_DISABLE)) {
     return;
   }
 
   if (!(rv & PR_SPEC_PRCTL)) {
-    DLOG(INFO) << "Indirect branch speculation can not be controled by prctl."
-               << rv;
-    return;
-  }
-
-  if (rv & PR_SPEC_FORCE_DISABLE) {
-    DLOG(INFO) << "Indirect branch speculation is already force disabled."
-               << rv;
+    DVLOG(1) << "Indirect branch speculation can not be controled by prctl. "
+             << rv;
     return;
   }
 
   if (prctl(PR_SET_SPECULATION_CTRL, PR_SPEC_INDIRECT_BRANCH,
             PR_SPEC_FORCE_DISABLE, 0, 0)) {
-    DPLOG(INFO) << "Kernel failed to force disable indirect branch speculation";
+    PLOG(ERROR) << "Kernel failed to force disable indirect branch speculation";
   }
 }
 

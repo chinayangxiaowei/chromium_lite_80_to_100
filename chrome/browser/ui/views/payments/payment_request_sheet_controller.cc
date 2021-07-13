@@ -196,9 +196,9 @@ class BorderedScrollView : public views::ScrollView {
 }  // namespace
 
 PaymentRequestSheetController::PaymentRequestSheetController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog)
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog)
     : spec_(spec), state_(state), dialog_(dialog) {}
 
 PaymentRequestSheetController::~PaymentRequestSheetController() = default;
@@ -284,12 +284,20 @@ std::unique_ptr<views::View> PaymentRequestSheetController::CreateView() {
 }
 
 void PaymentRequestSheetController::UpdateContentView() {
+  // Do not update the view if the payment request is being aborted.
+  if (!is_active_)
+    return;
+
   content_view_->RemoveAllChildViews(true);
   FillContentView(content_view_);
   RelayoutPane();
 }
 
 void PaymentRequestSheetController::UpdateHeaderView() {
+  // Do not update the view if the payment request is being aborted.
+  if (!is_active_)
+    return;
+
   header_view_->RemoveAllChildViews(true);
   PopulateSheetHeaderView(ShouldShowHeaderBackArrow(),
                           CreateHeaderContentView(header_view_), this,
@@ -313,6 +321,10 @@ void PaymentRequestSheetController::UpdateFocus(views::View* focused_view) {
 }
 
 void PaymentRequestSheetController::RelayoutPane() {
+  // Do not update the view if the payment request is being aborted.
+  if (!is_active_)
+    return;
+
   content_view_->Layout();
   pane_->SizeToPreferredSize();
   // Now that the content and its surrounding pane are updated, force a Layout
@@ -419,13 +431,13 @@ std::unique_ptr<views::View> PaymentRequestSheetController::CreateFooterView() {
           views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
           kPaymentRequestButtonSpacing));
 
-#if defined(OS_MACOSX)
+#if defined(OS_MAC)
   AddSecondaryButton(trailing_buttons_container.get());
   AddPrimaryButton(trailing_buttons_container.get());
 #else
   AddPrimaryButton(trailing_buttons_container.get());
   AddSecondaryButton(trailing_buttons_container.get());
-#endif  // defined(OS_MACOSX)
+#endif  // defined(OS_MAC)
 
   if (container->children().empty() &&
       trailing_buttons_container->children().empty()) {
@@ -479,7 +491,7 @@ void PaymentRequestSheetController::AddPrimaryButton(views::View* container) {
 void PaymentRequestSheetController::AddSecondaryButton(views::View* container) {
   if (ShouldShowSecondaryButton()) {
     secondary_button_ = container->AddChildView(
-        views::MdTextButton::Create(this, GetSecondaryButtonLabel()));
+        std::make_unique<views::MdTextButton>(this, GetSecondaryButtonLabel()));
     secondary_button_->set_tag(GetSecondaryButtonTag());
     secondary_button_->SetID(GetSecondaryButtonId());
     secondary_button_->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);

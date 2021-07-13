@@ -47,33 +47,31 @@ CSSParserContext::CSSParserContext(const CSSParserContext* other,
                        other->is_html_document_,
                        other->use_legacy_background_size_shorthand_behavior_,
                        other->secure_context_mode_,
-                       other->should_check_content_security_policy_,
+                       other->world_,
                        use_counter_document,
                        other->resource_fetch_restriction_) {
   is_ad_related_ = other->is_ad_related_;
 }
 
-CSSParserContext::CSSParserContext(
-    const CSSParserContext* other,
-    const KURL& base_url,
-    bool origin_clean,
-    network::mojom::ReferrerPolicy referrer_policy,
-    const WTF::TextEncoding& charset,
-    const Document* use_counter_document)
-    : CSSParserContext(
-          base_url,
-          origin_clean,
-          charset,
-          other->mode_,
-          other->match_mode_,
-          other->profile_,
-          Referrer(base_url.StrippedForUseAsReferrer(), referrer_policy),
-          other->is_html_document_,
-          other->use_legacy_background_size_shorthand_behavior_,
-          other->secure_context_mode_,
-          other->should_check_content_security_policy_,
-          use_counter_document,
-          other->resource_fetch_restriction_) {
+CSSParserContext::CSSParserContext(const CSSParserContext* other,
+                                   const KURL& base_url,
+                                   bool origin_clean,
+                                   const Referrer& referrer,
+                                   const WTF::TextEncoding& charset,
+                                   const Document* use_counter_document)
+    : CSSParserContext(base_url,
+                       origin_clean,
+                       charset,
+                       other->mode_,
+                       other->match_mode_,
+                       other->profile_,
+                       referrer,
+                       other->is_html_document_,
+                       other->use_legacy_background_size_shorthand_behavior_,
+                       other->secure_context_mode_,
+                       other->world_,
+                       use_counter_document,
+                       other->resource_fetch_restriction_) {
   is_ad_related_ = other->is_ad_related_;
 }
 
@@ -91,23 +89,28 @@ CSSParserContext::CSSParserContext(CSSParserMode mode,
                        false,
                        false,
                        secure_context_mode,
-                       network::mojom::CSPDisposition::DO_NOT_CHECK,
+                       nullptr,
                        use_counter_document,
                        ResourceFetchRestriction::kNone) {}
 
 CSSParserContext::CSSParserContext(const Document& document)
-    : CSSParserContext(document,
-                       document.BaseURL(),
-                       true /* origin_clean */,
-                       document.GetReferrerPolicy(),
-                       WTF::TextEncoding(),
-                       kLiveProfile) {}
+    : CSSParserContext(
+          document,
+          document.BaseURL(),
+          true /* origin_clean */,
+          Referrer(document.GetExecutionContext()
+                       ? document.GetExecutionContext()->OutgoingReferrer()
+                       : String(),  // GetExecutionContext() only returns null
+                                    // in tests.
+                   document.GetReferrerPolicy()),
+          WTF::TextEncoding(),
+          kLiveProfile) {}
 
 CSSParserContext::CSSParserContext(
     const Document& document,
     const KURL& base_url_override,
     bool origin_clean,
-    network::mojom::ReferrerPolicy referrer_policy_override,
+    const Referrer& referrer,
     const WTF::TextEncoding& charset,
     SelectorProfile profile,
     enum ResourceFetchRestriction resource_fetch_restriction)
@@ -122,18 +125,18 @@ CSSParserContext::CSSParserContext(
                      : kHTMLStandardMode)
               : document.InQuirksMode() ? kHTMLQuirksMode : kHTMLStandardMode,
           profile,
-          Referrer(base_url_override.StrippedForUseAsReferrer(),
-                   referrer_policy_override),
+          referrer,
           IsA<HTMLDocument>(document),
           document.GetSettings()
               ? document.GetSettings()
                     ->GetUseLegacyBackgroundSizeShorthandBehavior()
               : false,
-          document.GetSecureContextMode(),
-          ContentSecurityPolicy::ShouldBypassMainWorld(
-              document.GetExecutionContext())
-              ? network::mojom::CSPDisposition::DO_NOT_CHECK
-              : network::mojom::CSPDisposition::CHECK,
+          document.GetExecutionContext()
+              ? document.GetExecutionContext()->GetSecureContextMode()
+              : SecureContextMode::kInsecureContext,
+          document.GetExecutionContext()
+              ? document.GetExecutionContext()->GetCurrentWorld()
+              : nullptr,
           &document,
           resource_fetch_restriction) {}
 
@@ -149,9 +152,7 @@ CSSParserContext::CSSParserContext(const ExecutionContext& context)
                        true,
                        false,
                        context.GetSecureContextMode(),
-                       ContentSecurityPolicy::ShouldBypassMainWorld(&context)
-                           ? network::mojom::CSPDisposition::DO_NOT_CHECK
-                           : network::mojom::CSPDisposition::CHECK,
+                       context.GetCurrentWorld(),
                        IsA<LocalDOMWindow>(&context)
                            ? To<LocalDOMWindow>(context).document()
                            : nullptr,
@@ -168,11 +169,11 @@ CSSParserContext::CSSParserContext(
     bool is_html_document,
     bool use_legacy_background_size_shorthand_behavior,
     SecureContextMode secure_context_mode,
-    network::mojom::CSPDisposition policy_disposition,
+    scoped_refptr<const DOMWrapperWorld> world,
     const Document* use_counter_document,
     enum ResourceFetchRestriction resource_fetch_restriction)
     : base_url_(base_url),
-      should_check_content_security_policy_(policy_disposition),
+      world_(std::move(world)),
       origin_clean_(origin_clean),
       mode_(mode),
       match_mode_(match_mode),
@@ -271,7 +272,10 @@ void CSSParserContext::ReportLayoutAnimationsViolationIfNeeded(
   if (!document_ || !document_->GetExecutionContext())
     return;
   for (size_t i = 0; i < rule.Properties().PropertyCount(); ++i) {
-    const CSSProperty& property = rule.Properties().PropertyAt(i).Property();
+    CSSPropertyID id = rule.Properties().PropertyAt(i).Id();
+    if (id == CSSPropertyID::kVariable)
+      continue;
+    const CSSProperty& property = CSSProperty::Get(id);
     if (!LayoutAnimationsPolicy::AffectedCSSProperties().Contains(&property))
       continue;
     LayoutAnimationsPolicy::ReportViolation(property,

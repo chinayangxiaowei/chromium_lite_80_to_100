@@ -24,7 +24,12 @@ MediaFeedsWebUIBrowserTest.prototype = {
 
   browsePreload: 'chrome://media-feeds',
 
-  featureList: {enabled: ['media::kMediaFeeds']},
+  featureList: {
+    enabled: [
+      'media::kMediaFeeds', 'media::kMediaFeedsSafeSearch',
+      'media::kMediaFeedsBackgroundFetching'
+    ]
+  },
 
   isAsync: true,
 
@@ -343,7 +348,7 @@ TEST_F('MediaFeedsWebUIBrowserTest', 'ConfigTable', function() {
         assertDeepEquals(
             [
               'Background Fetching Enabled (value)',
-              'Disabled',
+              'Enabled',
               'Background Fetching Enabled (pref)',
               'Disabled (Toggle)',
             ],
@@ -361,7 +366,7 @@ TEST_F('MediaFeedsWebUIBrowserTest', 'ConfigTable', function() {
               assertDeepEquals(
                   [
                     'Background Fetching Enabled (value)',
-                    'Disabled',
+                    'Enabled',
                     'Background Fetching Enabled (pref)',
                     'Enabled (Toggle)',
                   ],

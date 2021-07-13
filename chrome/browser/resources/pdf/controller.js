@@ -7,10 +7,10 @@ import {NativeEventTarget as EventTarget} from 'chrome://resources/js/cr/event_t
 import {loadTimeData} from 'chrome://resources/js/load_time_data.m.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.m.js';
 
-import {SaveRequestType} from './constants.js';
-import {PartialPoint, Point, Viewport} from './viewport.js';
+import {Point, SaveRequestType} from './constants.js';
+import {PartialPoint, Viewport} from './viewport.js';
 
-/** @typedef {{ type: string }} */
+/** @typedef {{type: string, messageId: (string|undefined)}} */
 export let MessageData;
 
 /**
@@ -21,18 +21,6 @@ export let MessageData;
  * }}
  */
 let SaveDataMessageData;
-
-/**
- * @typedef {{
- *   type: string,
- *   to: string,
- *   cc: string,
- *   bcc: string,
- *   subject: string,
- *   body: string,
- * }}
- */
-let EmailMessageData;
 
 /**
  * @typedef {{
@@ -72,7 +60,16 @@ export class ContentController {
   /** @abstract */
   rotateCounterclockwise() {}
 
-  /** @abstract */
+  /**
+   * @param {boolean} displayAnnotations
+   * @abstract
+   */
+  setDisplayAnnotations(displayAnnotations) {}
+
+  /**
+   * @param {boolean} enableTwoUpView
+   * @abstract
+   */
   setTwoUpView(enableTwoUpView) {}
 
   /** Triggers printing of the current document. */
@@ -142,11 +139,36 @@ export class PluginController extends ContentController {
 
     /** @private {!EventTarget} */
     this.eventTarget_ = new EventTarget();
+
+    /**
+     * Counter for use with createUid
+     * @private {number}
+     */
+    this.uidCounter_ = 1;
+
+    /** @private {!Map<string, !PromiseResolver>} */
+    this.requestResolverMap_ = new Map();
+  }
+
+  /**
+   * @return {number} A new unique ID.
+   * @private
+   */
+  createUid_() {
+    return this.uidCounter_++;
   }
 
   /** @return {!EventTarget} */
   getEventTarget() {
     return this.eventTarget_;
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  updateScroll(x, y) {
+    this.postMessage_({type: 'updateScroll', x, y});
   }
 
   /**
@@ -212,6 +234,22 @@ export class PluginController extends ContentController {
     this.plugin_.postMessage(message);
   }
 
+  /**
+   * Post a message to the PPAPI plugin, for cases where direct response is
+   * expected from the PPAPI plugin.
+   * @param {!MessageData} message
+   * @return {!Promise} A promise holding the response from the PPAPI plugin.
+   * @private
+   */
+  postMessageWithReply_(message) {
+    const promiseResolver = new PromiseResolver();
+    message.messageId = `${message.type}_${this.createUid_()}`;
+    this.requestResolverMap_.set(message.messageId, promiseResolver);
+    this.postMessage_(message);
+    return promiseResolver.promise;
+  }
+
+
   /** @override */
   rotateClockwise() {
     this.postMessage_({type: 'rotateClockwise'});
@@ -220,6 +258,14 @@ export class PluginController extends ContentController {
   /** @override */
   rotateCounterclockwise() {
     this.postMessage_({type: 'rotateCounterclockwise'});
+  }
+
+  /** @override */
+  setDisplayAnnotations(displayAnnotations) {
+    this.postMessage_({
+      type: 'displayAnnotations',
+      display: displayAnnotations,
+    });
   }
 
   /** @override */
@@ -240,7 +286,7 @@ export class PluginController extends ContentController {
   }
 
   getSelectedText() {
-    this.postMessage_({type: 'getSelectedText'});
+    return this.postMessageWithReply_({type: 'getSelectedText'});
   }
 
   /** @param {!PrintPreviewParams} printPreviewParams */
@@ -281,7 +327,7 @@ export class PluginController extends ContentController {
 
   /** @param {string} destination */
   getNamedDestination(destination) {
-    this.postMessage_({
+    return this.postMessageWithReply_({
       type: 'getNamedDestination',
       namedDestination: destination,
     });
@@ -326,14 +372,19 @@ export class PluginController extends ContentController {
    */
   handlePluginMessage_(messageEvent) {
     const messageData = /** @type {!MessageData} */ (messageEvent.data);
+
+    // Handle case where this Plugin->Page message is a direct response
+    // to a previous Page->Plugin message
+    if (messageData.messageId !== undefined) {
+      const resolver =
+          this.requestResolverMap_.get(messageData.messageId) || null;
+      assert(resolver !== null);
+      this.requestResolverMap_.delete(messageData.messageId);
+      resolver.resolve(messageData);
+      return;
+    }
+
     switch (messageData.type) {
-      case 'email':
-        const emailData = /** @type {!EmailMessageData} */ (messageData);
-        const href = 'mailto:' + emailData.to + '?cc=' + emailData.cc +
-            '&bcc=' + emailData.bcc + '&subject=' + emailData.subject +
-            '&body=' + emailData.body;
-        window.location.href = href;
-        break;
       case 'goToPage':
         this.viewport_.goToPage(
             /** @type {{type: string, page: number}} */ (messageData).page);

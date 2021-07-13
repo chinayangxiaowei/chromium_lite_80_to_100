@@ -16,6 +16,7 @@
 #include "components/autofill/core/browser/payments/payments_client.h"
 #include "components/autofill/core/browser/payments/risk_data_loader.h"
 #include "ui/views/controls/combobox/combobox_listener.h"
+#include "content/public/browser/global_routing_id.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 
 namespace autofill {
@@ -44,9 +45,9 @@ class CvcUnmaskViewController
       public views::TextfieldController {
  public:
   CvcUnmaskViewController(
-      PaymentRequestSpec* spec,
-      PaymentRequestState* state,
-      PaymentRequestDialogView* dialog,
+      base::WeakPtr<PaymentRequestSpec> spec,
+      base::WeakPtr<PaymentRequestState> state,
+      base::WeakPtr<PaymentRequestDialogView> dialog,
       const autofill::CreditCard& credit_card,
       base::WeakPtr<autofill::payments::FullCardRequest::ResultDelegate>
           result_delegate,
@@ -98,7 +99,7 @@ class CvcUnmaskViewController
   autofill::YearComboboxModel year_combobox_model_;
   views::Textfield* cvc_field_;  // owned by the view hierarchy, outlives this.
   autofill::CreditCard credit_card_;
-  content::WebContents* web_contents_;
+  const content::GlobalFrameRoutingId frame_routing_id_;
   autofill::payments::PaymentsClient payments_client_;
   autofill::payments::FullCardRequest full_card_request_;
   base::WeakPtr<autofill::CardUnmaskDelegate> unmask_delegate_;

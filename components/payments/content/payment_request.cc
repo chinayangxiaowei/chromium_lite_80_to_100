@@ -27,6 +27,7 @@
 #include "components/payments/core/payment_details.h"
 #include "components/payments/core/payment_details_validation.h"
 #include "components/payments/core/payment_prefs.h"
+#include "components/payments/core/payment_request_delegate.h"
 #include "components/payments/core/payments_experimental_features.h"
 #include "components/payments/core/payments_validators.h"
 #include "components/payments/core/url_util.h"
@@ -89,7 +90,6 @@ PaymentRequest::PaymentRequest(
       manager_(manager),
       display_manager_(display_manager),
       display_handle_(nullptr),
-      payment_handler_host_(web_contents_, this),
       top_level_origin_(url_formatter::FormatUrlForSecurityDisplay(
           web_contents_->GetLastCommittedURL())),
       frame_origin_(url_formatter::FormatUrlForSecurityDisplay(
@@ -106,9 +106,12 @@ PaymentRequest::PaymentRequest(
   // set_connection_error_with_reason_handler with Binding::CloseWithReason.
   receiver_.set_disconnect_handler(base::BindOnce(
       &PaymentRequest::OnConnectionTerminated, weak_ptr_factory_.GetWeakPtr()));
+
+  payment_handler_host_ = std::make_unique<PaymentHandlerHost>(
+      web_contents_, weak_ptr_factory_.GetWeakPtr());
 }
 
-PaymentRequest::~PaymentRequest() {}
+PaymentRequest::~PaymentRequest() = default;
 
 void PaymentRequest::Init(
     mojo::PendingRemote<mojom::PaymentRequestClient> client,
@@ -123,6 +126,8 @@ void PaymentRequest::Init(
     return;
   }
 
+  journey_logger_.RecordCheckoutStep(
+      JourneyLogger::CheckoutFunnelStep::kInitiated);
   is_initialized_ = true;
   client_.Bind(std::move(client));
 
@@ -181,10 +186,11 @@ void PaymentRequest::Init(
 
   spec_ = std::make_unique<PaymentRequestSpec>(
       std::move(options), std::move(details), std::move(method_data),
-      /*observer=*/this, delegate_->GetApplicationLocale());
+      /*observer=*/weak_ptr_factory_.GetWeakPtr(),
+      delegate_->GetApplicationLocale());
   state_ = std::make_unique<PaymentRequestState>(
       web_contents_, initiator_frame, top_level_origin_, frame_origin_,
-      frame_security_origin_, spec_.get(),
+      frame_security_origin_, spec(),
       /*delegate=*/this, delegate_->GetApplicationLocale(),
       delegate_->GetPersonalDataManager(), delegate_.get(), &journey_logger_);
 
@@ -208,10 +214,17 @@ void PaymentRequest::Init(
       base::Contains(spec_->url_payment_method_identifiers(), google_pay_url) ||
           base::Contains(spec_->url_payment_method_identifiers(),
                          android_pay_url),
+      /*requested_method_secure_payment_confirmation=*/
+      spec_->IsSecurePaymentConfirmationRequested(),
       /*requested_method_other=*/non_google_it !=
           spec_->url_payment_method_identifiers().end());
 
-  payment_handler_host_.set_payment_request_id_for_logs(*spec_->details().id);
+  payment_handler_host_->set_payment_request_id_for_logs(*spec_->details().id);
+
+  if (spec_->IsSecurePaymentConfirmationRequested()) {
+    delegate_->set_dialog_type(
+        PaymentRequestDelegate::DialogType::SECURE_PAYMENT_CONFIRMATION);
+  }
 }
 
 void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
@@ -227,6 +240,8 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
     return;
   }
 
+  journey_logger_.RecordCheckoutStep(
+      JourneyLogger::CheckoutFunnelStep::kShowCalled);
   is_show_called_ = true;
   journey_logger_.SetTriggerTime();
 
@@ -276,7 +291,7 @@ void PaymentRequest::Show(bool is_user_gesture, bool wait_for_updated_details) {
         spec_->details().total->amount->value, false /*completed*/);
   }
 
-  display_handle_->Show(this);
+  display_handle_->Show(weak_ptr_factory_.GetWeakPtr());
 
   state_->set_is_show_user_gesture(is_show_user_gesture_);
   state_->AreRequestedMethodsSupported(
@@ -482,7 +497,7 @@ void PaymentRequest::CanMakePayment() {
   }
 }
 
-void PaymentRequest::HasEnrolledInstrument(bool per_method_quota) {
+void PaymentRequest::HasEnrolledInstrument() {
   if (!IsInitialized()) {
     log_.Error(errors::kCannotCallHasEnrolledInstrumentWithoutInit);
     OnConnectionTerminated();
@@ -496,12 +511,11 @@ void PaymentRequest::HasEnrolledInstrument(bool per_method_quota) {
 
   if (!delegate_->GetPrefService()->GetBoolean(kCanMakePaymentEnabled) ||
       !state_) {
-    HasEnrolledInstrumentCallback(per_method_quota,
-                                  /*has_enrolled_instrument=*/false);
+    HasEnrolledInstrumentCallback(/*has_enrolled_instrument=*/false);
   } else {
     state_->HasEnrolledInstrument(
         base::BindOnce(&PaymentRequest::HasEnrolledInstrumentCallback,
-                       weak_ptr_factory_.GetWeakPtr(), per_method_quota));
+                       weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
@@ -560,7 +574,7 @@ void PaymentRequest::AreRequestedMethodsSupportedCallback(
     bool methods_supported,
     const std::string& error_message) {
   if (is_show_called_ && observer_for_testing_)
-    observer_for_testing_->OnShowAppsReady(weak_ptr_factory_.GetWeakPtr());
+    observer_for_testing_->OnAppListReady(weak_ptr_factory_.GetWeakPtr());
 
   if (methods_supported) {
     if (SatisfiesSkipUIConstraints())
@@ -579,6 +593,10 @@ void PaymentRequest::AreRequestedMethodsSupportedCallback(
       observer_for_testing_->OnNotSupportedError();
     OnConnectionTerminated();
   }
+}
+
+base::WeakPtr<PaymentRequest> PaymentRequest::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 bool PaymentRequest::IsInitialized() const {
@@ -619,8 +637,9 @@ bool PaymentRequest::OnlySingleAppCanProvideAllRequiredInformation() const {
 }
 
 bool PaymentRequest::SatisfiesSkipUIConstraints() {
-  // Only allowing URL base payment apps to skip the payment sheet.
+  // Only allowing URL based payment apps to skip the payment sheet.
   skipped_payment_request_ui_ =
+      !spec()->IsSecurePaymentConfirmationRequested() &&
       (spec()->url_payment_method_identifiers().size() > 0 ||
        delegate_->SkipUiForBasicCard()) &&
       base::FeatureList::IsEnabled(features::kWebPaymentsSingleAppUiSkip) &&
@@ -657,17 +676,22 @@ void PaymentRequest::OnPaymentResponseAvailable(
     case PaymentApp::Type::AUTOFILL:
       selected_event = JourneyLogger::Event::EVENT_SELECTED_CREDIT_CARD;
       break;
-    case PaymentApp::Type::SERVICE_WORKER_APP: {
+    case PaymentApp::Type::SERVICE_WORKER_APP:
+      // Intentionally fall through.
+    case PaymentApp::Type::NATIVE_MOBILE_APP: {
       selected_event = IsGooglePaymentMethod(response->method_name)
                            ? JourneyLogger::Event::EVENT_SELECTED_GOOGLE
                            : JourneyLogger::Event::EVENT_SELECTED_OTHER;
       break;
     }
+    case PaymentApp::Type::INTERNAL: {
+      if (response->method_name == methods::kSecurePaymentConfirmation) {
+        selected_event =
+            JourneyLogger::Event::EVENT_SELECTED_SECURE_PAYMENT_CONFIRMATION;
+      }
+      break;
+    }
     case PaymentApp::Type::UNDEFINED:
-      // Intentionally fall through.
-    case PaymentApp::Type::NATIVE_MOBILE_APP:
-      // Intentionally fall through.
-    case PaymentApp::Type::INTERNAL:
       NOTREACHED();
       break;
   }
@@ -725,10 +749,10 @@ void PaymentRequest::UserCancelled() {
   // We close all bindings and ask to be destroyed.
   client_.reset();
   receiver_.reset();
-  payment_handler_host_.Disconnect();
+  payment_handler_host_->Disconnect();
   if (observer_for_testing_)
     observer_for_testing_->OnConnectionTerminated();
-  manager_->DestroyRequest(this);
+  manager_->DestroyRequest(weak_ptr_factory_.GetWeakPtr());
 }
 
 void PaymentRequest::DidStartMainFrameNavigationToDifferentDocument(
@@ -736,6 +760,21 @@ void PaymentRequest::DidStartMainFrameNavigationToDifferentDocument(
   RecordFirstAbortReason(is_user_initiated
                              ? JourneyLogger::ABORT_REASON_USER_NAVIGATION
                              : JourneyLogger::ABORT_REASON_MERCHANT_NAVIGATION);
+}
+
+void PaymentRequest::RenderFrameDeleted(
+    content::RenderFrameHost* render_frame_host) {
+  DCHECK(render_frame_host ==
+         content::RenderFrameHost::FromID(initiator_frame_routing_id_));
+  // RenderFrameHost is usually deleted explicitly before PaymentRequest
+  // destruction if the user closes the tab or browser window without closing
+  // the payment request dialog.
+  RecordFirstAbortReason(JourneyLogger::ABORT_REASON_ABORTED_BY_USER);
+  // But don't bother sending errors to |client_| because the mojo pipe will be
+  // torn down anyways when RenderFrameHost is destroyed. It's not safe to call
+  // UserCancelled() here because it is not re-entrant.
+  // TODO(crbug.com/1121841) Make UserCancelled re-entrant.
+  OnConnectionTerminated();
 }
 
 void PaymentRequest::OnConnectionTerminated() {
@@ -746,20 +785,22 @@ void PaymentRequest::OnConnectionTerminated() {
   // the binding and the dialog, and ask to be deleted.
   client_.reset();
   receiver_.reset();
-  payment_handler_host_.Disconnect();
+  payment_handler_host_->Disconnect();
   delegate_->CloseDialog();
   if (observer_for_testing_)
     observer_for_testing_->OnConnectionTerminated();
 
   RecordFirstAbortReason(JourneyLogger::ABORT_REASON_MOJO_CONNECTION_ERROR);
-  manager_->DestroyRequest(this);
+  manager_->DestroyRequest(weak_ptr_factory_.GetWeakPtr());
 }
 
 void PaymentRequest::Pay() {
   journey_logger_.SetEventOccurred(JourneyLogger::EVENT_PAY_CLICKED);
+  journey_logger_.RecordCheckoutStep(
+      JourneyLogger::CheckoutFunnelStep::kPaymentHandlerInvoked);
   DCHECK(state_->selected_app());
   state_->selected_app()->SetPaymentHandlerHost(
-      payment_handler_host_.AsWeakPtr());
+      payment_handler_host_->AsWeakPtr());
   state_->GeneratePaymentResponse();
 }
 
@@ -799,12 +840,11 @@ void PaymentRequest::CanMakePaymentCallback(bool can_make_payment) {
 }
 
 void PaymentRequest::HasEnrolledInstrumentCallback(
-    bool per_method_quota,
     bool has_enrolled_instrument) {
   if (!spec_ || CanMakePaymentQueryFactory::GetInstance()
                     ->GetForContext(web_contents_->GetBrowserContext())
                     ->CanQuery(top_level_origin_, frame_origin_,
-                               spec_->query_for_quota(), per_method_quota)) {
+                               spec_->query_for_quota())) {
     RespondToHasEnrolledInstrumentQuery(has_enrolled_instrument,
                                         /*warn_local_development=*/false);
   } else if (UrlUtil::IsLocalDevelopmentUrl(frame_origin_)) {

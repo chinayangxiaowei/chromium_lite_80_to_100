@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -52,7 +53,7 @@
 #include "media/mojo/services/mojo_video_encode_accelerator_provider.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "skia/buildflags.h"
-#include "third_party/skia/include/gpu/GrContext.h"
+#include "third_party/skia/include/gpu/GrDirectContext.h"
 #include "third_party/skia/include/gpu/gl/GrGLAssembleInterface.h"
 #include "third_party/skia/include/gpu/gl/GrGLInterface.h"
 #include "ui/gl/gl_context.h"
@@ -88,7 +89,7 @@
 #include "ui/gl/direct_composition_surface_win.h"
 #endif
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
 #include "ui/base/cocoa/quartz_util.h"
 #endif
 
@@ -293,7 +294,7 @@ void GetVideoCapabilities(const gpu::GpuPreferences& gpu_preferences,
   gpu_info->video_encode_accelerator_supported_profiles =
       media::GpuVideoAcceleratorUtil::ConvertMediaToGpuEncodeProfiles(
           media::GpuVideoEncodeAcceleratorFactory::GetSupportedProfiles(
-              gpu_preferences));
+              gpu_preferences, gpu_workarounds));
 #endif
 }
 
@@ -398,7 +399,7 @@ GpuServiceImpl::GpuServiceImpl(
       media::VaapiImageDecodeAcceleratorWorker::Create();
 #endif
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
   if (gpu_feature_info_.status_values[gpu::GPU_FEATURE_TYPE_METAL] ==
       gpu::kGpuFeatureStatusEnabled) {
     metal_context_provider_ = MetalContextProvider::Create(context_options);
@@ -428,22 +429,44 @@ GpuServiceImpl::~GpuServiceImpl() {
   GetLogMessageManager()->ShutdownLogging();
 
   // Destroy the receiver on the IO thread.
-  base::WaitableEvent wait;
-  auto destroy_receiver_task = base::BindOnce(
-      [](mojo::Receiver<mojom::GpuService>* receiver,
-         base::WaitableEvent* wait) {
-        receiver->reset();
-        wait->Signal();
-      },
-      &receiver_, &wait);
-  if (io_runner_->PostTask(FROM_HERE, std::move(destroy_receiver_task)))
-    wait.Wait();
+  {
+    base::WaitableEvent wait;
+    auto destroy_receiver_task = base::BindOnce(
+        [](mojo::Receiver<mojom::GpuService>* receiver,
+           base::WaitableEvent* wait) {
+          receiver->reset();
+          wait->Signal();
+        },
+        &receiver_, base::Unretained(&wait));
+    if (io_runner_->PostTask(FROM_HERE, std::move(destroy_receiver_task)))
+      wait.Wait();
+  }
 
   if (watchdog_thread_)
     watchdog_thread_->OnGpuProcessTearDown();
 
   media_gpu_channel_manager_.reset();
   gpu_channel_manager_.reset();
+
+  // Destroy |gpu_memory_buffer_factory_| on the IO thread since its weakptrs
+  // are checked there.
+  {
+    base::WaitableEvent wait;
+    auto destroy_gmb_factory = base::BindOnce(
+        [](std::unique_ptr<gpu::GpuMemoryBufferFactory> gmb_factory,
+           base::WaitableEvent* wait) {
+          gmb_factory.reset();
+          wait->Signal();
+        },
+        std::move(gpu_memory_buffer_factory_), base::Unretained(&wait));
+
+    if (io_runner_->PostTask(FROM_HERE, std::move(destroy_gmb_factory))) {
+      // |gpu_memory_buffer_factory_| holds a raw pointer to
+      // |vulkan_context_provider_|. Waiting here enforces the correct order
+      // of destruction.
+      wait.Wait();
+    }
+  }
 
   // Scheduler must be destroyed before sync point manager is destroyed.
   scheduler_.reset();
@@ -703,10 +726,14 @@ void GpuServiceImpl::CreateVideoEncodeAcceleratorProvider(
     mojo::PendingReceiver<media::mojom::VideoEncodeAcceleratorProvider>
         vea_provider_receiver) {
   DCHECK(io_runner_->BelongsToCurrentThread());
+
+  gpu::GpuDriverBugWorkarounds gpu_workarounds(
+      gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
+
   media::MojoVideoEncodeAcceleratorProvider::Create(
       std::move(vea_provider_receiver),
       base::BindRepeating(&media::GpuVideoEncodeAcceleratorFactory::CreateVEA),
-      gpu_preferences_);
+      gpu_preferences_, gpu_workarounds);
 }
 
 void GpuServiceImpl::CreateGpuMemoryBuffer(
@@ -1047,7 +1074,7 @@ void GpuServiceImpl::OnMemoryPressure(
 }
 #endif
 
-#if defined(OS_MACOSX)
+#if defined(OS_APPLE)
 void GpuServiceImpl::BeginCATransaction() {
   DCHECK(io_runner_->BelongsToCurrentThread());
   main_runner_->PostTask(FROM_HERE, base::BindOnce(&ui::BeginCATransaction));

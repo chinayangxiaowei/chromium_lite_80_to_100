@@ -175,7 +175,7 @@ bool ProcessLaunchNotification(
 }
 
 bool DisplayShouldKillMessageBox() {
-  return chrome::ShowQuestionMessageBox(
+  return chrome::ShowQuestionMessageBoxSync(
              NULL, l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
              l10n_util::GetStringUTF16(IDS_BROWSER_HUNGBROWSER_MESSAGE)) !=
          chrome::MESSAGE_BOX_RESULT_NO;
@@ -267,8 +267,7 @@ ProcessSingleton::ProcessSingleton(
       lock_file_(INVALID_HANDLE_VALUE),
       user_data_dir_(user_data_dir),
       should_kill_remote_process_callback_(
-          base::Bind(&DisplayShouldKillMessageBox)) {
-}
+          base::BindRepeating(&DisplayShouldKillMessageBox)) {}
 
 ProcessSingleton::~ProcessSingleton() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -415,9 +414,10 @@ bool ProcessSingleton::Create() {
       if (lock_file_ != INVALID_HANDLE_VALUE) {
         // Set the window's title to the path of our user data directory so
         // other Chrome instances can decide if they should forward to us.
-        bool result = window_.CreateNamed(
-            base::Bind(&ProcessLaunchNotification, notification_callback_),
-            user_data_dir_.value());
+        bool result =
+            window_.CreateNamed(base::BindRepeating(&ProcessLaunchNotification,
+                                                    notification_callback_),
+                                user_data_dir_.value());
         CHECK(result && window_.hwnd());
       }
     }

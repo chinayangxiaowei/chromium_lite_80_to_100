@@ -204,6 +204,12 @@ class MediaStreamCaptureIndicator::UIDelegate : public content::MediaStreamUI {
     return 0;
   }
 
+  void SetStopCallback(base::OnceClosure stop_callback) override {
+    if (ui_) {
+      ui_->SetStopCallback(std::move(stop_callback));
+    }
+  }
+
   base::WeakPtr<WebContentsDeviceUsage> device_usage_;
   const blink::MediaStreamDevices devices_;
   const std::unique_ptr<::MediaStreamUI> ui_;
@@ -471,9 +477,8 @@ void MediaStreamCaptureIndicator::UpdateNotificationUserInterface() {
 
     WebContents* const web_contents = it.first;
 
-    // The audio/video icon is shown only for non-whitelisted extensions or on
-    // Android. For regular tabs on desktop, we show an indicator in the tab
-    // icon.
+    // The audio/video icon is shown for extensions or on Android. For
+    // regular tabs on desktop, we show an indicator in the tab icon.
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     const extensions::Extension* extension = GetExtension(web_contents);
     if (!extension)

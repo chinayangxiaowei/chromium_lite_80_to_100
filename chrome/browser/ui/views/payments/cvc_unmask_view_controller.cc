@@ -28,6 +28,8 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -47,9 +49,9 @@ enum class Tags {
 };
 
 CvcUnmaskViewController::CvcUnmaskViewController(
-    PaymentRequestSpec* spec,
-    PaymentRequestState* state,
-    PaymentRequestDialogView* dialog,
+    base::WeakPtr<PaymentRequestSpec> spec,
+    base::WeakPtr<PaymentRequestState> state,
+    base::WeakPtr<PaymentRequestDialogView> dialog,
     const autofill::CreditCard& credit_card,
     base::WeakPtr<autofill::payments::FullCardRequest::ResultDelegate>
         result_delegate,
@@ -57,16 +59,17 @@ CvcUnmaskViewController::CvcUnmaskViewController(
     : PaymentRequestSheetController(spec, state, dialog),
       year_combobox_model_(credit_card.expiration_year()),
       credit_card_(credit_card),
-      web_contents_(web_contents),
+      frame_routing_id_(web_contents->GetMainFrame()->GetProcess()->GetID(),
+                        web_contents->GetMainFrame()->GetRoutingID()),
       payments_client_(
           content::BrowserContext::GetDefaultStoragePartition(
-              web_contents_->GetBrowserContext())
+              web_contents->GetBrowserContext())
               ->GetURLLoaderFactoryForBrowserProcess(),
           IdentityManagerFactory::GetForProfile(
-              Profile::FromBrowserContext(web_contents_->GetBrowserContext())
+              Profile::FromBrowserContext(web_contents->GetBrowserContext())
                   ->GetOriginalProfile()),
           state->GetPersonalDataManager(),
-          Profile::FromBrowserContext(web_contents_->GetBrowserContext())
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())
               ->IsOffTheRecord()),
       full_card_request_(this,
                          &payments_client_,
@@ -81,7 +84,15 @@ CvcUnmaskViewController::~CvcUnmaskViewController() {}
 
 void CvcUnmaskViewController::LoadRiskData(
     base::OnceCallback<void(const std::string&)> callback) {
-  autofill::risk_util::LoadRiskData(0, web_contents_, std::move(callback));
+  auto* rfh = content::RenderFrameHost::FromID(frame_routing_id_);
+  if (!rfh)
+    return;
+
+  auto* web_contents = content::WebContents::FromRenderFrameHost(rfh);
+  if (!web_contents)
+    return;
+
+  autofill::risk_util::LoadRiskData(0, web_contents, std::move(callback));
 }
 
 void CvcUnmaskViewController::ShowUnmaskPrompt(
@@ -257,8 +268,8 @@ void CvcUnmaskViewController::FillContentView(views::View* content_view) {
 }
 
 std::unique_ptr<views::Button> CvcUnmaskViewController::CreatePrimaryButton() {
-  auto button =
-      views::MdTextButton::Create(this, l10n_util::GetStringUTF16(IDS_CONFIRM));
+  auto button = std::make_unique<views::MdTextButton>(
+      this, l10n_util::GetStringUTF16(IDS_CONFIRM));
   button->SetProminent(true);
   button->SetEnabled(false);  // Only enabled when a valid CVC is entered.
   button->SetID(static_cast<int>(DialogViewID::CVC_PROMPT_CONFIRM_BUTTON));

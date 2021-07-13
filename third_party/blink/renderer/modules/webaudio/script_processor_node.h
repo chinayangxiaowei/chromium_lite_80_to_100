@@ -121,7 +121,6 @@ class ScriptProcessorNode final
     : public AudioNode,
       public ActiveScriptWrappable<ScriptProcessorNode> {
   DEFINE_WRAPPERTYPEINFO();
-  USING_GARBAGE_COLLECTED_MIXIN(ScriptProcessorNode);
 
  public:
   // bufferSize must be one of the following values: 256, 512, 1024, 2048,
@@ -169,6 +168,8 @@ class ScriptProcessorNode final
  private:
   HeapVector<Member<AudioBuffer>> input_buffers_;
   HeapVector<Member<AudioBuffer>> output_buffers_;
+  Member<AudioBuffer> external_input_buffer_;
+  Member<AudioBuffer> external_output_buffer_;
 };
 
 }  // namespace blink
