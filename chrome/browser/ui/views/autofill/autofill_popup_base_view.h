@@ -63,8 +63,9 @@ class AutofillPopupBaseView : public views::WidgetDelegateView,
                                  views::Widget* parent_widget);
   ~AutofillPopupBaseView() override;
 
-  // Show this popup. Idempotent.
-  void DoShow();
+  // Show this popup. Idempotent. Returns |true| if popup is shown, |false|
+  // otherwise.
+  bool DoShow();
 
   // Hide the widget and delete |this|.
   void DoHide();
@@ -72,6 +73,9 @@ class AutofillPopupBaseView : public views::WidgetDelegateView,
   // Ensure the child views are not rendered beyond the bubble border
   // boundaries. Should be overridden together with CreateBorder.
   void UpdateClipPath();
+
+  // Returns the bounds of the containing window in screen space.
+  gfx::Rect GetWindowBounds() const;
 
   // Returns the bounds of the content area in screen space.
   gfx::Rect GetContentAreaBounds() const;

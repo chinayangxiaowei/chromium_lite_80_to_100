@@ -41,6 +41,7 @@ void WorkerMainScriptLoader::Start(
     WorkerMainScriptLoaderClient* client) {
   DCHECK(resource_load_observer);
   DCHECK(client);
+  request_id_ = worker_main_script_load_params->request_id;
   initial_request_ = fetch_params.GetResourceRequest();
   resource_loader_options_ = fetch_params.Options();
   initial_request_url_ = fetch_params.GetResourceRequest().Url();
@@ -57,14 +58,12 @@ void WorkerMainScriptLoader::Start(
 
   ResourceRequest resource_request(initial_request_);
   resource_load_observer_->WillSendRequest(
-      initial_request_.InspectorId(), resource_request,
+      resource_request,
       /*redirect_response=*/ResourceResponse(), ResourceType::kScript,
-      resource_loader_options_.initiator_info,
-      RenderBlockingBehavior::kNonBlocking);
+      resource_loader_options_, RenderBlockingBehavior::kNonBlocking);
 
   resource_load_info_notifier_wrapper_->NotifyResourceLoadInitiated(
-      /*request_id=*/-1, initial_request_url_,
-      initial_request_.HttpMethod().Latin1(),
+      request_id_, initial_request_url_, initial_request_.HttpMethod().Latin1(),
       WebStringToGURL(WebString(initial_request_.ReferrerString())),
       initial_request_.GetRequestDestination(), net::HIGHEST);
 
@@ -77,7 +76,7 @@ void WorkerMainScriptLoader::Start(
   auto response_head = std::move(worker_main_script_load_params->response_head);
   WebURLLoader::PopulateURLResponse(
       WebURL(last_request_url_), *response_head, &response,
-      response_head->ssl_info.has_value(), /*request_id=*/-1);
+      response_head->ssl_info.has_value(), request_id_);
   resource_response_ = response.ToResourceResponse();
   resource_load_info_notifier_wrapper_->NotifyResourceResponseReceived(
       std::move(response_head), PreviewsTypes::kPreviewsUnspecified);
@@ -129,6 +128,12 @@ void WorkerMainScriptLoader::Cancel() {
   url_loader_remote_.reset();
 }
 
+void WorkerMainScriptLoader::OnReceiveEarlyHints(
+    network::mojom::EarlyHintsPtr early_hints) {
+  // This has already happened in the browser process.
+  NOTREACHED();
+}
+
 void WorkerMainScriptLoader::OnReceiveResponse(
     network::mojom::URLResponseHeadPtr response_head) {
   // This has already happened in the browser process.
@@ -172,9 +177,12 @@ void WorkerMainScriptLoader::OnComplete(
       ResourceTimingInfo::Create(g_empty_atom, base::TimeTicks::Now(),
                                  initial_request_.GetRequestContext(),
                                  initial_request_.GetRequestDestination());
+  const int64_t encoded_data_length = resource_response_.EncodedDataLength();
   timing_info->SetInitialURL(initial_request_url_);
   timing_info->SetFinalResponse(resource_response_);
   timing_info->SetLoadResponseEnd(status.completion_time);
+  timing_info->AddFinalTransferSize(
+      encoded_data_length == -1 ? 0 : encoded_data_length);
   fetch_context_->AddResourceTiming(*timing_info);
 
   has_received_completion_ = true;
@@ -321,11 +329,10 @@ void WorkerMainScriptLoader::HandleRedirections(
     WebURLResponse response;
     WebURLLoader::PopulateURLResponse(
         WebURL(last_request_url_), *redirect_response, &response,
-        redirect_response->ssl_info.has_value(), /*request_id=*/-1);
+        redirect_response->ssl_info.has_value(), request_id_);
     resource_load_observer_->WillSendRequest(
-        new_request->InspectorId(), *new_request, response.ToResourceResponse(),
-        ResourceType::kScript, resource_loader_options_.initiator_info,
-        RenderBlockingBehavior::kNonBlocking);
+        *new_request, response.ToResourceResponse(), ResourceType::kScript,
+        resource_loader_options_, RenderBlockingBehavior::kNonBlocking);
     resource_load_info_notifier_wrapper_->NotifyResourceRedirectReceived(
         redirect_info, std::move(redirect_response));
   }

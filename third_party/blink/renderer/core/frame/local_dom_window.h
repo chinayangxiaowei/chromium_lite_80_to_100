@@ -64,7 +64,6 @@ class External;
 class FrameConsole;
 class History;
 class IdleRequestOptions;
-class ImpressionParams;
 class MediaQueryList;
 class MessageEvent;
 class Modulator;
@@ -157,7 +156,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   void AddInspectorIssue(mojom::blink::InspectorIssueInfoPtr) final;
   EventTarget* ErrorEventTarget() final { return this; }
   String OutgoingReferrer() const final;
-  network::mojom::ReferrerPolicy GetReferrerPolicy() const final;
   CoreProbeSink* GetProbeSink() final;
   const BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() const final;
   FrameOrWorkerScheduler* GetScheduler() final;
@@ -166,10 +164,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
     return GetTrustedTypesForWorld(*GetCurrentWorld());
   }
   ScriptWrappable* ToScriptWrappable() final { return this; }
-  void CountPotentialFeaturePolicyViolation(
-      mojom::blink::FeaturePolicyFeature) const final;
-  void ReportFeaturePolicyViolation(
-      mojom::blink::FeaturePolicyFeature,
+  void ReportPermissionsPolicyViolation(
+      mojom::blink::PermissionsPolicyFeature,
       mojom::blink::PolicyDisposition,
       const String& message = g_empty_string) const final;
   void ReportDocumentPolicyViolation(
@@ -355,13 +351,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
                   bool unused,
                   ExceptionState&);
 
-  DOMWindow* open(v8::Isolate*,
-                  const String& url_string,
-                  const AtomicString& target,
-                  const String& features,
-                  const ImpressionParams* impression_params,
-                  ExceptionState&);
-
   FrameConsole* GetFrameConsole() const;
 
   void PrintErrorMessage(const String&) const;
@@ -448,8 +437,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
                            LocalDOMWindow* source) override;
 
  private:
-  class NetworkStateObserver;
-
   // Intentionally private to prevent redundant checks when the type is
   // already LocalDOMWindow.
   bool IsLocalDOMWindow() const override { return true; }
@@ -528,7 +515,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   // Tracks which features have already been potentially violated in this
   // document. This helps to count them only once per page load.
-  // We don't use std::bitset to avoid to include feature_policy.mojom-blink.h.
+  // We don't use std::bitset to avoid to include
+  // permissions_policy.mojom-blink.h.
   mutable Vector<bool> potentially_violated_features_;
 
   // Token identifying the LocalFrame that this window was associated with at
@@ -547,9 +535,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // this UKM is logged.
   // TODO(crbug.com/1112491): Remove when no longer needed.
   Deque<ukm::SourceId> post_message_ukm_recorded_source_ids_;
-
-  // Fire "online" and "offline" events.
-  Member<NetworkStateObserver> network_state_observer_;
 };
 
 template <>

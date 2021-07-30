@@ -12,7 +12,6 @@
 
 #include "base/callback.h"
 #include "base/optional.h"
-#include "base/strings/string16.h"
 #include "base/threading/thread_checker.h"
 #include "net/base/auth.h"
 #include "net/base/completion_once_callback.h"
@@ -56,11 +55,9 @@ class NET_EXPORT NetworkDelegate {
   int NotifyBeforeURLRequest(URLRequest* request,
                              CompletionOnceCallback callback,
                              GURL* new_url);
-  using OnBeforeStartTransactionCallback =
-      base::OnceCallback<void(int, const base::Optional<HttpRequestHeaders>&)>;
   int NotifyBeforeStartTransaction(URLRequest* request,
-                                   const HttpRequestHeaders& headers,
-                                   OnBeforeStartTransactionCallback callback);
+                                   CompletionOnceCallback callback,
+                                   HttpRequestHeaders* headers);
   int NotifyHeadersReceived(
       URLRequest* request,
       CompletionOnceCallback callback,
@@ -73,7 +70,7 @@ class NET_EXPORT NetworkDelegate {
   void NotifyResponseStarted(URLRequest* request, int net_error);
   void NotifyCompleted(URLRequest* request, bool started, int net_error);
   void NotifyURLRequestDestroyed(URLRequest* request);
-  void NotifyPACScriptError(int line_number, const base::string16& error);
+  void NotifyPACScriptError(int line_number, const std::u16string& error);
   bool CanGetCookies(const URLRequest& request,
                      bool allowed_from_caller);
   bool CanSetCookie(const URLRequest& request,
@@ -135,8 +132,7 @@ class NET_EXPORT NetworkDelegate {
                                  GURL* new_url) = 0;
 
   // Called right before the network transaction starts. Allows the delegate to
-  // read |headers| and modify them by passing a new copy to |callback| before
-  // they get sent out.
+  // read/write |headers| before they get sent out.
   //
   // Returns OK to continue with the request, ERR_IO_PENDING if the result is
   // not ready yet, and any other status code to cancel the request. If
@@ -145,11 +141,11 @@ class NET_EXPORT NetworkDelegate {
   // or OnCompleted. Once cancelled, |request| and |headers| become invalid and
   // |callback| may not be called.
   //
-  // The default implementation returns OK (continue with request).
-  virtual int OnBeforeStartTransaction(
-      URLRequest* request,
-      const HttpRequestHeaders& headers,
-      OnBeforeStartTransactionCallback callback) = 0;
+  // The default implementation returns OK (continue with request) without
+  // modifying |headers|.
+  virtual int OnBeforeStartTransaction(URLRequest* request,
+                                       CompletionOnceCallback callback,
+                                       HttpRequestHeaders* headers) = 0;
 
   // Called for HTTP requests when the headers have been received.
   // |original_response_headers| contains the headers as received over the
@@ -199,7 +195,7 @@ class NET_EXPORT NetworkDelegate {
 
   // Corresponds to ProxyResolverJSBindings::OnError.
   virtual void OnPACScriptError(int line_number,
-                                const base::string16& error) = 0;
+                                const std::u16string& error) = 0;
 
   // Called when reading cookies to allow the network delegate to block access
   // to the cookie. This method will never be invoked when

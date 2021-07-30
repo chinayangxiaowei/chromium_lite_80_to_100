@@ -257,8 +257,6 @@ class CONTENT_EXPORT FileSystemAccessManagerImpl
       PathType path_type,
       const base::FilePath& path);
 
-  void Shutdown();
-
  private:
   friend class FileSystemAccessFileHandleImpl;
 

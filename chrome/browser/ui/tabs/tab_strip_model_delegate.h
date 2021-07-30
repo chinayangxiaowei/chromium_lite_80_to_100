@@ -104,7 +104,7 @@ class TabStripModelDelegate {
                                     int browser_index) = 0;
 
   // Get the list of existing windows that tabs can be moved to.
-  virtual std::vector<base::string16> GetExistingWindowsForMoveMenu() = 0;
+  virtual std::vector<std::u16string> GetExistingWindowsForMoveMenu() = 0;
 
   // Returns whether the contents at |indices| can be moved from the current
   // tabstrip to a different window.
@@ -124,6 +124,13 @@ class TabStripModelDelegate {
   // created.
   virtual base::Optional<SessionID> CreateHistoricalTab(
       content::WebContents* contents) = 0;
+
+  // Creates an entry in the historical group database for the specified
+  // |group|.
+  virtual void CreateHistoricalGroup(const tab_groups::TabGroupId& group) = 0;
+
+  // Notifies the tab restore service that the group is no longer closing.
+  virtual void GroupCloseStopped(const tab_groups::TabGroupId& group) = 0;
 
   // Runs any unload listeners associated with the specified WebContents
   // before it is closed. If there are unload listeners that need to be run,

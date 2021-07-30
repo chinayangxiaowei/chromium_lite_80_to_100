@@ -17,7 +17,7 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "project-chromium-admins",
+            groups = "google/luci-task-force@google.com",
         ),
         acl.entry(
             roles = acl.SCHEDULER_OWNER,
@@ -142,7 +142,7 @@ builder(
     executable = "recipe:webrtc/chromium_ios",
     goma_backend = goma.backend.RBE_PROD,
     os = os.MAC_ANY,
-    xcode = xcode.x12a7209,
+    xcode = xcode.x12d4e,
 )
 
 builder(
@@ -150,5 +150,5 @@ builder(
     executable = "recipe:webrtc/chromium_ios",
     goma_backend = goma.backend.RBE_PROD,
     os = os.MAC_ANY,
-    xcode = xcode.x12a7209,
+    xcode = xcode.x12d4e,
 )

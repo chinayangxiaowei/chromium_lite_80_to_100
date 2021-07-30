@@ -64,8 +64,8 @@ class StringWrapper : public base::trace_event::ConvertableToTraceFormat {
 CoordinatorImpl::CoordinatorImpl()
     : next_dump_id_(0),
       client_process_timeout_(base::TimeDelta::FromSeconds(15)),
-      use_proto_writer_(base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kUseMemoryTrackingProtoWriter)) {
+      use_proto_writer_(!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseMemoryTrackingJsonWriter)) {
   DCHECK(!g_coordinator_impl);
   g_coordinator_impl = this;
   base::trace_event::MemoryDumpManager::GetInstance()->set_tracing_process_id(
@@ -105,8 +105,7 @@ void CoordinatorImpl::RegisterClientProcess(
     const base::Optional<std::string>& service_name) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   mojo::Remote<mojom::ClientProcess> process(std::move(client_process));
-  if (receiver.is_valid())
-    coordinator_receivers_.Add(this, std::move(receiver), process_id);
+  coordinator_receivers_.Add(this, std::move(receiver), process_id);
   process.set_disconnect_handler(
       base::BindOnce(&CoordinatorImpl::UnregisterClientProcess,
                      base::Unretained(this), process_id));

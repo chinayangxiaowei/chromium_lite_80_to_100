@@ -50,6 +50,8 @@ class NET_EXPORT_PRIVATE URLRequestHttpJob : public URLRequestJob {
   static std::unique_ptr<URLRequestJob> Create(URLRequest* request);
 
   void SetRequestHeadersCallback(RequestHeadersCallback callback) override;
+  void SetEarlyResponseHeadersCallback(
+      ResponseHeadersCallback callback) override;
   void SetResponseHeadersCallback(ResponseHeadersCallback callback) override;
 
  protected:
@@ -121,13 +123,12 @@ class NET_EXPORT_PRIVATE URLRequestHttpJob : public URLRequestJob {
   void OnHeadersReceivedCallback(int result);
   void OnStartCompleted(int result);
   void OnReadCompleted(int result);
-  void NotifyBeforeStartTransactionCallback(
-      int result,
-      const base::Optional<HttpRequestHeaders>& headers);
+  void NotifyBeforeStartTransactionCallback(int result);
   // This just forwards the call to URLRequestJob::NotifyConnected().
   // We need it because that method is protected and cannot be bound in a
   // callback in this class.
-  int NotifyConnectedCallback(const TransportInfo& info);
+  int NotifyConnectedCallback(const TransportInfo& info,
+                              CompletionOnceCallback callback);
 
   void RestartTransactionWithAuth(const AuthCredentials& credentials);
 
@@ -260,6 +261,7 @@ class NET_EXPORT_PRIVATE URLRequestHttpJob : public URLRequestJob {
   int64_t total_sent_bytes_from_previous_transactions_;
 
   RequestHeadersCallback request_headers_callback_;
+  ResponseHeadersCallback early_response_headers_callback_;
   ResponseHeadersCallback response_headers_callback_;
 
   base::WeakPtrFactory<URLRequestHttpJob> weak_factory_{this};

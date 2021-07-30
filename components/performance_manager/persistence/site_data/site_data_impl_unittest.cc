@@ -8,8 +8,8 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/bind.h"
-#include "base/test/task_environment.h"
 #include "components/performance_manager/persistence/site_data/unittest_utils.h"
+#include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -26,10 +26,9 @@ class TestSiteDataImpl : public SiteDataImpl {
   using SiteDataImpl::site_characteristics_for_testing;
   using SiteDataImpl::TimeDeltaToInternalRepresentation;
 
-  explicit TestSiteDataImpl(
-      const url::Origin& origin,
-      base::WeakPtr<SiteDataImpl::OnDestroyDelegate> delegate,
-      SiteDataStore* data_store)
+  explicit TestSiteDataImpl(const url::Origin& origin,
+                            SiteDataImpl::OnDestroyDelegate* delegate,
+                            SiteDataStore* data_store)
       : SiteDataImpl(origin, delegate, data_store) {}
 
   base::TimeDelta FeatureObservationTimestamp(
@@ -91,7 +90,7 @@ class SiteDataImplTest : public ::testing::Test {
 
   scoped_refptr<TestSiteDataImpl> GetDataImpl(
       const url::Origin& origin,
-      base::WeakPtr<SiteDataImpl::OnDestroyDelegate> destroy_delegate,
+      SiteDataImpl::OnDestroyDelegate* destroy_delegate,
       SiteDataStore* data_store) {
     return base::MakeRefCounted<TestSiteDataImpl>(origin, destroy_delegate,
                                                   data_store);
@@ -101,7 +100,7 @@ class SiteDataImplTest : public ::testing::Test {
   // locally so it can be run later.
   scoped_refptr<TestSiteDataImpl> GetDataImplAndInterceptReadCallback(
       const url::Origin& origin,
-      base::WeakPtr<SiteDataImpl::OnDestroyDelegate> destroy_delegate,
+      SiteDataImpl::OnDestroyDelegate* destroy_delegate,
       MockDataStore* mock_data_store,
       SiteDataStore::ReadSiteDataFromStoreCallback* read_cb) {
     auto read_from_store_mock_impl =
@@ -114,7 +113,7 @@ class SiteDataImplTest : public ::testing::Test {
                 OnReadSiteDataFromStore(::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke(read_from_store_mock_impl));
     auto local_site_data =
-        GetDataImpl(origin, destroy_delegate_.GetWeakPtr(), mock_data_store);
+        GetDataImpl(origin, &destroy_delegate_, mock_data_store);
     ::testing::Mock::VerifyAndClear(mock_data_store);
     return local_site_data;
   }
@@ -122,7 +121,7 @@ class SiteDataImplTest : public ::testing::Test {
   const url::Origin kDummyOrigin = url::Origin::Create(GURL("foo.com"));
   const url::Origin kDummyOrigin2 = url::Origin::Create(GURL("bar.com"));
 
-  base::test::TaskEnvironment task_environment_{
+  content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
 
   // Use a NiceMock as there's no need to add expectations in these tests,
@@ -135,7 +134,7 @@ class SiteDataImplTest : public ::testing::Test {
 
 TEST_F(SiteDataImplTest, BasicTestEndToEnd) {
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
 
   local_site_data->NotifySiteLoaded();
   local_site_data->NotifyLoadedSiteBackgrounded();
@@ -192,7 +191,7 @@ TEST_F(SiteDataImplTest, BasicTestEndToEnd) {
 
 TEST_F(SiteDataImplTest, LastLoadedTime) {
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
 
   // Create a second instance of this object, simulates having several tab
   // owning it.
@@ -223,7 +222,7 @@ TEST_F(SiteDataImplTest, LastLoadedTime) {
 
 TEST_F(SiteDataImplTest, GetFeatureUsageForUnloadedSite) {
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
 
   local_site_data->NotifySiteLoaded();
   local_site_data->NotifyLoadedSiteBackgrounded();
@@ -276,7 +275,7 @@ TEST_F(SiteDataImplTest, AllDurationGetSavedOnUnload) {
   // This test helps making sure that the observation/timestamp fields get saved
   // for all the features being tracked.
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
 
   const base::TimeDelta kInterval = base::TimeDelta::FromSeconds(1);
   const auto kIntervalInternalRepresentation =
@@ -341,7 +340,7 @@ TEST_F(SiteDataImplTest, DestroyNotifiesDelegate) {
       strict_delegate;
   {
     auto local_site_data =
-        GetDataImpl(kDummyOrigin, strict_delegate.GetWeakPtr(), &data_store);
+        GetDataImpl(kDummyOrigin, &strict_delegate, &data_store);
     EXPECT_CALL(strict_delegate,
                 OnSiteDataImplDestroyed(local_site_data.get()));
   }
@@ -358,7 +357,7 @@ TEST_F(SiteDataImplTest, OnInitCallbackMergePreviousObservations) {
   SiteDataStore::ReadSiteDataFromStoreCallback read_cb;
 
   auto local_site_data = GetDataImplAndInterceptReadCallback(
-      kDummyOrigin, destroy_delegate_.GetWeakPtr(), &mock_data_store, &read_cb);
+      kDummyOrigin, &destroy_delegate_, &mock_data_store, &read_cb);
 
   // Simulates audio in background usage before the callback gets called.
   local_site_data->NotifySiteLoaded();
@@ -482,7 +481,7 @@ TEST_F(SiteDataImplTest, LateAsyncReadDoesntEraseData) {
   SiteDataStore::ReadSiteDataFromStoreCallback read_cb;
 
   auto local_site_data_writer = GetDataImplAndInterceptReadCallback(
-      kDummyOrigin, destroy_delegate_.GetWeakPtr(), &mock_data_store, &read_cb);
+      kDummyOrigin, &destroy_delegate_, &mock_data_store, &read_cb);
 
   local_site_data_writer->NotifySiteLoaded();
   local_site_data_writer->NotifyLoadedSiteBackgrounded();
@@ -511,7 +510,7 @@ TEST_F(SiteDataImplTest, LateAsyncReadDoesntBypassClearEvent) {
   SiteDataStore::ReadSiteDataFromStoreCallback read_cb;
 
   auto local_site_data = GetDataImplAndInterceptReadCallback(
-      kDummyOrigin, destroy_delegate_.GetWeakPtr(), &mock_data_store, &read_cb);
+      kDummyOrigin, &destroy_delegate_, &mock_data_store, &read_cb);
 
   local_site_data->NotifySiteLoaded();
   local_site_data->NotifyLoadedSiteBackgrounded();
@@ -528,7 +527,7 @@ TEST_F(SiteDataImplTest, LateAsyncReadDoesntBypassClearEvent) {
 
 TEST_F(SiteDataImplTest, BackgroundedCountTests) {
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
 
   // By default the tabs are expected to be foregrounded.
   EXPECT_EQ(0U, local_site_data->loaded_tabs_in_background_count_for_testing());
@@ -586,7 +585,7 @@ TEST_F(SiteDataImplTest, OptionalFieldsNotPopulatedWhenClean) {
   SiteDataStore::ReadSiteDataFromStoreCallback read_cb;
 
   auto local_site_data = GetDataImplAndInterceptReadCallback(
-      kDummyOrigin, destroy_delegate_.GetWeakPtr(), &mock_data_store, &read_cb);
+      kDummyOrigin, &destroy_delegate_, &mock_data_store, &read_cb);
 
   EXPECT_EQ(0u, local_site_data->cpu_usage_estimate().num_datums());
   EXPECT_EQ(0u, local_site_data->private_footprint_kb_estimate().num_datums());
@@ -623,9 +622,9 @@ TEST_F(SiteDataImplTest, FlushingStateToProtoDoesntAffectData) {
   // calling FlushStateToProto doesn't affect the data that gets recorded.
 
   auto local_site_data =
-      GetDataImpl(kDummyOrigin, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin, &destroy_delegate_, &data_store);
   auto local_site_data_ref =
-      GetDataImpl(kDummyOrigin2, destroy_delegate_.GetWeakPtr(), &data_store);
+      GetDataImpl(kDummyOrigin2, &destroy_delegate_, &data_store);
 
   local_site_data->NotifySiteLoaded();
   local_site_data->NotifyLoadedSiteBackgrounded();
@@ -664,7 +663,7 @@ TEST_F(SiteDataImplTest, DataLoadedCallbackInvoked) {
   SiteDataStore::ReadSiteDataFromStoreCallback read_cb;
 
   auto local_site_data = GetDataImplAndInterceptReadCallback(
-      kDummyOrigin, destroy_delegate_.GetWeakPtr(), &mock_data_store, &read_cb);
+      kDummyOrigin, &destroy_delegate_, &mock_data_store, &read_cb);
 
   EXPECT_FALSE(local_site_data->DataLoaded());
 

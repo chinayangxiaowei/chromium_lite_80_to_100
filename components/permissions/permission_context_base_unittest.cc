@@ -5,6 +5,7 @@
 #include "components/permissions/permission_context_base.h"
 
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -54,9 +55,10 @@ class TestPermissionContext : public PermissionContextBase {
  public:
   TestPermissionContext(content::BrowserContext* browser_context,
                         const ContentSettingsType content_settings_type)
-      : PermissionContextBase(browser_context,
-                              content_settings_type,
-                              blink::mojom::FeaturePolicyFeature::kNotFound),
+      : PermissionContextBase(
+            browser_context,
+            content_settings_type,
+            blink::mojom::PermissionsPolicyFeature::kNotFound),
         tab_context_updated_(false) {}
 
   ~TestPermissionContext() override {}
@@ -709,7 +711,7 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
 
   void SetUpUrl(const GURL& url) {
     NavigateAndCommit(url);
-    prompt_factory_->DocumentOnLoadCompletedInMainFrame();
+    prompt_factory_->DocumentOnLoadCompletedInMainFrame(main_rfh());
   }
 
  private:
@@ -719,7 +721,7 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
     PermissionRequestManager::CreateForWebContents(web_contents());
     PermissionRequestManager* manager =
         PermissionRequestManager::FromWebContents(web_contents());
-    prompt_factory_.reset(new MockPermissionPromptFactory(manager));
+    prompt_factory_ = std::make_unique<MockPermissionPromptFactory>(manager);
   }
 
   void TearDown() override {

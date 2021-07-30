@@ -37,6 +37,7 @@ _NON_BRANCHED_TESTERS = (
     # on the branches (crbug/990885)
     "Win10 Tests x64 1803",
     "Win10 Tests x64 1909",
+    "Win10 Tests x64 20h2",
 
     # These Android testers are triggered by 'Android arm Builder (dbg)', but we
     # don't have sufficient capacity of devices with older Android versions, so
@@ -61,7 +62,7 @@ _TESTER_NOOP_JOBS = [scheduler_pb.Job(
 def _add_noop_jobs(ctx):
     if settings.is_main:
         return
-    cfg = ctx.output["luci/luci-scheduler.cfg"]
+    cfg = ctx.output["luci-scheduler.cfg"]
     for j in _TESTER_NOOP_JOBS:
         cfg.job.append(j)
 

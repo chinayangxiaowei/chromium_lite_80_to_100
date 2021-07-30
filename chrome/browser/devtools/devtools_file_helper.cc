@@ -28,7 +28,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/download_manager.h"
@@ -118,7 +117,7 @@ class SelectFileDialog : public ui::SelectFileDialog::Listener {
       file_type_info.extensions[0].push_back(ext);
     }
     select_file_dialog_->SelectFile(
-        type, base::string16(), default_path, &file_type_info, 0, ext,
+        type, std::u16string(), default_path, &file_type_info, 0, ext,
         platform_util::GetTopLevel(web_contents->GetNativeView()), nullptr);
   }
 
@@ -348,9 +347,9 @@ void DevToolsFileHelper::InnerAddFileSystem(
     RemoveFileSystem(file_system_path);
 
   std::string path_display_name = path.AsEndingWithSeparator().AsUTF8Unsafe();
-  base::string16 message = l10n_util::GetStringFUTF16(
-      IDS_DEV_TOOLS_CONFIRM_ADD_FILE_SYSTEM_MESSAGE,
-      base::UTF8ToUTF16(path_display_name));
+  std::u16string message =
+      l10n_util::GetStringFUTF16(IDS_DEV_TOOLS_CONFIRM_ADD_FILE_SYSTEM_MESSAGE,
+                                 base::UTF8ToUTF16(path_display_name));
   show_info_bar_callback.Run(
       message, BindOnce(&DevToolsFileHelper::AddUserConfirmedFileSystem,
                         weak_factory_.GetWeakPtr(), type, path));
@@ -378,14 +377,6 @@ void DevToolsFileHelper::FailedToAddFileSystem(const std::string& error) {
   delegate_->FileSystemAdded(error, nullptr);
 }
 
-namespace {
-
-void RunOnUIThread(base::OnceClosure callback) {
-  content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, std::move(callback));
-}
-
-}  // namespace
-
 std::vector<DevToolsFileHelper::FileSystem>
 DevToolsFileHelper::GetFileSystems() {
   file_system_paths_ = GetAddedFileSystemPaths(profile_);
@@ -395,12 +386,10 @@ DevToolsFileHelper::GetFileSystems() {
         base::BindRepeating(&DevToolsFileHelper::FilePathsChanged,
                             weak_factory_.GetWeakPtr()),
         base::SequencedTaskRunnerHandle::Get()));
-    auto change_handler_on_ui = base::BindRepeating(
-        &DevToolsFileHelper::FileSystemPathsSettingChangedOnUI,
-        weak_factory_.GetWeakPtr());
     pref_change_registrar_.Add(
         prefs::kDevToolsFileSystemPaths,
-        base::BindRepeating(RunOnUIThread, change_handler_on_ui));
+        base::BindRepeating(&DevToolsFileHelper::FileSystemPathsSettingChanged,
+                            base::Unretained(this)));
   }
   for (auto file_system_path : file_system_paths_) {
     base::FilePath path =
@@ -454,8 +443,7 @@ void DevToolsFileHelper::ShowItemInFolder(const std::string& file_system_path) {
                      weak_factory_.GetWeakPtr(), path));
 }
 
-void DevToolsFileHelper::FileSystemPathsSettingChangedOnUI() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+void DevToolsFileHelper::FileSystemPathsSettingChanged() {
   PathToType remaining;
   remaining.swap(file_system_paths_);
   DCHECK(file_watcher_.get());

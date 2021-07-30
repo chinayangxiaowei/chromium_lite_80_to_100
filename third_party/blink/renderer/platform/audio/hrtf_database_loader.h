@@ -64,8 +64,8 @@ class PLATFORM_EXPORT HRTFDatabaseLoader final
   // must be called from the audio thread.
   bool IsLoaded() { return Database(); }
 
-  // May be called from both main and audio thread, and also can be called more
-  // than once.
+  // waitForLoaderThreadCompletion() may be called more than once and is
+  // thread-safe.
   void WaitForLoaderThreadCompletion();
 
   // Returns the database or nullptr if the database doesn't yet exist.  Must
@@ -87,10 +87,11 @@ class PLATFORM_EXPORT HRTFDatabaseLoader final
   void LoadTask();
   void CleanupTask(base::WaitableEvent*);
 
-  // |lock_| MUST be held when accessing |hrtf_database_| or |thread_| because
-  // it can be accessed by multiple threads (e.g multiple AudioContexts).
+  // Holding a m_lock is required when accessing m_hrtfDatabase since we access
+  // it from multiple threads.
   Mutex lock_;
   std::unique_ptr<HRTFDatabase> hrtf_database_;
+
   std::unique_ptr<Thread> thread_;
 
   float database_sample_rate_;

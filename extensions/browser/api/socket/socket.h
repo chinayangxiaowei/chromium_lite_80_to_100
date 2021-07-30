@@ -64,9 +64,6 @@ using AcceptCompletionCallback = base::OnceCallback<void(
 // we need to manage it in the context of an extension.
 class Socket : public ApiResource {
  public:
-  static const content::BrowserThread::ID kThreadId =
-      content::BrowserThread::UI;
-
   enum SocketType { TYPE_TCP, TYPE_UDP, TYPE_TLS };
 
   ~Socket() override;
@@ -83,7 +80,9 @@ class Socket : public ApiResource {
   void set_hostname(const std::string& hostname) { hostname_ = hostname; }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  void set_firewall_hole(std::unique_ptr<AppFirewallHole> firewall_hole) {
+  void set_firewall_hole(
+      std::unique_ptr<AppFirewallHole, content::BrowserThread::DeleteOnUIThread>
+          firewall_hole) {
     firewall_hole_ = std::move(firewall_hole);
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -176,7 +175,8 @@ class Socket : public ApiResource {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // Represents a hole punched in the system firewall for this socket.
-  std::unique_ptr<AppFirewallHole> firewall_hole_;
+  std::unique_ptr<AppFirewallHole, content::BrowserThread::DeleteOnUIThread>
+      firewall_hole_;
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 };
 

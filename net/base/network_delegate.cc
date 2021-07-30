@@ -35,13 +35,14 @@ int NetworkDelegate::NotifyBeforeURLRequest(URLRequest* request,
 
 int NetworkDelegate::NotifyBeforeStartTransaction(
     URLRequest* request,
-    const HttpRequestHeaders& headers,
-    OnBeforeStartTransactionCallback callback) {
+    CompletionOnceCallback callback,
+    HttpRequestHeaders* headers) {
   TRACE_EVENT0(NetTracingCategory(),
                "NetworkDelegate::NotifyBeforeStartTransation");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  DCHECK(headers);
   DCHECK(!callback.is_null());
-  return OnBeforeStartTransaction(request, headers, std::move(callback));
+  return OnBeforeStartTransaction(request, std::move(callback), headers);
 }
 
 int NetworkDelegate::NotifyHeadersReceived(
@@ -94,7 +95,7 @@ void NetworkDelegate::NotifyURLRequestDestroyed(URLRequest* request) {
 }
 
 void NetworkDelegate::NotifyPACScriptError(int line_number,
-                                           const base::string16& error) {
+                                           const std::u16string& error) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   OnPACScriptError(line_number, error);
 }

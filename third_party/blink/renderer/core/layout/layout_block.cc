@@ -40,7 +40,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_marquee_element.h"
-#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_box.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_item.h"
@@ -1600,6 +1599,14 @@ MinMaxSizes LayoutBlock::PreferredLogicalWidths() const {
     sizes = IntrinsicLogicalWidths();
   }
 
+  // This implements the transferred min/max sizes per
+  // https://drafts.csswg.org/css-sizing-4/#aspect-ratio
+  if (ShouldComputeLogicalHeightFromAspectRatio()) {
+    MinMaxSizes transferred_min_max =
+        ComputeMinMaxLogicalWidthFromAspectRatio();
+    sizes.Encompass(transferred_min_max.min_size);
+    sizes.Constrain(transferred_min_max.max_size);
+  }
   if (style_to_use.LogicalMaxWidth().IsFixed()) {
     sizes.Constrain(AdjustBorderBoxLogicalWidthForBoxSizing(
         LayoutUnit(style_to_use.LogicalMaxWidth().Value())));
@@ -2021,13 +2028,6 @@ LayoutUnit LayoutBlock::InlineBlockBaseline(
 
 const LayoutBlock* LayoutBlock::EnclosingFirstLineStyleBlock() const {
   NOT_DESTROYED();
-  auto* element = DynamicTo<Element>(GetNode());
-  if (element && element->ShadowPseudoId() ==
-                     shadow_element_names::kPseudoInternalInputSuggested) {
-    // Disable ::first-line style for autofill previews. See
-    // crbug.com/1227170.
-    return nullptr;
-  }
   const LayoutBlock* first_line_block = this;
   bool has_pseudo = false;
   while (true) {
@@ -2264,8 +2264,8 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
       break;
   }
   scoped_refptr<ComputedStyle> new_style =
-      ComputedStyle::CreateAnonymousStyleWithDisplay(parent->StyleRef(),
-                                                     new_display);
+      parent->GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
+          parent->StyleRef(), new_display);
 
   LegacyLayout legacy =
       parent->ForceLegacyLayout() ? LegacyLayout::kForce : LegacyLayout::kAuto;
@@ -2331,8 +2331,6 @@ void LayoutBlock::RecalcChildVisualOverflow() {
       box->RecalcNormalFlowChildVisualOverflowIfNeeded();
     }
   }
-
-  RecalcPositionedDescendantsVisualOverflow();
 }
 
 RecalcLayoutOverflowResult
@@ -2348,19 +2346,6 @@ LayoutBlock::RecalcPositionedDescendantsLayoutOverflow() {
     result.Unite(box->RecalcLayoutOverflow());
 
   return result;
-}
-
-void LayoutBlock::RecalcPositionedDescendantsVisualOverflow() {
-  NOT_DESTROYED();
-  TrackedLayoutBoxListHashSet* positioned_descendants = PositionedObjects();
-  if (!positioned_descendants)
-    return;
-
-  for (auto* box : *positioned_descendants) {
-    if (box->HasLayer() && box->HasSelfPaintingLayer())
-      continue;
-    box->RecalcVisualOverflow();
-  }
 }
 
 RecalcLayoutOverflowResult LayoutBlock::RecalcLayoutOverflow() {
@@ -2514,8 +2499,15 @@ LayoutUnit LayoutBlock::AvailableLogicalHeightForPercentageComputation() const {
     available_height = BlockSizeFromAspectRatio(
         border_padding, StyleRef().LogicalAspectRatio(),
         StyleRef().BoxSizingForAspectRatio(), LogicalWidth());
-  } else if (style.LogicalHeight().IsPercentOrCalc() &&
-             !is_out_of_flow_positioned_with_specified_height) {
+  } else if (is_out_of_flow_positioned_with_specified_height) {
+    // Don't allow this to affect the block' size() member variable, since this
+    // can get called while the block is still laying out its kids.
+    LogicalExtentComputedValues computed_values;
+    ComputeLogicalHeight(LogicalHeight(), LayoutUnit(), computed_values);
+    available_height = computed_values.extent_ -
+                       BorderAndPaddingLogicalHeight() -
+                       ComputeLogicalScrollbars().BlockSum();
+  } else if (style.LogicalHeight().IsPercentOrCalc()) {
     LayoutUnit height_with_scrollbar =
         ComputePercentageLogicalHeight(style.LogicalHeight());
     if (height_with_scrollbar != -1) {
@@ -2531,14 +2523,6 @@ LayoutUnit LayoutBlock::AvailableLogicalHeightForPercentageComputation() const {
           LayoutUnit(-1));
       available_height = std::max(LayoutUnit(), content_box_height);
     }
-  } else if (is_out_of_flow_positioned_with_specified_height) {
-    // Don't allow this to affect the block' size() member variable, since this
-    // can get called while the block is still laying out its kids.
-    LogicalExtentComputedValues computed_values;
-    ComputeLogicalHeight(LogicalHeight(), LayoutUnit(), computed_values);
-    available_height = computed_values.extent_ -
-                       BorderAndPaddingLogicalHeight() -
-                       ComputeLogicalScrollbars().BlockSum();
   } else if (IsA<LayoutView>(this)) {
     available_height = View()->ViewLogicalHeightForPercentages();
   }

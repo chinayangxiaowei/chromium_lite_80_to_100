@@ -60,12 +60,14 @@ class CORE_EXPORT PerformanceResourceTiming
   PerformanceResourceTiming(
       const AtomicString& name,
       base::TimeTicks time_origin,
+      bool cross_origin_isolated_capability,
       bool is_secure_context,
       HeapVector<Member<PerformanceServerTiming>> server_timing,
       ExecutionContext* context);
   PerformanceResourceTiming(
       const mojom::blink::ResourceTimingInfo&,
       base::TimeTicks time_origin,
+      bool cross_origin_isolated_capability,
       const AtomicString& initiator_type,
       mojo::PendingReceiver<mojom::blink::WorkerTimingContainer>
           worker_timing_receiver,
@@ -108,14 +110,11 @@ class CORE_EXPORT PerformanceResourceTiming
   virtual AtomicString ConnectionInfo() const;
 
   base::TimeTicks TimeOrigin() const { return time_origin_; }
-  mojom::blink::CacheState CacheState() const { return cache_state_; }
-  static uint64_t GetTransferSize(uint64_t encoded_body_size,
-                                  mojom::blink::CacheState cache_state);
+  bool CrossOriginIsolatedCapability() const {
+    return cross_origin_isolated_capability_;
+  }
 
  private:
-  // https://w3c.github.io/resource-timing/#dom-performanceresourcetiming-transfersize
-  static const size_t kHeaderSize = 300;
-
   AtomicString GetNextHopProtocol(const AtomicString& alpn_negotiated_protocol,
                                   const AtomicString& connection_info) const;
 
@@ -132,6 +131,7 @@ class CORE_EXPORT PerformanceResourceTiming
   AtomicString alpn_negotiated_protocol_;
   AtomicString connection_info_;
   base::TimeTicks time_origin_;
+  bool cross_origin_isolated_capability_;
   scoped_refptr<ResourceLoadTiming> timing_;
   base::TimeTicks last_redirect_end_time_;
   base::TimeTicks response_end_;
@@ -139,7 +139,7 @@ class CORE_EXPORT PerformanceResourceTiming
       mojom::blink::RequestContextType::UNSPECIFIED;
   network::mojom::RequestDestination request_destination_ =
       network::mojom::RequestDestination::kEmpty;
-  mojom::blink::CacheState cache_state_ = mojom::blink::CacheState::kNone;
+  uint64_t transfer_size_ = 0;
   uint64_t encoded_body_size_ = 0;
   uint64_t decoded_body_size_ = 0;
   bool did_reuse_connection_ = false;

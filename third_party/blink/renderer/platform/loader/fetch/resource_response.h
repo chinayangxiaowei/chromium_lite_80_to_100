@@ -37,7 +37,6 @@
 #include "services/network/public/mojom/cross_origin_embedder_policy.mojom-shared.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/ip_address_space.mojom-shared.h"
-#include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/renderer/platform/network/http_header_map.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
@@ -416,6 +415,13 @@ class PLATFORM_EXPORT ResourceResponse final {
     was_alpn_negotiated_ = was_alpn_negotiated;
   }
 
+  bool HasAuthorizationCoveredByWildcardOnPreflight() const {
+    return has_authorization_covered_by_wildcard_on_preflight_;
+  }
+  void SetHasAuthorizationCoveredByWildcardOnPreflight(bool b) {
+    has_authorization_covered_by_wildcard_on_preflight_ = b;
+  }
+
   const AtomicString& AlpnNegotiatedProtocol() const {
     return alpn_negotiated_protocol_;
   }
@@ -431,9 +437,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   }
 
   AtomicString ConnectionInfoString() const;
-
-  mojom::blink::CacheState CacheState() const;
-  void SetIsValidated(bool is_validated);
 
   int64_t EncodedDataLength() const { return encoded_data_length_; }
   void SetEncodedDataLength(int64_t value);
@@ -617,6 +620,11 @@ class PLATFORM_EXPORT ResourceResponse final {
   // True if the response was delivered after ALPN is negotiated.
   bool was_alpn_negotiated_ = false;
 
+  // True when there is an "authorization" header on the request and it is
+  // covered by the wildcard in the preflight response.
+  // TODO(crbug.com/1176753): Remove this once the investigation is done.
+  bool has_authorization_covered_by_wildcard_on_preflight_ = false;
+
   // https://fetch.spec.whatwg.org/#concept-response-type
   network::mojom::FetchResponseType response_type_ =
       network::mojom::FetchResponseType::kDefault;
@@ -680,9 +688,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   // Information about the type of connection used to fetch this resource.
   net::HttpResponseInfo::ConnectionInfo connection_info_ =
       net::HttpResponseInfo::ConnectionInfo::CONNECTION_INFO_UNKNOWN;
-
-  // Whether the resource came from the cache and validated over the network.
-  bool is_validated_ = false;
 
   // Size of the response in bytes prior to decompression.
   int64_t encoded_data_length_ = 0;

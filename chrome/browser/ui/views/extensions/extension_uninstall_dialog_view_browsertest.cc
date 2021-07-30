@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "base/callback_helpers.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "chrome/browser/extensions/browsertest_util.h"
@@ -63,11 +64,11 @@ class TestExtensionUninstallDialogDelegate
   ~TestExtensionUninstallDialogDelegate() override {}
 
   bool canceled() const { return canceled_; }
-  const base::string16& error() const { return error_; }
+  const std::u16string& error() const { return error_; }
 
  private:
   void OnExtensionUninstallDialogClosed(bool did_start_uninstall,
-                                        const base::string16& error) override {
+                                        const std::u16string& error) override {
     ASSERT_FALSE(did_close_)
         << "OnExtensionUninstallDialogClosed() was called twice!";
     did_close_ = true;
@@ -79,7 +80,7 @@ class TestExtensionUninstallDialogDelegate
   base::RepeatingClosure quit_closure_;
   bool did_close_ = false;
   bool canceled_ = false;
-  base::string16 error_;
+  std::u16string error_;
 
   DISALLOW_COPY_AND_ASSIGN(TestExtensionUninstallDialogDelegate);
 };
@@ -390,7 +391,7 @@ class ExtensionUninstallDialogViewInteractiveBrowserTest
   class TestDelegate : public extensions::ExtensionUninstallDialog::Delegate {
     void OnExtensionUninstallDialogClosed(
         bool did_start_uninstall,
-        const base::string16& error) override {}
+        const std::u16string& error) override {}
   };
 
   void TearDownOnMainThread() override {

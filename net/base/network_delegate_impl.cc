@@ -16,8 +16,8 @@ int NetworkDelegateImpl::OnBeforeURLRequest(URLRequest* request,
 
 int NetworkDelegateImpl::OnBeforeStartTransaction(
     URLRequest* request,
-    const HttpRequestHeaders& headers,
-    OnBeforeStartTransactionCallback callback) {
+    CompletionOnceCallback callback,
+    HttpRequestHeaders* headers) {
   return OK;
 }
 
@@ -45,8 +45,7 @@ void NetworkDelegateImpl::OnURLRequestDestroyed(URLRequest* request) {
 }
 
 void NetworkDelegateImpl::OnPACScriptError(int line_number,
-                                           const base::string16& error) {
-}
+                                           const std::u16string& error) {}
 
 bool NetworkDelegateImpl::OnCanGetCookies(const URLRequest& request,
                                           bool allowed_from_caller) {

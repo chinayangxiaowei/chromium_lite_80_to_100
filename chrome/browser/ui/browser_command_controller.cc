@@ -1135,9 +1135,7 @@ void BrowserCommandController::InitCommandState() {
   command_updater_.UpdateCommandEnabled(IDC_WINDOW_CLOSE_OTHER_TABS,
                                         normal_window);
 
-  const bool enable_tab_search_commands =
-      base::FeatureList::IsEnabled(features::kTabSearch) &&
-      browser_->is_type_normal();
+  const bool enable_tab_search_commands = browser_->is_type_normal();
   command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH,
                                         enable_tab_search_commands);
   command_updater_.UpdateCommandEnabled(IDC_TAB_SEARCH_CLOSE,
@@ -1565,10 +1563,7 @@ void BrowserCommandController::UpdateTabRestoreCommandState() {
 
 void BrowserCommandController::UpdateCommandsForFind() {
   TabStripModel* model = browser_->tab_strip_model();
-  int active_index = model->active_index();
-
-  bool enabled = active_index != TabStripModel::kNoTab &&
-                 !model->IsTabBlocked(active_index) &&
+  bool enabled = !model->IsTabBlocked(model->active_index()) &&
                  !browser_->is_type_devtools();
 
   command_updater_.UpdateCommandEnabled(IDC_FIND, enabled);

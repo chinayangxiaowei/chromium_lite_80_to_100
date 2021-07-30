@@ -28,9 +28,6 @@ through `builders.cpu`, `builders.os` and `builders.goma` respectively.
 load("//project.star", "settings")
 load("./args.star", "args")
 load("./branches.star", "branches")
-load("./bootstrap.star", "register_bootstrap")
-load("./builder_config.star", "builder_config", "register_builder_config")
-load("./listify.star", "listify")
 
 ################################################################################
 # Constants for use with the builder function                                  #
@@ -94,11 +91,7 @@ os = struct(
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
-    # Staged switch to Mac 11: we can gradually shift the matching capacity
-    # towards Mac 11 and the builder will continue to run on whatever is
-    # available
-    MAC_10_15_OR_11 = os_enum("Mac-10.15|Mac-11", os_category.MAC),
-    MAC_11 = os_enum("Mac-11|Mac-10.16", os_category.MAC),
+    MAC_11 = os_enum("Mac-11", os_category.MAC),
     MAC_DEFAULT = os_enum("Mac-10.15", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
@@ -157,19 +150,6 @@ goma = struct(
     ),
 )
 
-def _rotation(name):
-    return branches.value({branches.MAIN: [name]})
-
-# Sheriff rotations that a builder can be added to (only takes effect on trunk)
-# Arbitrary elements can't be added, new rotations must be added in SoM code
-sheriff_rotations = struct(
-    ANDROID = _rotation("android"),
-    CHROMIUM = _rotation("chromium"),
-    CHROMIUM_CLANG = _rotation("chromium.clang"),
-    CHROMIUM_GPU = _rotation("chromium.gpu"),
-    IOS = _rotation("ios"),
-)
-
 def xcode_enum(version):
     return struct(
         version = version,
@@ -181,8 +161,6 @@ def xcode_enum(version):
 xcode = struct(
     # in use by webrtc mac builders
     x11c29 = xcode_enum("11c29"),
-    # in use by ci/ios-simulator-cronet and try/ios-simulator-cronet
-    x11e146 = xcode_enum("11e146"),
     # in use by ios-webkit-tot
     x11e608cwk = xcode_enum("11e608cwk"),
     # (current default for other projects) xc12.0 gm seed
@@ -339,7 +317,6 @@ defaults = args.defaults(
     os = None,
     project_trigger_overrides = None,
     pool = None,
-    sheriff_rotations = None,
     xcode = None,
     ssd = args.COMPUTE,
     use_clang_coverage = False,
@@ -374,14 +351,10 @@ def builder(
         auto_builder_dimension = args.DEFAULT,
         fully_qualified_builder_dimension = args.DEFAULT,
         cores = args.DEFAULT,
-        bootstrap = False,
         cpu = args.DEFAULT,
         builder_group = args.DEFAULT,
-        builder_spec = None,
-        mirrors = None,
         pool = args.DEFAULT,
         ssd = args.DEFAULT,
-        sheriff_rotations = None,
         xcode = args.DEFAULT,
         console_view_entry = None,
         list_view = args.DEFAULT,
@@ -427,13 +400,6 @@ def builder(
         (may be specified by module-level default).
       * executable - an executable to run, e.g. a luci.recipe(...). Required (may
         be specified by module-level default).
-      * bootstrap: a boolean indicating whether the builder should have its
-        properties bootstrapped. If True, the builder's properties will be
-        written to a separate file and its definition will be updated with
-        new properties and executable that cause a bootstrapping binary to
-        be used. The build's default values for properties will be taken
-        from the properties file at the version that the build will check
-        out.
       * os - a member of the `os` enum indicating the OS the builder requires for
         the machines that run it. Emits a dimension of the form 'os:os'. By
         default considered None.
@@ -452,10 +418,6 @@ def builder(
         False.
       * builder_group - a string with the group of the builder. Emits a property
         of the form 'builder_group:<builder_group>'. By default, considered None.
-      * builder_spec: The spec describing the configuration for the builder.
-        Cannot be set if `mirrors` is set.
-      * mirrors: References to the builders that the builder should mirror.
-        Cannot be set if `builder_spec` is set.
       * cores - an int indicating the number of cores the builder requires for the
         machines that run it. Emits a dimension of the form 'cores:<cores>' will
         be emitted. By default, considered None.
@@ -470,9 +432,6 @@ def builder(
         If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0' parameter.
         By default, considered False if builderless is considered True and
         otherwise None.
-      * sheriff_rotations - A string or list of strings identifying the sheriff
-        rotations that the builder should be included in. Will be merged with
-        the module-level default.
       * xcode - a member of the `xcode` enum indicating the xcode version the
         builder requires. Emits a cache declaration of the form
         ```{
@@ -553,15 +512,9 @@ def builder(
         fail("Explicit dimensions are not supported: " +
              "use builderless, cores, cpu, os or ssd instead")
 
-    if builder_spec and mirrors:
-        fail("Only one of builder_spec or mirrors can be set")
-
     dimensions = {}
 
     properties = kwargs.pop("properties", {})
-    if "sheriff_rotations" in properties:
-        fail('Setting "sheriff_rotations" property is not supported: ' +
-             "use sheriff_rotations instead")
     if "$kitchen" in properties:
         fail('Setting "$kitchen" property is not supported: ' +
              "use configure_kitchen instead")
@@ -624,10 +577,6 @@ def builder(
     pool = defaults.get_value("pool", pool)
     if pool:
         dimensions["pool"] = pool
-
-    sheriff_rotations = listify(defaults.sheriff_rotations.get(), sheriff_rotations)
-    if sheriff_rotations:
-        properties["sheriff_rotations"] = sheriff_rotations
 
     ssd = defaults.get_value("ssd", ssd)
     if ssd == args.COMPUTE:
@@ -694,6 +643,9 @@ def builder(
     executable = defaults.get_value("executable", executable)
     if executable != args.COMPUTE:
         kwargs["executable"] = executable
+    triggered_by = defaults.get_value("triggered_by", triggered_by)
+    if triggered_by != args.COMPUTE:
+        kwargs["triggered_by"] = triggered_by
     xcode = defaults.get_value("xcode", xcode)
     if xcode:
         kwargs["caches"] = (kwargs.get("caches") or []) + [swarming.cache(
@@ -712,15 +664,6 @@ def builder(
             by_timestamp = resultdb_index_by_timestamp,
         )
 
-    if builder_spec and builder_spec.execution_mode == builder_config.execution_mode.TEST:
-        if triggered_by != args.DEFAULT:
-            fail("triggered testers cannot specify triggered_by")
-        triggered_by = [builder_spec.parent]
-
-    triggered_by = defaults.get_value("triggered_by", triggered_by)
-    if triggered_by != args.COMPUTE:
-        kwargs["triggered_by"] = triggered_by
-
     builder = branches.builder(
         name = name,
         branch_selector = branch_selector,
@@ -736,15 +679,6 @@ def builder(
         ),
         **kwargs
     )
-
-    # builder will be None if the builder isn't being defined due to the project
-    # settings and the branch selector
-    if builder == None:
-        return None
-
-    register_builder_config(bucket, name, builder_group, builder_spec, mirrors)
-
-    register_bootstrap(bucket, name, bootstrap, executable)
 
     builder_name = "{}/{}".format(bucket, name)
 
@@ -803,6 +737,5 @@ builders = struct(
     defaults = defaults,
     goma = goma,
     os = os,
-    sheriff_rotations = sheriff_rotations,
     xcode = xcode,
 )

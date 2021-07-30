@@ -145,8 +145,8 @@ void AutofillPopupControllerImpl::Show(
 }
 
 void AutofillPopupControllerImpl::UpdateDataListValues(
-    const std::vector<base::string16>& values,
-    const std::vector<base::string16>& labels) {
+    const std::vector<std::u16string>& values,
+    const std::vector<std::u16string>& labels) {
   selected_line_.reset();
   // Remove all the old data list values, which should always be at the top of
   // the list if they are present.
@@ -330,26 +330,31 @@ const Suggestion& AutofillPopupControllerImpl::GetSuggestionAt(int row) const {
   return suggestions_[row];
 }
 
-const base::string16& AutofillPopupControllerImpl::GetSuggestionValueAt(
+const std::u16string& AutofillPopupControllerImpl::GetSuggestionValueAt(
     int row) const {
   return suggestions_[row].value;
 }
 
-const base::string16& AutofillPopupControllerImpl::GetSuggestionLabelAt(
+const std::u16string& AutofillPopupControllerImpl::GetSuggestionLabelAt(
     int row) const {
   return suggestions_[row].label;
 }
 
 bool AutofillPopupControllerImpl::GetRemovalConfirmationText(
     int list_index,
-    base::string16* title,
-    base::string16* body) {
+    std::u16string* title,
+    std::u16string* body) {
   return delegate_->GetDeletionConfirmationText(
       suggestions_[list_index].value, suggestions_[list_index].frontend_id,
       title, body);
 }
 
 bool AutofillPopupControllerImpl::RemoveSuggestion(int list_index) {
+  // This function might be called in a callback, so ensure the list index is
+  // still in bounds. If not, terminate the removing and consider it failed.
+  // TODO(crbug.com/1209792): Replace these checks with a stronger identifier.
+  if (list_index < 0 || static_cast<size_t>(list_index) >= suggestions_.size())
+    return false;
   if (!delegate_->RemoveSuggestion(suggestions_[list_index].value,
                                    suggestions_[list_index].frontend_id)) {
     return false;

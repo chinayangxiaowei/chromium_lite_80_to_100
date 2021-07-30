@@ -14,6 +14,18 @@
 namespace mojo {
 
 // static
+bool StructTraits<autofill::mojom::LocalFrameTokenDataView,
+                  autofill::LocalFrameToken>::
+    Read(autofill::mojom::LocalFrameTokenDataView data,
+         autofill::LocalFrameToken* out) {
+  base::UnguessableToken token;
+  if (!data.ReadToken(&token))
+    return false;
+  *out = autofill::LocalFrameToken(token);
+  return true;
+}
+
+// static
 bool StructTraits<autofill::mojom::FormRendererIdDataView,
                   autofill::FormRendererId>::
     Read(autofill::mojom::FormRendererIdDataView data,
@@ -28,18 +40,6 @@ bool StructTraits<autofill::mojom::FieldRendererIdDataView,
     Read(autofill::mojom::FieldRendererIdDataView data,
          autofill::FieldRendererId* out) {
   *out = autofill::FieldRendererId(data.id());
-  return true;
-}
-
-// static
-bool StructTraits<
-    autofill::mojom::SelectOptionDataView,
-    autofill::SelectOption>::Read(autofill::mojom::SelectOptionDataView data,
-                                  autofill::SelectOption* out) {
-  if (!data.ReadValue(&out->value))
-    return false;
-  if (!data.ReadContent(&out->content))
-    return false;
   return true;
 }
 
@@ -81,6 +81,9 @@ bool StructTraits<
 
   out->properties_mask = data.properties_mask();
 
+  if (!data.ReadHostFrame(&out->host_frame))
+    return false;
+
   if (!data.ReadUniqueRendererId(&out->unique_renderer_id))
     return false;
 
@@ -105,7 +108,9 @@ bool StructTraits<
   if (!data.ReadUserInput(&out->user_input))
     return false;
 
-  if (!data.ReadOptions(&out->options))
+  if (!data.ReadOptionValues(&out->option_values))
+    return false;
+  if (!data.ReadOptionContents(&out->option_contents))
     return false;
 
   if (!data.ReadLabelSource(&out->label_source))
@@ -153,7 +158,9 @@ bool StructTraits<autofill::mojom::FormDataDataView, autofill::FormData>::Read(
     return false;
 
   out->is_form_tag = data.is_form_tag();
-  out->is_formless_checkout = data.is_formless_checkout();
+
+  if (!data.ReadHostFrame(&out->host_frame))
+    return false;
 
   if (!data.ReadUniqueRendererId(&out->unique_renderer_id))
     return false;

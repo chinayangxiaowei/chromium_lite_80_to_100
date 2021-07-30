@@ -380,16 +380,10 @@ FakeV4L2Impl::~FakeV4L2Impl() = default;
 
 void FakeV4L2Impl::AddDevice(const std::string& device_name,
                              const FakeV4L2DeviceConfig& config) {
-  base::AutoLock lock(lock_);
   device_configs_.emplace(device_name, config);
 }
 
 int FakeV4L2Impl::open(const char* device_name, int flags) {
-  if (!device_name)
-    return kInvalidId;
-
-  base::AutoLock lock(lock_);
-
   std::string device_name_as_string(device_name);
   auto device_configs_iter = device_configs_.find(device_name_as_string);
   if (device_configs_iter == device_configs_.end())
@@ -409,7 +403,6 @@ int FakeV4L2Impl::open(const char* device_name, int flags) {
 }
 
 int FakeV4L2Impl::close(int fd) {
-  base::AutoLock lock(lock_);
   auto device_iter = opened_devices_.find(fd);
   if (device_iter == opened_devices_.end())
     return kErrorReturnValue;
@@ -419,7 +412,6 @@ int FakeV4L2Impl::close(int fd) {
 }
 
 int FakeV4L2Impl::ioctl(int fd, int request, void* argp) {
-  base::AutoLock lock(lock_);
   auto device_iter = opened_devices_.find(fd);
   if (device_iter == opened_devices_.end())
     return EBADF;
@@ -526,7 +518,6 @@ void* FakeV4L2Impl::mmap(void* /*start*/,
                          int flags,
                          int fd,
                          off_t offset) {
-  base::AutoLock lock(lock_);
   if (flags & MAP_FIXED) {
     errno = EINVAL;
     return MAP_FAILED;
@@ -552,12 +543,10 @@ void* FakeV4L2Impl::mmap(void* /*start*/,
 }
 
 int FakeV4L2Impl::munmap(void* start, size_t length) {
-  base::AutoLock lock(lock_);
   return kSuccessReturnValue;
 }
 
 int FakeV4L2Impl::poll(struct pollfd* ufds, unsigned int nfds, int timeout) {
-  base::AutoLock lock(lock_);
   if (nfds != 1) {
     // We only support polling of a single device.
     errno = EINVAL;

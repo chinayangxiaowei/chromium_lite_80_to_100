@@ -9,20 +9,24 @@ import android.os.Handler;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.infobar.InfoBarIdentifier;
 import org.chromium.chrome.browser.infobar.SurveyInfoBar;
 import org.chromium.chrome.browser.infobar.SurveyInfoBarDelegate;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
@@ -32,10 +36,8 @@ import org.chromium.chrome.browser.tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.version.ChromeVersionInfo;
 import org.chromium.components.infobars.InfoBarAnimationListener;
 import org.chromium.components.infobars.InfoBarUiItem;
-import org.chromium.components.variations.VariationsAssociatedData;
 import org.chromium.url.GURL;
 
 import java.lang.annotation.Retention;
@@ -44,17 +46,26 @@ import java.util.Calendar;
 import java.util.Random;
 
 /**
- * Class that controls if and when to show surveys related to the Chrome Home experiment.
+ * Class that controls if and when to show surveys. One instance of this class is associated with
+ * one trigger ID, which is used to fetch a survey, at the time it is created.
+ *
+ * @see #getTriggerId()
  */
 public class ChromeSurveyController implements InfoBarAnimationListener {
-    private static final String CHROME_SURVEY_TRIAL_NAME = "ChromeSurvey";
-    private static final String MAX_NUMBER = "max-number";
-    private static final String SITE_ID_PARAM_NAME = "site-id";
-    private static final long REQUIRED_VISIBILITY_DURATION_MS = 5000;
+    private static final String TAG = "ChromeSurveyCtrler";
+    private static final int DOWNLOAD_ATTEMPTS_HIST_NUM_BUCKETS = 20;
 
-    private static boolean sForceUmaEnabledForTesting;
-
+    @VisibleForTesting
+    static final long REQUIRED_VISIBILITY_DURATION_MS = 5000;
+    @VisibleForTesting
     public static final String COMMAND_LINE_PARAM_NAME = "survey_override_site_id";
+    @VisibleForTesting
+    static final String MAX_DOWNLOAD_ATTEMPTS = "max-download-attempts";
+    @VisibleForTesting
+    static final String MAX_NUMBER = "max-number";
+    @VisibleForTesting
+    static final String SITE_ID_PARAM_NAME = "site-id";
+    private static boolean sForceUmaEnabledForTesting;
 
     /**
      * Reasons that the user was rejected from being selected for a survey
@@ -100,9 +111,20 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
     private Tab mSurveyInfoBarTab;
     private TabModelSelectorObserver mTabModelObserver;
 
+    private final String mTriggerId;
+    private final String mPrefKeyPromptDisplayed;
+    private final String mPrefKeyDownloadAttempts;
+    private final @Nullable ActivityLifecycleDispatcher mLifecycleDispatcher;
+
     @VisibleForTesting
-    ChromeSurveyController() {
-        // Empty constructor.
+    ChromeSurveyController(
+            String triggerId, @Nullable ActivityLifecycleDispatcher lifecycleDispatcher) {
+        mTriggerId = triggerId;
+        mPrefKeyPromptDisplayed =
+                ChromePreferenceKeys.CHROME_SURVEY_PROMPT_DISPLAYED_TIMESTAMP.createKey(mTriggerId);
+        mPrefKeyDownloadAttempts =
+                ChromePreferenceKeys.CHROME_SURVEY_DOWNLOAD_ATTEMPTS.createKey(mTriggerId);
+        mLifecycleDispatcher = lifecycleDispatcher;
     }
 
     /**
@@ -110,9 +132,12 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
      * @param tabModelSelector The tab model selector to access the tab on which the survey will be
      *                         shown.
      */
-    public static void initialize(TabModelSelector tabModelSelector) {
+    public static void initialize(TabModelSelector tabModelSelector,
+            @Nullable ActivityLifecycleDispatcher lifecycleDispatcher) {
         assert tabModelSelector != null;
-        new StartDownloadIfEligibleTask(new ChromeSurveyController(), tabModelSelector)
+        if (!isSurveyEnabled() || TextUtils.isEmpty(getTriggerId())) return;
+        new StartDownloadIfEligibleTask(
+                new ChromeSurveyController(getTriggerId(), lifecycleDispatcher), tabModelSelector)
                 .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
@@ -127,36 +152,15 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
         mTabModelSelector = tabModelSelector;
 
         SurveyController surveyController = SurveyController.getInstance();
-
-        String siteId = getSiteId();
-        if (TextUtils.isEmpty(siteId)) return;
-
         Runnable onSuccessRunnable = new Runnable() {
             @Override
             public void run() {
-                onSurveyAvailable(siteId);
+                onSurveyAvailable(mTriggerId);
             }
         };
 
-        String siteContext = ChromeVersionInfo.getProductVersion() + ",NotHorizontalTabSwitcher";
-        surveyController.downloadSurvey(context, siteId, onSuccessRunnable, siteContext);
-    }
-
-    private String getSiteId() {
-        CommandLine commandLine = CommandLine.getInstance();
-        if (commandLine.hasSwitch(COMMAND_LINE_PARAM_NAME)) {
-            return commandLine.getSwitchValue(COMMAND_LINE_PARAM_NAME);
-        } else {
-            return VariationsAssociatedData.getVariationParamValue(
-                    CHROME_SURVEY_TRIAL_NAME, SITE_ID_PARAM_NAME);
-        }
-    }
-
-    /** @return Whether the user qualifies for the survey. */
-    private boolean doesUserQualifyForSurvey() {
-        if (!isUMAEnabled() && !sForceUmaEnabledForTesting) return false;
-        if (hasInfoBarBeenDisplayed()) return false;
-        return true;
+        Runnable onFailureRunnable = () -> Log.w(TAG, "Survey does not exists or download failed.");
+        surveyController.downloadSurvey(context, mTriggerId, onSuccessRunnable, onFailureRunnable);
     }
 
     /**
@@ -174,6 +178,7 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
             }
         };
 
+        // TODO(https://crbug.com/1192719): Remove the observer properly.
         mTabModelSelector.addObserver(mTabModelObserver);
     }
 
@@ -251,21 +256,30 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
         tab.removeObserver(observer);
     }
 
-    /** @return Whether the user has consented to reporting usage metrics and crash dumps. */
-    private boolean isUMAEnabled() {
-        return PrivacyPreferencesManagerImpl.getInstance()
-                .isUsageAndCrashReportingPermittedByUser();
-    }
-
     /** @return If the survey info bar for this survey was logged as seen before. */
     @VisibleForTesting
     boolean hasInfoBarBeenDisplayed() {
         SharedPreferencesManager preferences = SharedPreferencesManager.getInstance();
-        if (preferences.readLong(ChromePreferenceKeys.SURVEY_INFO_BAR_DISPLAYED, -1L) != -1L) {
+
+        // TODO(https://crbug.com/1195928): Get an expiration date from feature flag.
+        if (preferences.readLong(mPrefKeyPromptDisplayed, -1L) != -1L) {
             recordSurveyFilteringResult(FilteringResult.SURVEY_INFOBAR_ALREADY_DISPLAYED);
             return true;
         }
         return false;
+    }
+
+    private void recordDownloadAttempted() {
+        SharedPreferencesManager.getInstance().incrementInt(mPrefKeyDownloadAttempts);
+    }
+
+    /** Return whether the number of download attempts falls within the max cap. */
+    private boolean isDownloadAttemptAllowed() {
+        int maxDownloadAttempts = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                ChromeFeatureList.CHROME_SURVEY_NEXT_ANDROID, MAX_DOWNLOAD_ATTEMPTS, 0);
+        int downloadAttemptsMade =
+                SharedPreferencesManager.getInstance().readInt(mPrefKeyDownloadAttempts, 0);
+        return maxDownloadAttempts <= 0 || downloadAttemptsMade < maxDownloadAttempts;
     }
 
     /**
@@ -276,12 +290,6 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
     @VisibleForTesting
     boolean isValidTabForSurvey(Tab tab) {
         return tab != null && tab.getWebContents() != null && !tab.isIncognito();
-    }
-
-    /** @return A new {@link ChromeSurveyController} for testing. */
-    @VisibleForTesting
-    public static ChromeSurveyController createChromeSurveyControllerForTests() {
-        return new ChromeSurveyController();
     }
 
     @Override
@@ -303,7 +311,7 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
     }
 
     /**
-     * Rolls a random number to see if the user was eligible for the survey
+     * Rolls a random number to see if the user was eligible for the survey.
      * @return Whether the user is eligible (i.e. the random number rolled was 0).
      */
     @VisibleForTesting
@@ -341,17 +349,11 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
         return new Random().nextInt(max);
     }
 
-    /** @return The max number as stated in the finch config. */
+    /** @return The max number that used to control the rate limit from the finch config. */
     @VisibleForTesting
     int getMaxNumber() {
-        try {
-            String number = VariationsAssociatedData.getVariationParamValue(
-                    CHROME_SURVEY_TRIAL_NAME, MAX_NUMBER);
-            if (TextUtils.isEmpty(number)) return -1;
-            return Integer.parseInt(number);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                ChromeFeatureList.CHROME_SURVEY_NEXT_ANDROID, MAX_NUMBER, -1);
     }
 
     /** @return The day of the year for today. */
@@ -403,6 +405,7 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
             public void onSurveyTriggered() {
                 recordInfoBarClosingState(InfoBarClosingState.ACCEPTED_SURVEY);
                 recordInfoBarDisplayed();
+                recordSurveyAccepted();
             }
 
             @Override
@@ -410,11 +413,17 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
                 return ContextUtils.getApplicationContext().getString(
                         R.string.chrome_survey_prompt);
             }
+
+            @Override
+            public ActivityLifecycleDispatcher getLifecycleDispatcher() {
+                return mLifecycleDispatcher;
+            }
         };
     }
 
     /** Logs in SharedPreferences that the info bar was displayed. */
-    private void recordInfoBarDisplayed() {
+    @VisibleForTesting
+    void recordInfoBarDisplayed() {
         // This can be called multiple times e.g. by mLoggingHandler & onSurveyInfoBarClosed().
         // Return early to allow only one call to this method (http://crbug.com/791076).
         if (mSurveyInfoBarTab == null) return;
@@ -425,8 +434,7 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
         mLoggingHandler.removeCallbacksAndMessages(null);
 
         SharedPreferencesManager preferences = SharedPreferencesManager.getInstance();
-        preferences.writeLong(
-                ChromePreferenceKeys.SURVEY_INFO_BAR_DISPLAYED, System.currentTimeMillis());
+        preferences.writeLong(mPrefKeyPromptDisplayed, System.currentTimeMillis());
         mSurveyInfoBarTab = null;
     }
 
@@ -445,6 +453,14 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
                 "Android.Survey.InfoBarClosingState", value, InfoBarClosingState.NUM_ENTRIES);
     }
 
+    private void recordSurveyAccepted() {
+        int downloadAttemptsMade =
+                SharedPreferencesManager.getInstance().readInt(mPrefKeyDownloadAttempts, 0);
+        RecordHistogram.recordLinearCountHistogram("Android.Survey.DownloadAttemptsBeforeAccepted",
+                downloadAttemptsMade, 1, DOWNLOAD_ATTEMPTS_HIST_NUM_BUCKETS,
+                DOWNLOAD_ATTEMPTS_HIST_NUM_BUCKETS + 1);
+    }
+
     static class StartDownloadIfEligibleTask extends AsyncTask<Boolean> {
         ChromeSurveyController mController;
         final TabModelSelector mSelector;
@@ -457,27 +473,23 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
 
         @Override
         protected Boolean doInBackground() {
-            if (!mController.doesUserQualifyForSurvey()) return false;
+            if (!isUMAEnabled()) return false;
 
-            if (SurveyController.getInstance().doesSurveyExist(
-                        mController.getSiteId(), ContextUtils.getApplicationContext())) {
-                mController.recordSurveyFilteringResult(FilteringResult.SURVEY_ALREADY_EXISTS);
+            if (isSurveyForceEnabled()) {
+                mController.recordSurveyFilteringResult(
+                        FilteringResult.FORCE_SURVEY_ON_COMMAND_PRESENT);
                 return true;
-            } else {
-                boolean forceSurveyOn = false;
-                if (CommandLine.getInstance().hasSwitch(
-                            ChromeSwitches.CHROME_FORCE_ENABLE_SURVEY)) {
-                    forceSurveyOn = true;
-                    mController.recordSurveyFilteringResult(
-                            FilteringResult.FORCE_SURVEY_ON_COMMAND_PRESENT);
-                }
-                return mController.isRandomlySelectedForSurvey() || forceSurveyOn;
             }
+            return !mController.hasInfoBarBeenDisplayed() && mController.isDownloadAttemptAllowed()
+                    && mController.isRandomlySelectedForSurvey();
         }
 
         @Override
         protected void onPostExecute(Boolean result) {
-            if (result) mController.startDownload(ContextUtils.getApplicationContext(), mSelector);
+            if (result) {
+                mController.startDownload(ContextUtils.getApplicationContext(), mSelector);
+                mController.recordDownloadAttempted();
+            }
         }
     }
 
@@ -487,18 +499,39 @@ public class ChromeSurveyController implements InfoBarAnimationListener {
         sForceUmaEnabledForTesting = forcedUMAStatus;
     }
 
+    /** @return If the survey is enabled by finch flag or commandline switch. */
+    @VisibleForTesting
+    static boolean isSurveyEnabled() {
+        return isSurveyForceEnabled()
+                || ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_SURVEY_NEXT_ANDROID);
+    }
+
+    /** @return Whether the user has consented to reporting usage metrics and crash dumps. */
+    private static boolean isUMAEnabled() {
+        return sForceUmaEnabledForTesting
+                || PrivacyPreferencesManagerImpl.getInstance()
+                           .isUsageAndCrashReportingPermittedByUser();
+    }
+
+    /** @return Whether survey is enabled by command line flag. */
+    public static boolean isSurveyForceEnabled() {
+        return CommandLine.getInstance().hasSwitch(ChromeSwitches.CHROME_FORCE_ENABLE_SURVEY);
+    }
+
+    /** @return The trigger Id that used to download / display certain survey. */
+    @VisibleForTesting
+    static String getTriggerId() {
+        CommandLine commandLine = CommandLine.getInstance();
+        if (commandLine.hasSwitch(COMMAND_LINE_PARAM_NAME)) {
+            return commandLine.getSwitchValue(COMMAND_LINE_PARAM_NAME);
+        } else {
+            return ChromeFeatureList.getFieldTrialParamByFeature(
+                    ChromeFeatureList.CHROME_SURVEY_NEXT_ANDROID, SITE_ID_PARAM_NAME);
+        }
+    }
+
     @VisibleForTesting
     public static Long getRequiredVisibilityDurationMs() {
         return REQUIRED_VISIBILITY_DURATION_MS;
-    }
-
-    @VisibleForTesting
-    public static String getChromeSurveyInfoBarDisplayedKey() {
-        return ChromePreferenceKeys.SURVEY_INFO_BAR_DISPLAYED;
-    }
-
-    @VisibleForTesting
-    public static String getCommandLineParamName() {
-        return COMMAND_LINE_PARAM_NAME;
     }
 }

@@ -307,6 +307,11 @@ class WebURLResponse {
   BLINK_PLATFORM_EXPORT WebString AlpnNegotiatedProtocol() const;
   BLINK_PLATFORM_EXPORT void SetAlpnNegotiatedProtocol(const WebString&);
 
+  BLINK_PLATFORM_EXPORT bool HasAuthorizationCoveredByWildcardOnPreflight()
+      const;
+  BLINK_PLATFORM_EXPORT void SetHasAuthorizationCoveredByWildcardOnPreflight(
+      bool);
+
   // Whether the response could use alternate protocol.
   BLINK_PLATFORM_EXPORT bool WasAlternateProtocolAvailable() const;
   BLINK_PLATFORM_EXPORT void SetWasAlternateProtocolAvailable(bool);
@@ -316,9 +321,6 @@ class WebURLResponse {
       const;
   BLINK_PLATFORM_EXPORT void SetConnectionInfo(
       net::HttpResponseInfo::ConnectionInfo);
-
-  // Whether the response was cached and validated over the network.
-  BLINK_PLATFORM_EXPORT void SetIsValidated(bool);
 
   // Original size of the response before decompression.
   BLINK_PLATFORM_EXPORT void SetEncodedDataLength(int64_t);

@@ -29,6 +29,10 @@ void PrintManager::DidGetPrintedPagesCount(int32_t cookie,
   number_pages_ = number_pages;
 }
 
+void PrintManager::DidGetDocumentCookie(int32_t cookie) {
+  cookie_ = cookie;
+}
+
 #if BUILDFLAG(ENABLE_TAGGED_PDF)
 void PrintManager::SetAccessibilityTree(
     int32_t cookie,
@@ -53,11 +57,10 @@ void PrintManager::DidPrintDocument(mojom::DidPrintDocumentParamsPtr params,
 void PrintManager::ShowInvalidPrinterSettingsError() {}
 
 void PrintManager::PrintingFailed(int32_t cookie) {
-  // Note: Not redundant with cookie checks in the same method in other parts of
-  // the class hierarchy.
-  if (!IsValidCookie(cookie))
+  if (cookie != cookie_) {
+    NOTREACHED();
     return;
-
+  }
 #if defined(OS_ANDROID)
   PdfWritingDone(0);
 #endif
@@ -79,12 +82,11 @@ void PrintManager::CheckForCancel(int32_t preview_ui_id,
                                   CheckForCancelCallback callback) {}
 #endif
 
-bool PrintManager::IsPrintRenderFrameConnected(content::RenderFrameHost* rfh) {
+bool PrintManager::IsPrintRenderFrameConnected(
+    content::RenderFrameHost* rfh) const {
   auto it = print_render_frames_.find(rfh);
-  if (it == print_render_frames_.end())
-    return false;
-
-  return it->second.is_bound() && it->second.is_connected();
+  return it != print_render_frames_.end() && it->second.is_bound() &&
+         it->second.is_connected();
 }
 
 const mojo::AssociatedRemote<printing::mojom::PrintRenderFrame>&
@@ -108,10 +110,6 @@ void PrintManager::PrintingRenderFrameDeleted() {
 #if defined(OS_ANDROID)
   PdfWritingDone(0);
 #endif
-}
-
-bool PrintManager::IsValidCookie(int cookie) const {
-  return cookie > 0 && cookie == cookie_;
 }
 
 }  // namespace printing

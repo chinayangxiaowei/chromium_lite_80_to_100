@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper_view.h"
 
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/views/eye_dropper/eye_dropper.h"
 #include "content/public/browser/desktop_capture.h"
 #include "content/public/browser/render_view_host.h"
@@ -64,7 +65,6 @@ class EyeDropperView::ScreenCapturer
                        std::unique_ptr<webrtc::DesktopFrame> frame) override;
 
   SkBitmap GetBitmap() const;
-  SkColor GetColor(int x, int y) const;
 
  private:
   std::unique_ptr<webrtc::DesktopCapturer> capturer_;
@@ -95,13 +95,6 @@ SkBitmap EyeDropperView::ScreenCapturer::GetBitmap() const {
   return frame_;
 }
 
-SkColor EyeDropperView::ScreenCapturer::GetColor(int x, int y) const {
-  DCHECK(x < frame_.width());
-  DCHECK(y < frame_.height());
-  return x < frame_.width() && y < frame_.height() ? frame_.getColor(x, y)
-                                                   : SK_ColorBLACK;
-}
-
 EyeDropperView::EyeDropperView(content::RenderFrameHost* frame,
                                content::EyeDropperListener* listener)
     : render_frame_host_(frame),
@@ -111,7 +104,13 @@ EyeDropperView::EyeDropperView(content::RenderFrameHost* frame,
   SetModalType(ui::MODAL_TYPE_WINDOW);
   SetOwnedByWidget(false);
   SetPreferredSize(GetSize());
+#if defined(OS_LINUX)
+  // Use TYPE_MENU for Linux to ensure that the eye dropper view is displayed
+  // above the color picker.
+  views::Widget::InitParams params(views::Widget::InitParams::TYPE_MENU);
+#else
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_POPUP);
+#endif
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
   // Use software compositing to prevent situations when the widget is not
   // translucent when moved fast.
@@ -130,6 +129,7 @@ EyeDropperView::EyeDropperView(content::RenderFrameHost* frame,
   HideCursor();
   pre_dispatch_handler_ = std::make_unique<PreEventDispatchHandler>(this);
   widget->Show();
+  CaptureInputIfNeeded();
   // The ignore selection time should be long enough to allow the user to see
   // the UI.
   ignore_selection_time_ =
@@ -178,8 +178,7 @@ void EyeDropperView::OnPaint(gfx::Canvas* view_canvas) {
 
   // Store the pixel color under the cursor as it is the last color seen
   // by the user before selection.
-  selected_color_ =
-      screen_capturer_->GetColor(center_position.x(), center_position.y());
+  selected_color_ = frame.getColor(center_position.x(), center_position.y());
 
   // Paint grid.
   cc::PaintFlags flags;

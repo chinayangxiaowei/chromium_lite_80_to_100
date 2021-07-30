@@ -36,7 +36,7 @@ namespace autofill {
 
 int AutofillPopupBaseView::GetCornerRadius() {
   return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-      views::EMPHASIS_MEDIUM);
+      views::Emphasis::kMedium);
 }
 
 SkColor AutofillPopupBaseView::GetBackgroundColor() const {
@@ -89,7 +89,7 @@ AutofillPopupBaseView::~AutofillPopupBaseView() {
   CHECK(!IsInObserverList());
 }
 
-void AutofillPopupBaseView::DoShow() {
+bool AutofillPopupBaseView::DoShow() {
   const bool initialize_widget = !GetWidget();
   if (initialize_widget) {
     // On Mac Cocoa browser, |parent_widget_| is null (the parent is not a
@@ -123,13 +123,15 @@ void AutofillPopupBaseView::DoShow() {
   // If there is insufficient height, DoUpdateBoundsAndRedrawPopup() hides and
   // thus deletes |this|. Hence, there is nothing else to do.
   if (!enough_height)
-    return;
+    return false;
   GetWidget()->Show();
 
   // Showing the widget can change native focus (which would result in an
   // immediate hiding of the popup). Only start observing after shown.
   if (initialize_widget)
     views::WidgetFocusManager::GetInstance()->AddFocusChangeListener(this);
+
+  return true;
 }
 
 void AutofillPopupBaseView::DoHide() {
@@ -223,6 +225,19 @@ void AutofillPopupBaseView::UpdateClipPath() {
   SetClipPath(clip_path);
 }
 
+gfx::Rect AutofillPopupBaseView::GetWindowBounds() const {
+  views::Widget* widget = views::Widget::GetTopLevelWidgetForNativeView(
+      delegate()->container_view());
+  if (widget)
+    return widget->GetWindowBoundsInScreen();
+
+  // If the widget is null, simply return an empty rect. The most common reason
+  // to end up here is that the NativeView has been destroyed externally, which
+  // can happen at any time. This happens fairly commonly on Windows (e.g., at
+  // shutdown) in particular.
+  return gfx::Rect();
+}
+
 gfx::Rect AutofillPopupBaseView::GetContentAreaBounds() const {
   content::WebContents* web_contents = delegate()->GetWebContents();
   if (web_contents)
@@ -247,14 +262,14 @@ bool AutofillPopupBaseView::DoUpdateBoundsAndRedrawPopup() {
   // area so that the user notices the presence of the popup.
   int item_height =
       children().size() > 0 ? children()[0]->GetPreferredSize().height() : 0;
-  const gfx::Rect content_area_bounds = GetContentAreaBounds();
-  if (!CanShowDropdownHere(item_height, content_area_bounds, element_bounds)) {
+  if (!CanShowDropdownHere(item_height, GetContentAreaBounds(),
+                           element_bounds)) {
     HideController(PopupHidingReason::kInsufficientSpace);
     return false;
   }
 
   gfx::Rect popup_bounds = CalculatePopupBounds(
-      preferred_size, content_area_bounds, element_bounds, delegate()->IsRTL());
+      preferred_size, GetWindowBounds(), element_bounds, delegate()->IsRTL());
   // Account for the scroll view's border so that the content has enough space.
   popup_bounds.Inset(-GetWidget()->GetRootView()->border()->GetInsets());
   GetWidget()->SetBounds(popup_bounds);
@@ -296,7 +311,7 @@ std::unique_ptr<views::Border> AutofillPopupBaseView::CreateBorder() {
   border->SetCornerRadius(GetCornerRadius());
   border->set_md_shadow_elevation(
       ChromeLayoutProvider::Get()->GetShadowElevationMetric(
-          views::EMPHASIS_MEDIUM));
+          views::Emphasis::kMedium));
   return border;
 }
 
@@ -312,6 +327,7 @@ ADD_READONLY_PROPERTY_METADATA(SkColor, SelectedForegroundColor)
 ADD_READONLY_PROPERTY_METADATA(SkColor, FooterBackgroundColor)
 ADD_READONLY_PROPERTY_METADATA(SkColor, SeparatorColor)
 ADD_READONLY_PROPERTY_METADATA(SkColor, WarningColor)
+ADD_READONLY_PROPERTY_METADATA(gfx::Rect, WindowBounds)
 ADD_READONLY_PROPERTY_METADATA(gfx::Rect, ContentAreaBounds)
 END_METADATA
 

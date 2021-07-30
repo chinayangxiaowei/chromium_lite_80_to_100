@@ -276,9 +276,6 @@ void RemovePrefs(const AccountId& account_id);
 // Removes all ephemeral users.
 void CleanEphemeralUsers();
 
-// Removes all obsolete prefs from all users.
-void CleanObsoletePrefs();
-
 // Register known user prefs.
 void USER_MANAGER_EXPORT RegisterPrefs(PrefRegistrySimple* registry);
 }

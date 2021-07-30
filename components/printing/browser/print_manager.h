@@ -42,6 +42,7 @@ class PrintManager : public content::WebContentsObserver,
 
   // printing::mojom::PrintManagerHost:
   void DidGetPrintedPagesCount(int32_t cookie, uint32_t number_pages) override;
+  void DidGetDocumentCookie(int32_t cookie) override;
   void DidPrintDocument(mojom::DidPrintDocumentParamsPtr params,
                         DidPrintDocumentCallback callback) override;
 #if BUILDFLAG(ENABLE_TAGGED_PDF)
@@ -70,7 +71,7 @@ class PrintManager : public content::WebContentsObserver,
 
   // Helper method to determine if PrintRenderFrame associated remote interface
   // is still connected.
-  bool IsPrintRenderFrameConnected(content::RenderFrameHost* rfh);
+  bool IsPrintRenderFrameConnected(content::RenderFrameHost* rfh) const;
 
   // Helper method to fetch the PrintRenderFrame associated remote interface
   // pointer.
@@ -79,8 +80,6 @@ class PrintManager : public content::WebContentsObserver,
 
   // Terminates or cancels the print job if one was pending.
   void PrintingRenderFrameDeleted();
-
-  bool IsValidCookie(int cookie) const;
 
   // content::WebContentsObserver
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;

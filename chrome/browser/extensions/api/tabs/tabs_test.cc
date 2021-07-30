@@ -904,13 +904,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionWindowLastFocusedTest,
 
   EXPECT_TRUE(base::MatchPattern(
       utils::RunFunctionAndReturnError(
-          function.get(),
-          base::StringPrintf(
+          function.get(), base::StringPrintf(
               "[%d, {\"url\":\"http://example.com\"}]",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
           DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNotAllowedForDevToolsError));
+      tabs_constants::kNoCurrentWindowError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
 }
@@ -2517,79 +2516,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToNonWAR) {
   EXPECT_EQ(extension_origin, test_frame->GetLastCommittedOrigin());
   EXPECT_EQ(extension_contents->GetMainFrame()->GetProcess(),
             test_contents->GetMainFrame()->GetProcess());
-}
-
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
-                       ExtensionAPICannotCreateWindowForDevtools) {
-  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
-      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
-  scoped_refptr<WindowsCreateFunction> function = new WindowsCreateFunction();
-
-  EXPECT_TRUE(base::MatchPattern(
-      utils::RunFunctionAndReturnError(
-          function.get(),
-          base::StringPrintf(
-              R"([{"tabId": %d}])",
-              ExtensionTabUtil::GetTabId(
-                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNotAllowedForDevToolsError));
-
-  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
-}
-
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotMoveDevtoolsTab) {
-  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
-      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
-  scoped_refptr<TabsMoveFunction> function = new TabsMoveFunction();
-
-  EXPECT_TRUE(base::MatchPattern(
-      utils::RunFunctionAndReturnError(
-          function.get(),
-          base::StringPrintf(
-              R"([%d, {"index": -1}])",
-              ExtensionTabUtil::GetTabId(
-                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNotAllowedForDevToolsError));
-
-  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
-}
-
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotGroupDevtoolsTab) {
-  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
-      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
-  scoped_refptr<TabsGroupFunction> function = new TabsGroupFunction();
-
-  EXPECT_TRUE(base::MatchPattern(
-      utils::RunFunctionAndReturnError(
-          function.get(),
-          base::StringPrintf(
-              R"([{"tabIds": %d}])",
-              ExtensionTabUtil::GetTabId(
-                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNotAllowedForDevToolsError));
-
-  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
-}
-
-IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotDiscardDevtoolsTab) {
-  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
-      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
-  scoped_refptr<TabsDiscardFunction> function = new TabsDiscardFunction();
-
-  EXPECT_TRUE(base::MatchPattern(
-      utils::RunFunctionAndReturnError(
-          function.get(),
-          base::StringPrintf(
-              "[%d]",
-              ExtensionTabUtil::GetTabId(
-                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
-          DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNotAllowedForDevToolsError));
-
-  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
 }
 
 }  // namespace extensions

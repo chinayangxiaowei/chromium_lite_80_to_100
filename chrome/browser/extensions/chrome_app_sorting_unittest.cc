@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "chrome/browser/extensions/extension_prefs_unittest.h"
-#include "chrome/browser/web_applications/components/web_app_helpers.h"
 #include "chrome/browser/web_applications/test/test_web_app_registry_controller.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "components/crx_file/id_util.h"
@@ -17,6 +16,8 @@
 #include "extensions/common/extension_id.h"
 #include "extensions/common/manifest_constants.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+using extensions::mojom::ManifestLocation;
 
 namespace extensions {
 
@@ -589,17 +590,17 @@ class ChromeAppSortingPreinstalledAppsBase : public PrefsPrepopulatedTestBase {
     simple_dict.SetString(keys::kLaunchLocalPath, "fake.html");
 
     std::string error;
-    app1_scoped_ = Extension::Create(
-        prefs_.temp_dir().AppendASCII("app1_"), Manifest::EXTERNAL_PREF,
-        simple_dict, Extension::NO_FLAGS, &error);
+    app1_scoped_ = Extension::Create(prefs_.temp_dir().AppendASCII("app1_"),
+                                     ManifestLocation::kExternalPref,
+                                     simple_dict, Extension::NO_FLAGS, &error);
     prefs()->OnExtensionInstalled(app1_scoped_.get(),
                                   Extension::ENABLED,
                                   syncer::StringOrdinal(),
                                   std::string());
 
-    app2_scoped_ = Extension::Create(
-        prefs_.temp_dir().AppendASCII("app2_"), Manifest::EXTERNAL_PREF,
-        simple_dict, Extension::NO_FLAGS, &error);
+    app2_scoped_ = Extension::Create(prefs_.temp_dir().AppendASCII("app2_"),
+                                     ManifestLocation::kExternalPref,
+                                     simple_dict, Extension::NO_FLAGS, &error);
     prefs()->OnExtensionInstalled(app2_scoped_.get(),
                                   Extension::ENABLED,
                                   syncer::StringOrdinal(),
@@ -759,7 +760,7 @@ class ChromeAppSortingDefaultOrdinalsBase : public ExtensionPrefsTest {
 
     std::string errors;
     scoped_refptr<Extension> app = Extension::Create(
-        prefs_.temp_dir().AppendASCII(name), Manifest::EXTERNAL_PREF,
+        prefs_.temp_dir().AppendASCII(name), ManifestLocation::kExternalPref,
         simple_dict, Extension::NO_FLAGS, &errors);
     EXPECT_TRUE(app.get()) << errors;
     EXPECT_TRUE(crx_file::id_util::IdIsValid(app->id()));
@@ -957,15 +958,15 @@ class ChromeAppSortingMigratedBookmarkApp : public ExtensionPrefsTest {
     // below will be used instead.
     simple_dict.SetString(manifest_keys::kName, "ext1_");
     extension1_ = prefs_.AddExtensionWithManifestAndFlags(
-        simple_dict, Manifest::EXTERNAL_PREF, Extension::FROM_BOOKMARK);
+        simple_dict, ManifestLocation::kExternalPref, Extension::FROM_BOOKMARK);
 
     simple_dict.SetString(manifest_keys::kName, "ext2_");
     extension2_ = prefs_.AddExtensionWithManifestAndFlags(
-        simple_dict, Manifest::EXTERNAL_PREF, Extension::NO_FLAGS);
+        simple_dict, ManifestLocation::kExternalPref, Extension::NO_FLAGS);
 
     simple_dict.SetString(manifest_keys::kName, "ext3_");
     extension3_ = prefs_.AddExtensionWithManifestAndFlags(
-        simple_dict, Manifest::EXTERNAL_PREF, Extension::NO_FLAGS);
+        simple_dict, ManifestLocation::kExternalPref, Extension::NO_FLAGS);
 
     repeated_ordinal_ = syncer::StringOrdinal::CreateInitialOrdinal();
     second_ordinal_ = repeated_ordinal_.CreateAfter();
@@ -1034,12 +1035,9 @@ class ChromeAppSortingMigratedBookmarkApp : public ExtensionPrefsTest {
     test_registry_controller_->SetUp(prefs_.profile());
     test_registry_controller_->Init();
 
-    const auto start_url = GURL("https://example.com/path");
-    const web_app::AppId app_id = web_app::GenerateAppIdFromURL(start_url);
-
-    auto web_app = std::make_unique<web_app::WebApp>(app_id);
+    auto web_app = std::make_unique<web_app::WebApp>(extension1_->id());
     web_app->SetName("name1");
-    web_app->SetStartUrl(start_url);
+    web_app->SetStartUrl(GURL("https://example.com/path"));
     web_app->SetDisplayMode(web_app::DisplayMode::kStandalone);
     web_app->SetUserDisplayMode(web_app::DisplayMode::kStandalone);
     web_app->AddSource(web_app::Source::kSync);
@@ -1071,7 +1069,7 @@ class ChromeAppSortingMigratedBookmarkApp : public ExtensionPrefsTest {
     // ignored, there were not actually any collisions.
     EXPECT_EQ(3U, CountElementsInOrdinalMap());
     EXPECT_TRUE(app_sorting()
-                    ->GetAppLaunchOrdinal(app_id)
+                    ->GetAppLaunchOrdinal(extension1_->id())
                     .Equals(second_ordinal_));
     EXPECT_TRUE(app_sorting()
                     ->GetPageOrdinal(extension1_->id())

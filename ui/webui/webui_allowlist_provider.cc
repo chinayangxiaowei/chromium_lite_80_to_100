@@ -7,9 +7,8 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "ui/webui/webui_allowlist.h"
 
-WebUIAllowlistProvider::WebUIAllowlistProvider(
-    scoped_refptr<WebUIAllowlist> allowlist)
-    : allowlist_(std::move(allowlist)) {
+WebUIAllowlistProvider::WebUIAllowlistProvider(WebUIAllowlist* allowlist)
+    : allowlist_(allowlist) {
   DCHECK(allowlist_);
   allowlist_->SetWebUIAllowlistProvider(this);
 }
@@ -17,8 +16,12 @@ WebUIAllowlistProvider::WebUIAllowlistProvider(
 WebUIAllowlistProvider::~WebUIAllowlistProvider() = default;
 
 std::unique_ptr<content_settings::RuleIterator>
-WebUIAllowlistProvider::GetRuleIterator(ContentSettingsType content_type,
-                                        bool incognito) const {
+WebUIAllowlistProvider::GetRuleIterator(
+    ContentSettingsType content_type,
+    bool incognito) const {
+  if (!allowlist_)
+    return nullptr;
+
   return allowlist_->GetRuleIterator(content_type);
 }
 
@@ -45,8 +48,7 @@ void WebUIAllowlistProvider::ClearAllContentSettingsRules(
 }
 
 void WebUIAllowlistProvider::ShutdownOnUIThread() {
-  DCHECK(CalledOnValidThread());
-
   RemoveAllObservers();
   allowlist_->ResetWebUIAllowlistProvider();
+  allowlist_ = nullptr;
 }

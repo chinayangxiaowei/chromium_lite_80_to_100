@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/weak_ptr.h"
 #include "components/performance_manager/performance_manager_impl.h"
 #include "components/performance_manager/persistence/site_data/site_data_impl.h"
 #include "components/performance_manager/persistence/site_data/site_data_store.h"
@@ -28,13 +27,7 @@ class MockSiteDataImplOnDestroyDelegate
 
   MOCK_METHOD1(OnSiteDataImplDestroyed, void(internal::SiteDataImpl*));
 
-  base::WeakPtr<MockSiteDataImplOnDestroyDelegate> GetWeakPtr() {
-    return weak_factory_.GetWeakPtr();
-  }
-
  private:
-  base::WeakPtrFactory<MockSiteDataImplOnDestroyDelegate> weak_factory_{this};
-
   DISALLOW_COPY_AND_ASSIGN(MockSiteDataImplOnDestroyDelegate);
 };
 

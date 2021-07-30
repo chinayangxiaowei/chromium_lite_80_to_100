@@ -439,10 +439,6 @@ void WebURLResponse::SetAddressSpace(
   resource_response_->SetAddressSpace(remote_ip_address_space);
 }
 
-void WebURLResponse::SetIsValidated(bool is_validated) {
-  resource_response_->SetIsValidated(is_validated);
-}
-
 void WebURLResponse::SetEncodedDataLength(int64_t length) {
   resource_response_->SetEncodedDataLength(length);
 }
@@ -489,6 +485,14 @@ WebString WebURLResponse::AlpnNegotiatedProtocol() const {
 void WebURLResponse::SetAlpnNegotiatedProtocol(
     const WebString& alpn_negotiated_protocol) {
   resource_response_->SetAlpnNegotiatedProtocol(alpn_negotiated_protocol);
+}
+
+bool WebURLResponse::HasAuthorizationCoveredByWildcardOnPreflight() const {
+  return resource_response_->HasAuthorizationCoveredByWildcardOnPreflight();
+}
+
+void WebURLResponse::SetHasAuthorizationCoveredByWildcardOnPreflight(bool b) {
+  resource_response_->SetHasAuthorizationCoveredByWildcardOnPreflight(b);
 }
 
 bool WebURLResponse::WasAlternateProtocolAvailable() const {

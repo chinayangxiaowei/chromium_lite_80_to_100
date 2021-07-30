@@ -22,7 +22,6 @@
 #include "base/types/strong_alias.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "net/base/network_delegate.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/websockets/websocket_event_interface.h"
 #include "services/network/network_service.h"
@@ -67,13 +66,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
       net::NetworkTrafficAnnotationTag traffic_annotation,
       HasRawHeadersAccess has_raw_cookie_access,
       mojo::PendingRemote<mojom::WebSocketHandshakeClient> handshake_client,
-      mojo::PendingRemote<mojom::AuthenticationAndCertificateObserver>
-          auth_cert_observer,
+      mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
+          url_loader_network_observer,
       mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
       base::Optional<WebSocketThrottler::PendingConnection>
           pending_connection_tracker,
-      DataPipeUseTracker,
       base::TimeDelta delay);
   ~WebSocket() override;
 
@@ -90,9 +88,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
 
   // These methods are called by the network delegate to forward these events to
   // the |header_client_|.
-  int OnBeforeStartTransaction(
-      const net::HttpRequestHeaders& headers,
-      net::NetworkDelegate::OnBeforeStartTransactionCallback callback);
+  int OnBeforeStartTransaction(net::CompletionOnceCallback callback,
+                               net::HttpRequestHeaders* headers);
   int OnHeadersReceived(
       net::CompletionOnceCallback callback,
       const net::HttpResponseHeaders* original_response_headers,
@@ -151,7 +148,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
       base::OnceCallback<void(const net::AuthCredentials*)> callback,
       const base::Optional<net::AuthCredentials>& credential);
   void OnBeforeSendHeadersComplete(
-      net::NetworkDelegate::OnBeforeStartTransactionCallback callback,
+      net::CompletionOnceCallback callback,
+      net::HttpRequestHeaders* out_headers,
       int result,
       const base::Optional<net::HttpRequestHeaders>& headers);
   void OnHeadersReceivedComplete(
@@ -180,7 +178,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
   WebSocketFactory* const factory_;
   mojo::Receiver<mojom::WebSocket> receiver_{this};
 
-  mojo::Remote<mojom::AuthenticationAndCertificateObserver> auth_cert_observer_;
+  mojo::Remote<mojom::URLLoaderNetworkServiceObserver>
+      url_loader_network_observer_;
   mojo::Remote<mojom::WebSocketHandshakeClient> handshake_client_;
   mojo::Remote<mojom::WebSocketClient> client_;
   mojo::Remote<mojom::WebSocketAuthenticationHandler> auth_handler_;
@@ -220,8 +219,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
   base::queue<DataFrame> pending_send_data_frames_;
   bool wait_for_readable_ = false;
   bool blocked_on_websocket_channel_ = false;
-
-  DataPipeUseTracker data_pipe_use_tracker_;
 
   // True if we should preserve the old behaviour where <=64KB messages were
   // never fragmented.

@@ -145,6 +145,25 @@
       ]
     },
   },
+  '11-x86-emulator': {
+    '$mixin_append': {
+      'args': [
+        '--avd-config=../../tools/android/avd/proto/generic_android30.textpb',
+      ],
+    },
+    'swarming': {
+      'named_caches': [
+        {
+          'name': 'avd_generic_android30',
+          'path': '.android',
+        },
+        {
+          'name': 'system_images_android_30_google_apis_x86',
+          'path': '.emulator_sdk',
+        },
+      ]
+    },
+  },
   'android_q': {
     'swarming': {
       'dimensions': {
@@ -244,7 +263,7 @@
         {
           'cpu': 'x86',
           'kvm': '1',
-          'os': 'Ubuntu-16.04',
+          'os': 'Ubuntu-18.04',
           'pool': 'chrome.tests',
         }
       ],
@@ -307,6 +326,11 @@
         'pool': 'chromium.tests.avd',
         'machine_type': 'n1-standard-4',
       },
+    },
+  },
+  'enable_resultdb': {
+    'resultdb': {
+      'enable': True,
     },
   },
   'femu-additional-ram': {
@@ -373,16 +397,6 @@
         'device_type': 'hammerhead',
         'os': 'Android',
       },
-    },
-  },
-  # Use of this mixin signals to the recipe that the test uploads its results
-  # to result-sink and doesn't need to be wrapped by result_adapter.
-  'has_native_resultdb_integration': {
-    'resultdb': {
-      'enable': True,
-      # TODO(crbug.com/1163797): Remove the 'enable' field in favor of
-      # 'has_native_resultdb_integration'.
-      'has_native_resultdb_integration': True,
     },
   },
   'intel_iris_5100': {
@@ -510,10 +524,6 @@
         'os': 'Ubuntu-18.04.5',
         'pool': 'chromium.tests.gpu',
       },
-      # Same long expiration as win10_intel_uhd_630_stable due to capacity.
-      # TODO(https://crbug.com/986939): Remove this when more devices
-      # are added.
-      'expiration': 14400,
     }
   },
   'linux_nvidia_gtx_1660_experimental': {
@@ -584,14 +594,22 @@
   'mac_11': {
     'swarming': {
       'dimensions': {
-        'os': 'Mac-11.0|Mac-10.16',
+        'os': 'Mac-11|Mac-10.16',
       },
     },
   },
-  'mac_11.0_beta': {
+  'mac_11_beta': {
     'swarming': {
       'dimensions': {
-        'os': 'Mac-11.0|Mac-10.16',
+        'os': 'Mac-11.3',
+      },
+    },
+  },
+  'mac_11_x64': {
+    'swarming': {
+      'dimensions': {
+        'cpu': 'x86-64',
+        'os': 'Mac-11|Mac-10.16',
       },
     },
   },
@@ -599,7 +617,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'arm64',
-        'os': 'Mac-11.0',
+        'os': 'Mac-11',
         'pool': 'chromium.tests.mac-arm64',
       },
     },
@@ -1065,23 +1083,6 @@
       },
     },
   },
-  # in use by ios-simulator-cronet
-  'xcode_11e146': {
-    '$mixin_append': {
-      'args': [
-        '--xcode-build-version',
-        '11e146'
-      ],
-    },
-    'swarming': {
-      'named_caches': [
-        {
-          'name': 'xcode_ios_11e146',
-          'path': 'Xcode.app',
-        },
-      ],
-    },
-  },
   # in use by ios-webkit-tot
   'xcode_11e608c': {
     '$mixin_append': {
@@ -1094,23 +1095,6 @@
       'named_caches': [
         {
           'name': 'xcode_ios_11e608c',
-          'path': 'Xcode.app',
-        },
-      ],
-    },
-  },
-  # (default in other projects) xcode 12.0 gm seed
-    'xcode_12a7209': {
-    '$mixin_append': {
-      'args': [
-        '--xcode-build-version',
-        '12a7209'
-      ],
-    },
-    'swarming': {
-      'named_caches': [
-        {
-          'name': 'xcode_ios_12a7209',
           'path': 'Xcode.app',
         },
       ],

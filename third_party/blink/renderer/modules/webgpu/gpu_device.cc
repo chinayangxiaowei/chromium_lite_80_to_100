@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_compute_pipeline_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_device_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_feature_name.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_render_pipeline_descriptor.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_uncaptured_error_event_init.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -41,12 +42,15 @@ namespace blink {
 namespace {
 
 #ifdef USE_BLINK_V8_BINDING_NEW_IDL_DICTIONARY
-Vector<String> ToStringVector(
-    const Vector<V8GPUExtensionName>& gpu_extension_names) {
-  Vector<String> result;
-  for (auto& name : gpu_extension_names)
-    result.push_back(IDLEnumAsString(name));
-  return result;
+Vector<String> ToStringVector(const Vector<V8GPUFeatureName>& features) {
+  Vector<String> str_features;
+  for (auto&& feature : features)
+    str_features.push_back(IDLEnumAsString(feature));
+  return str_features;
+}
+#else
+const Vector<String>& ToStringVector(const Vector<String>& features) {
+  return features;
 }
 #endif
 
@@ -61,41 +65,24 @@ GPUDevice::GPUDevice(ExecutionContext* execution_context,
     : ExecutionContextClient(execution_context),
       DawnObject(dawn_control_client, dawn_device),
       adapter_(adapter),
-#ifdef USE_BLINK_V8_BINDING_NEW_IDL_DICTIONARY
       feature_name_list_(ToStringVector(descriptor->nonGuaranteedFeatures())),
-#else
-      feature_name_list_(descriptor->nonGuaranteedFeatures()),
-#endif
       queue_(MakeGarbageCollected<GPUQueue>(
           this,
           GetProcs().deviceGetDefaultQueue(GetHandle()))),
       lost_property_(MakeGarbageCollected<LostProperty>(execution_context)),
-      error_callback_(BindDawnRepeatingCallback(&GPUDevice::OnUncapturedError,
+      error_callback_(BindRepeatingDawnCallback(&GPUDevice::OnUncapturedError,
                                                 WrapWeakPersistent(this))),
-      // Note: This is a *repeating* callback even though we expect it to only
-      // be called once. This is because it may be called *zero* times.
-      // Because it might never be called, the GPUDevice needs to own the
-      // allocation so it can be appropriately freed on destruction. Thus, the
-      // callback should not be a OnceCallback which self-deletes after it is
-      // called.
-      lost_callback_(BindDawnRepeatingCallback(&GPUDevice::OnDeviceLostError,
-                                               WrapWeakPersistent(this))) {
+      lost_callback_(BindDawnCallback(&GPUDevice::OnDeviceLostError,
+                                      WrapWeakPersistent(this))) {
   DCHECK(dawn_device);
   GetProcs().deviceSetUncapturedErrorCallback(
-      GetHandle(), error_callback_->UnboundCallback(),
+      GetHandle(), error_callback_->UnboundRepeatingCallback(),
       error_callback_->AsUserdata());
   GetProcs().deviceSetDeviceLostCallback(GetHandle(),
                                          lost_callback_->UnboundCallback(),
                                          lost_callback_->AsUserdata());
 
   setLabel(descriptor->label());
-}
-
-GPUDevice::~GPUDevice() {
-  // Clear the callbacks since we can't handle callbacks after finalization.
-  // error_callback_, logging_callback_, and lost_callback_ will be deleted.
-  GetProcs().deviceSetUncapturedErrorCallback(GetHandle(), nullptr, nullptr);
-  GetProcs().deviceSetDeviceLostCallback(GetHandle(), nullptr, nullptr);
 }
 
 void GPUDevice::InjectError(WGPUErrorType type, const char* message) {
@@ -147,6 +134,12 @@ void GPUDevice::OnUncapturedError(WGPUErrorType errorType,
 }
 
 void GPUDevice::OnDeviceLostError(const char* message) {
+  // This function is called by a callback created by BindDawnCallback.
+  // Release the unique_ptr holding it since BindDawnCallback is self-deleting.
+  // This is stored as a unique_ptr because the lost callback may never be
+  // called.
+  lost_callback_.release();
+
   AddConsoleWarning(message);
 
   if (lost_property_->GetState() == LostProperty::kPending) {
@@ -300,27 +293,32 @@ ScriptPromise GPUDevice::createRenderPipelineAsync(
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
 
-  OwnedRenderPipelineDescriptor dawn_desc_info;
+  if (!descriptor->hasVertex()) {
+    // Shim asynchronous pipeline compilation with the deprecated shape of the
+    // GPURenderPipelineDescriptor by immediately creating a pipeline and
+    // resolving the promise.
+    resolver->Resolve(
+        GPURenderPipeline::Create(script_state, this, descriptor));
+    return promise;
+  }
+
   v8::Isolate* isolate = script_state->GetIsolate();
-  ExceptionState exception_state(isolate, ExceptionState::kConstructionContext,
-                                 "GPUVertexStateDescriptor");
-  ConvertToDawnType(isolate, descriptor, &dawn_desc_info, exception_state);
+  ExceptionState exception_state(isolate, ExceptionState::kExecutionContext,
+                                 "GPUDevice", "createRenderPipelineAsync");
+  OwnedRenderPipelineDescriptor2 dawn_desc_info;
+  ConvertToDawnType(isolate, this, descriptor, &dawn_desc_info,
+                    exception_state);
   if (exception_state.HadException()) {
-    resolver->Reject(MakeGarbageCollected<DOMException>(
-        DOMExceptionCode::kOperationError,
-        "Error in parsing GPURenderPipelineDescriptor"));
+    resolver->Reject(exception_state);
   } else {
     auto* callback =
-        BindDawnOnceCallback(&GPUDevice::OnCreateRenderPipelineAsyncCallback,
-                             WrapPersistent(this), WrapPersistent(resolver));
+        BindDawnCallback(&GPUDevice::OnCreateRenderPipelineAsyncCallback,
+                         WrapPersistent(this), WrapPersistent(resolver));
     GetProcs().deviceCreateRenderPipelineAsync(
         GetHandle(), &dawn_desc_info.dawn_desc, callback->UnboundCallback(),
         callback->AsUserdata());
   }
 
-  // WebGPU guarantees that promises are resolved in finite time so we need to
-  // ensure commands are flushed.
-  EnsureFlush();
   return promise;
 }
 
@@ -336,8 +334,8 @@ ScriptPromise GPUDevice::createComputePipelineAsync(
       AsDawnType(descriptor, &label, &computeStageDescriptor);
 
   auto* callback =
-      BindDawnOnceCallback(&GPUDevice::OnCreateComputePipelineAsyncCallback,
-                           WrapPersistent(this), WrapPersistent(resolver));
+      BindDawnCallback(&GPUDevice::OnCreateComputePipelineAsyncCallback,
+                       WrapPersistent(this), WrapPersistent(resolver));
   GetProcs().deviceCreateComputePipelineAsync(GetHandle(), &dawn_desc,
                                               callback->UnboundCallback(),
                                               callback->AsUserdata());
@@ -391,8 +389,8 @@ ScriptPromise GPUDevice::popErrorScope(ScriptState* script_state) {
   ScriptPromise promise = resolver->Promise();
 
   auto* callback =
-      BindDawnOnceCallback(&GPUDevice::OnPopErrorScopeCallback,
-                           WrapPersistent(this), WrapPersistent(resolver));
+      BindDawnCallback(&GPUDevice::OnPopErrorScopeCallback,
+                       WrapPersistent(this), WrapPersistent(resolver));
 
   if (!GetProcs().devicePopErrorScope(GetHandle(), callback->UnboundCallback(),
                                       callback->AsUserdata())) {

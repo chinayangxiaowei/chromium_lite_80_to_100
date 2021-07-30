@@ -44,7 +44,7 @@ TransactionImpl::~TransactionImpl() {
 }
 
 void TransactionImpl::CreateObjectStore(int64_t object_store_id,
-                                        const base::string16& name,
+                                        const std::u16string& name,
                                         const blink::IndexedDBKeyPath& key_path,
                                         bool auto_increment) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -54,15 +54,6 @@ void TransactionImpl::CreateObjectStore(int64_t object_store_id,
   if (transaction_->mode() != blink::mojom::IDBTransactionMode::VersionChange) {
     mojo::ReportBadMessage(
         "CreateObjectStore must be called from a version change transaction.");
-    return;
-  }
-
-  if (!transaction_->IsAcceptingRequests()) {
-    // TODO(https://crbug.com/1249908): If the transaction was already committed
-    // (or is in the process of being committed) we should kill the renderer.
-    // This branch however also includes cases where the browser process aborted
-    // the transaction, as currently we don't distinguish that state from the
-    // transaction having been committed. So for now simply ignore the request.
     return;
   }
 
@@ -85,15 +76,6 @@ void TransactionImpl::DeleteObjectStore(int64_t object_store_id) {
   if (transaction_->mode() != blink::mojom::IDBTransactionMode::VersionChange) {
     mojo::ReportBadMessage(
         "DeleteObjectStore must be called from a version change transaction.");
-    return;
-  }
-
-  if (!transaction_->IsAcceptingRequests()) {
-    // TODO(https://crbug.com/1249908): If the transaction was already committed
-    // (or is in the process of being committed) we should kill the renderer.
-    // This branch however also includes cases where the browser process aborted
-    // the transaction, as currently we don't distinguish that state from the
-    // transaction having been committed. So for now simply ignore the request.
     return;
   }
 
@@ -126,15 +108,6 @@ void TransactionImpl::Put(
     std::move(callback).Run(
         blink::mojom::IDBTransactionPutResult::NewErrorResult(
             blink::mojom::IDBError::New(error.code(), error.message())));
-    return;
-  }
-
-  if (!transaction_->IsAcceptingRequests()) {
-    // TODO(https://crbug.com/1249908): If the transaction was already committed
-    // (or is in the process of being committed) we should kill the renderer.
-    // This branch however also includes cases where the browser process aborted
-    // the transaction, as currently we don't distinguish that state from the
-    // transaction having been committed. So for now simply ignore the request.
     return;
   }
 
@@ -194,15 +167,6 @@ void TransactionImpl::PutAll(int64_t object_store_id,
     std::move(callback).Run(
         blink::mojom::IDBTransactionPutAllResult::NewErrorResult(
             blink::mojom::IDBError::New(error.code(), error.message())));
-    return;
-  }
-
-  if (!transaction_->IsAcceptingRequests()) {
-    // TODO(https://crbug.com/1249908): If the transaction was already committed
-    // (or is in the process of being committed) we should kill the renderer.
-    // This branch however also includes cases where the browser process aborted
-    // the transaction, as currently we don't distinguish that state from the
-    // transaction having been committed. So for now simply ignore the request.
     return;
   }
 
@@ -303,15 +267,6 @@ void TransactionImpl::Commit(int64_t num_errors_handled) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!transaction_)
     return;
-
-  if (!transaction_->IsAcceptingRequests()) {
-    // TODO(https://crbug.com/1249908): If the transaction was already committed
-    // (or is in the process of being committed) we should kill the renderer.
-    // This branch however also includes cases where the browser process aborted
-    // the transaction, as currently we don't distinguish that state from the
-    // transaction having been committed. So for now simply ignore the request.
-    return;
-  }
 
   IndexedDBConnection* connection = transaction_->connection();
   if (!connection->IsConnected())

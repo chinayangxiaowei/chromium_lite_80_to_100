@@ -63,16 +63,11 @@ void OnEmailConfirmation(DiceTurnSyncOnHelper::SigninChoiceCallback callback,
 
 void OnProfileCheckComplete(const std::string& email,
                             DiceTurnSyncOnHelper::SigninChoiceCallback callback,
-                            base::WeakPtr<Browser> browser,
+                            Browser* browser,
                             bool prompt_for_new_profile) {
-  if (!browser) {
-    std::move(callback).Run(DiceTurnSyncOnHelper::SIGNIN_CHOICE_CANCEL);
-    return;
-  }
-
   DiceTurnSyncOnHelper::Delegate::ShowEnterpriseAccountConfirmationForBrowser(
       email, /*prompt_for_new_profile=*/prompt_for_new_profile,
-      std::move(callback), browser.get());
+      std::move(callback), browser);
 }
 
 }  // namespace
@@ -92,8 +87,7 @@ DiceTurnSyncOnHelperDelegateImpl::~DiceTurnSyncOnHelperDelegateImpl() {
 void DiceTurnSyncOnHelperDelegateImpl::ShowLoginError(
     const SigninUIError& error) {
   DCHECK(!error.IsOk());
-  DiceTurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(
-      error.email(), error.message(), browser_);
+  DiceTurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(error, browser_);
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowEnterpriseAccountConfirmation(
@@ -104,7 +98,7 @@ void DiceTurnSyncOnHelperDelegateImpl::ShowEnterpriseAccountConfirmation(
   // asynchronous.
   ui::CheckShouldPromptForNewProfile(
       profile_, base::BindOnce(&OnProfileCheckComplete, email,
-                               std::move(callback), browser_->AsWeakPtr()));
+                               std::move(callback), browser_));
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowSyncConfirmation(

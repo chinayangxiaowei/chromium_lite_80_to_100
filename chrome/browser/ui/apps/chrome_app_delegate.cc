@@ -53,7 +53,7 @@
 #include "services/service_manager/public/cpp/interface_provider.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/chromeos/lock_screen_apps/state_controller.h"
+#include "chrome/browser/ash/lock_screen_apps/state_controller.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_content_tab_helper.h"
 #endif
 
@@ -363,8 +363,8 @@ void ChromeAppDelegate::SetTerminatingCallback(base::OnceClosure callback) {
 void ChromeAppDelegate::OnHide() {
   is_hidden_ = true;
   if (has_been_shown_) {
-    profile_keep_alive_.reset();
     keep_alive_.reset();
+    profile_keep_alive_.reset();
     return;
   }
 

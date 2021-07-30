@@ -113,38 +113,16 @@ class SocketResourceManager : public SocketResourceManagerInterface {
   ApiResourceManager<T>* manager_;
 };
 
-// TODO(crbug.com/1200440): Stop using an AsyncApiFunction-like API to avoid
-// confusion. Use plain ExtensionFunction::Run() and re-write each function so
-// they don't split Prepare/Work/AsyncWorkStart.
-class SocketAsyncApiFunction : public ExtensionFunction {
+class SocketAsyncApiFunction : public AsyncApiFunction {
  public:
   SocketAsyncApiFunction();
 
  protected:
   ~SocketAsyncApiFunction() override;
 
-  // ExtensionFunction:
-  ResponseAction Run() override;
-
-  // These 3 override-able function are run in sequence. Return false to abort
-  // with an error.
-  virtual bool PrePrepare();
-  virtual bool Prepare();
-  virtual void AsyncWorkStart();
-
-  // The default AsyncWorkStart() calls Work() followed by AsyncWorkCompleted().
-  virtual void Work();
-
-  // Notify that the ExtensionFunction is done running. Subclasses only need to
-  // call this if they override AsyncWorkStart().
-  void AsyncWorkCompleted();
-
-  // Sets a single Value as the results of the function.
-  void SetResult(std::unique_ptr<base::Value> result);
-
-  // ValidationFailure override to match RunAsync(). This lets us use the
-  // EXTENSION_FUNCTION_VALIDATE() macro.
-  static bool ValidationFailure(SocketAsyncApiFunction* function);
+  // AsyncApiFunction:
+  bool PrePrepare() override;
+  bool Respond() override;
 
   virtual std::unique_ptr<SocketResourceManagerInterface>
   CreateSocketResourceManager();
@@ -160,11 +138,16 @@ class SocketAsyncApiFunction : public ExtensionFunction {
                         int socket_id,
                         Socket* socket);
 
-  std::string error_;
-  std::unique_ptr<base::ListValue> results_;
-
  private:
-  ResponseValue GetResponseValue();
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  void OpenFirewallHoleOnUIThread(AppFirewallHole::PortType type,
+                                  uint16_t port,
+                                  int socket_id);
+  void OnFirewallHoleOpened(
+      int socket_id,
+      std::unique_ptr<AppFirewallHole, content::BrowserThread::DeleteOnUIThread>
+          hole);
+#endif  // IS_CHROMEOS_ASH
 
   std::unique_ptr<SocketResourceManagerInterface> manager_;
 };

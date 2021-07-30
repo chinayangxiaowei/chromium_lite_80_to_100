@@ -8,11 +8,11 @@
 #include <stdint.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "base/callback_forward.h"
 #include "base/compiler_specific.h"
-#include "base/strings/string16.h"
 #include "chrome/browser/ui/bookmarks/bookmark_editor.h"
 #include "components/bookmarks/browser/bookmark_expanded_state_tracker.h"
 #include "components/bookmarks/browser/bookmark_model_observer.h"
@@ -66,7 +66,7 @@ class BookmarkEditorView : public BookmarkEditor,
         : ui::TreeNodeModel<EditorNode>(std::move(root)) {}
 
     void SetTitle(ui::TreeModelNode* node,
-                  const base::string16& title) override;
+                  const std::u16string& title) override;
 
    private:
     DISALLOW_COPY_AND_ASSIGN(EditorTreeModel);
@@ -93,7 +93,7 @@ class BookmarkEditorView : public BookmarkEditor,
 
   // views::TextfieldController:
   void ContentsChanged(views::Textfield* sender,
-                       const base::string16& new_contents) override;
+                       const std::u16string& new_contents) override;
   bool HandleKeyEvent(views::Textfield* sender,
                       const ui::KeyEvent& key_event) override;
 

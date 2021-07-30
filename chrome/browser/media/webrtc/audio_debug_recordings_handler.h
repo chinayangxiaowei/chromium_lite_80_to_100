@@ -67,14 +67,14 @@ class AudioDebugRecordingsHandler
   virtual ~AudioDebugRecordingsHandler();
 
   // Helper for starting audio debug recordings.
-  void DoStartAudioDebugRecordings(int render_process_host_id,
+  void DoStartAudioDebugRecordings(content::RenderProcessHost* host,
                                    base::TimeDelta delay,
                                    RecordingDoneCallback callback,
                                    RecordingErrorCallback error_callback,
                                    const base::FilePath& log_directory);
 
   // Helper for stopping audio debug recordings.
-  void DoStopAudioDebugRecordings(int render_process_host_id,
+  void DoStopAudioDebugRecordings(content::RenderProcessHost* host,
                                   bool is_manual_stop,
                                   uint64_t audio_debug_recordings_id,
                                   RecordingDoneCallback callback,

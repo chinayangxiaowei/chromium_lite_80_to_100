@@ -16,6 +16,7 @@
 #include "base/callback.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/dcheck_is_on.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/optional.h"
@@ -94,7 +95,7 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_chromeos.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
-#include "chrome/browser/web_applications/test/test_system_web_app_installation.h"
+#include "chrome/browser/web_applications/system_web_apps/test/test_system_web_app_installation.h"
 #include "chromeos/ui/frame/immersive/immersive_fullscreen_controller_test_api.h"
 #include "ui/aura/client/cursor_client.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -1091,7 +1092,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   tab_groups::TabGroupId group1 = model->AddToNewGroup({2, 3});
   tab_groups::TabGroupId group2 = model->AddToNewGroup({1});
   const tab_groups::TabGroupVisualData new_data(
-      base::ASCIIToUTF16("Foo"), tab_groups::TabGroupColorId::kCyan);
+      u"Foo", tab_groups::TabGroupColorId::kCyan);
   group_model->GetTabGroup(group2)->SetVisualData(new_data);
   StopAnimating(tab_strip);
 
@@ -2508,7 +2509,9 @@ class DetachToBrowserTabDragControllerTestWithScrollableTabStripEnabled
 
 // TODO(crbug.com/1052397): Revisit once build flag switch of lacros-chrome is
 // complete.
-#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
+// Disabling on macOS due to DCHECK crashes; see https://crbug.com/1183043.
+#if defined(OS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS) || \
+    (defined(OS_MAC) && DCHECK_IS_ON())
 #define MAYBE_DraggingRightExpandsTabStripSize \
   DISABLED_DraggingRightExpandsTabStripSize
 #else
@@ -2612,6 +2615,64 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 
   // Remaining browser window should not be maximized
   EXPECT_FALSE(browser2->window()->IsMaximized());
+}
+
+#if defined(OS_MAC) /* && defined(ARCH_CPU_ARM64) */
+// Bulk-disabled for arm64 bot stabilization: https://crbug.com/1154345
+// These were flaking on all macs, so commented out ARCH_ above for
+// crbug.com/1160917 too.
+#define MAYBE_DragAllToSeparateWindowWithPinnedTabs \
+  DISABLED_DragAllToSeparateWindowWithPinnedTabs
+#else
+// TODO(https://crbug.com/1163775): Flaky on Windows and Linux.
+#define MAYBE_DragAllToSeparateWindowWithPinnedTabs \
+  DISABLED_DragAllToSeparateWindowWithPinnedTabs
+#endif
+
+// Creates two browsers, selects all tabs in first, drags into second, then hits
+// escape.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_DragAllToSeparateWindowWithPinnedTabs) {
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+
+  // Open a second tab.
+  AddTabsAndResetBrowser(browser(), 1);
+  // Re-select the first one.
+  browser()->tab_strip_model()->ToggleSelectionAt(0);
+
+  // Create another browser.
+  Browser* target_browser = CreateAnotherBrowserAndResize();
+  TabStrip* target_tab_strip = GetTabStripForBrowser(target_browser);
+
+  // Pin the tab in the target tabstrip.
+  target_browser->tab_strip_model()->SetTabPinned(0, true);
+
+  // Drag the selected tabs to |target_tab_strip|.
+  DragTabAndNotify(
+      tab_strip, base::BindOnce(&DragAllToSeparateWindowStep2, this, tab_strip,
+                                target_tab_strip));
+
+  // Should now be attached to |target_tab_strip|.
+  ASSERT_TRUE(target_tab_strip->GetDragContext()->IsDragSessionActive());
+  ASSERT_TRUE(TabDragController::IsActive());
+  ASSERT_EQ(1u, browser_list->size());
+
+  // Drag to the trailing end of the tabstrip to ensure we're in a consistent
+  // spot within the strip.
+  StopAnimating(target_tab_strip);
+  ASSERT_TRUE(
+      DragInputTo(GetCenterInScreenCoordinates(target_tab_strip->tab_at(1))));
+
+  // Release the mouse, stopping the drag session.
+  ASSERT_TRUE(ReleaseInput());
+  ASSERT_FALSE(target_tab_strip->GetDragContext()->IsDragSessionActive());
+  ASSERT_FALSE(TabDragController::IsActive());
+  EXPECT_EQ("100 0 1", IDString(target_browser->tab_strip_model()));
+
+  EXPECT_FALSE(GetIsDragged(target_browser));
+
+  // Remaining browser window should not be maximized
+  EXPECT_FALSE(target_browser->window()->IsMaximized());
 }
 
 // Creates two browsers, drags from first into the second in such a way that

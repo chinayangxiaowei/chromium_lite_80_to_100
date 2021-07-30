@@ -152,8 +152,8 @@ ScriptPromise GPUBuffer::MapAsyncImpl(ScriptState* script_state,
 
   // And send the command, leaving remaining validation to Dawn.
   auto* callback =
-      BindDawnOnceCallback(&GPUBuffer::OnMapAsyncCallback, WrapPersistent(this),
-                           WrapPersistent(resolver));
+      BindDawnCallback(&GPUBuffer::OnMapAsyncCallback, WrapPersistent(this),
+                       WrapPersistent(resolver));
 
   GetProcs().bufferMapAsync(GetHandle(), mode, map_offset, map_size,
                             callback->UnboundCallback(),

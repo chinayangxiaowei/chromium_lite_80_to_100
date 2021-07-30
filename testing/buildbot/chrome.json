@@ -28,7 +28,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -65,7 +65,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -103,17 +103,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -140,17 +136,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -181,17 +173,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -218,17 +206,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -256,8 +240,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -265,7 +248,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -294,17 +277,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -333,17 +312,13 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -371,17 +346,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -408,17 +379,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -450,17 +417,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -487,17 +450,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -524,17 +483,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -561,17 +516,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -598,17 +549,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -638,17 +585,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -675,17 +618,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -712,17 +651,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -752,10 +687,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "cipd_packages": [
@@ -774,7 +705,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -805,17 +736,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -845,17 +772,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -882,17 +805,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -919,17 +838,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -956,17 +871,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -993,17 +904,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1030,17 +937,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1067,17 +970,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1120,17 +1019,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1169,8 +1064,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -1178,7 +1072,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1216,8 +1110,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -1225,7 +1118,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1263,17 +1156,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1300,17 +1189,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1341,17 +1226,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1378,17 +1259,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1416,8 +1293,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -1425,7 +1301,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1454,17 +1330,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1493,17 +1365,13 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1531,17 +1399,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1568,17 +1432,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1610,17 +1470,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1647,17 +1503,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1684,17 +1536,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1721,17 +1569,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1758,17 +1602,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1798,17 +1638,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1835,17 +1671,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1872,17 +1704,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1912,10 +1740,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "cipd_packages": [
@@ -1934,7 +1758,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -1965,17 +1789,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2005,17 +1825,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2042,17 +1858,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2079,17 +1891,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2116,17 +1924,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2153,17 +1957,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2190,17 +1990,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2227,17 +2023,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2280,17 +2072,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2329,8 +2117,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -2338,7 +2125,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2376,8 +2163,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -2385,7 +2171,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2423,17 +2209,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2460,17 +2242,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2501,17 +2279,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2538,17 +2312,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2576,8 +2346,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -2585,7 +2354,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2614,17 +2383,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2653,17 +2418,13 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2691,17 +2452,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2728,17 +2485,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2770,17 +2523,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2807,17 +2556,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2844,17 +2589,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2881,17 +2622,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2918,17 +2655,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2958,17 +2691,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -2995,17 +2724,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3032,17 +2757,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3072,10 +2793,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "cipd_packages": [
@@ -3094,7 +2811,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3125,17 +2842,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3165,17 +2878,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3202,17 +2911,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3239,17 +2944,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3276,17 +2977,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3313,17 +3010,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3350,17 +3043,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3387,17 +3076,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3440,17 +3125,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3489,8 +3170,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -3498,7 +3178,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3536,8 +3216,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -3545,7 +3224,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3583,17 +3262,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3620,17 +3295,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3661,17 +3332,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3698,17 +3365,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3736,8 +3399,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -3745,7 +3407,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3774,17 +3436,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3813,17 +3471,13 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3851,17 +3505,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3888,17 +3538,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3930,17 +3576,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -3967,17 +3609,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4004,17 +3642,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4041,17 +3675,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4078,17 +3708,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4118,17 +3744,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4155,17 +3777,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4192,17 +3810,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4232,10 +3846,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "cipd_packages": [
@@ -4254,7 +3864,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4285,17 +3895,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4325,17 +3931,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4362,17 +3964,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4399,17 +3997,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4436,17 +4030,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4473,17 +4063,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4510,17 +4096,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4547,17 +4129,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4600,17 +4178,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4649,8 +4223,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -4658,7 +4231,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4696,8 +4269,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -4705,7 +4277,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4743,17 +4315,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4780,17 +4348,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4821,17 +4385,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4858,17 +4418,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4896,8 +4452,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -4905,7 +4460,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4934,17 +4489,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -4973,17 +4524,13 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5011,17 +4558,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5048,17 +4591,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5090,17 +4629,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5127,17 +4662,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5164,17 +4695,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5201,17 +4728,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5238,17 +4761,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5278,17 +4797,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5315,17 +4830,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5352,17 +4863,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5392,10 +4899,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "cipd_packages": [
@@ -5414,7 +4917,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5445,17 +4948,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5485,17 +4984,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5522,17 +5017,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5559,17 +5050,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5596,17 +5083,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5633,17 +5116,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5670,17 +5149,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5707,17 +5182,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5760,17 +5231,13 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5809,8 +5276,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -5818,7 +5284,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5856,8 +5322,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -5865,7 +5330,7 @@
             {
               "cpu": "x86",
               "kvm": "1",
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -5903,10 +5368,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -5930,8 +5391,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -5959,10 +5419,6 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -5987,7 +5443,8 @@
         "args": [
           "--browser=cros-chrome",
           "--remote=variable_chromeos_device_hostname",
-          "--xvfb"
+          "--xvfb",
+          "--skip=benchmarks.benchmark_smoke_unittest.BenchmarkSmokeTest.wasmpspdfkit"
         ],
         "isolate_name": "telemetry_perf_unittests",
         "merge": {
@@ -5996,8 +5453,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6030,8 +5486,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6066,10 +5521,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6093,8 +5544,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6121,10 +5571,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6159,8 +5605,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6193,8 +5638,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6229,10 +5673,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6256,8 +5696,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6284,10 +5723,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6322,8 +5757,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6356,8 +5790,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6392,10 +5825,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6419,8 +5848,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6447,10 +5875,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6485,8 +5909,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6519,8 +5942,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6555,10 +5977,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6582,8 +6000,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6610,10 +6027,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6648,8 +6061,7 @@
         },
         "name": "telemetry_perf_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6682,8 +6094,7 @@
         },
         "name": "telemetry_unittests",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6718,10 +6129,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6745,8 +6152,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6773,10 +6179,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6811,10 +6213,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6838,8 +6236,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6866,10 +6263,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6904,10 +6297,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -6931,8 +6320,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6959,10 +6347,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -6997,10 +6381,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -7024,8 +6404,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -7052,10 +6431,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -7090,10 +6465,6 @@
           "args": [],
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
-        },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
@@ -7117,8 +6488,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -7145,10 +6515,6 @@
         ],
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
-        },
-        "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -7181,8 +6547,7 @@
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": true
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
@@ -7196,8 +6561,8 @@
           "idempotent": false,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "lacros_tast_tests_eve",
-        "test_id_prefix": "ninja://chromeos/lacros:lacros_tast_tests_eve/",
+        "test": "lacros_smoke_tast_tests_eve",
+        "test_id_prefix": "ninja://chromeos/lacros:lacros_smoke_tast_tests_eve/",
         "trigger_script": {
           "script": "//testing/trigger_scripts/chromeos_device_trigger.py"
         }
@@ -7211,13 +6576,13 @@
         },
         "name": "chrome_sizes",
         "resultdb": {
-          "enable": true,
-          "has_native_resultdb_integration": true
+          "enable": false
         },
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
+              "cpu": "x86-64",
               "os": "Ubuntu-16.04",
               "pool": "chrome.tests"
             }
@@ -7247,6 +6612,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests"
             }
           ],
@@ -7324,25 +6690,6 @@
         "test": "angle_unittests",
         "test_id_prefix": "ninja://third_party/angle/src/tests:angle_unittests/",
         "use_isolated_scripts_api": true
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04",
-              "pool": "chrome.tests",
-              "ssd": "0"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "app_list_unittests",
-        "test_id_prefix": "ninja://ash/app_list:app_list_unittests/"
       },
       {
         "merge": {
@@ -9131,7 +8478,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9150,7 +8497,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9172,7 +8519,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9192,26 +8539,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
-              "pool": "chrome.tests",
-              "ssd": "0"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "app_list_unittests",
-        "test_id_prefix": "ninja://ash/app_list:app_list_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9230,7 +8558,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9249,7 +8577,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9268,7 +8596,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9287,7 +8615,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9306,7 +8634,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9325,7 +8653,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9344,7 +8672,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9363,7 +8691,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9383,7 +8711,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9402,7 +8730,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9421,7 +8749,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9443,7 +8771,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9466,7 +8794,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9485,7 +8813,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9504,7 +8832,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9523,7 +8851,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9542,7 +8870,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9561,7 +8889,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9580,7 +8908,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9599,7 +8927,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9618,7 +8946,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9637,7 +8965,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9656,7 +8984,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9675,7 +9003,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9695,7 +9023,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9714,7 +9042,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9733,7 +9061,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9752,7 +9080,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9771,7 +9099,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9790,7 +9118,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9809,7 +9137,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9828,7 +9156,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9847,7 +9175,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9866,7 +9194,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9885,7 +9213,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9904,7 +9232,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9923,7 +9251,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9942,7 +9270,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9961,7 +9289,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9980,7 +9308,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -9999,7 +9327,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10018,7 +9346,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10040,7 +9368,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10060,7 +9388,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10079,7 +9407,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10098,7 +9426,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10117,7 +9445,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10136,7 +9464,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10155,7 +9483,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10174,7 +9502,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10193,7 +9521,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10212,7 +9540,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10231,7 +9559,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10250,7 +9578,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10269,7 +9597,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10288,7 +9616,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10307,7 +9635,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10326,7 +9654,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10345,7 +9673,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10367,7 +9695,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10389,7 +9717,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10408,7 +9736,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10427,7 +9755,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10446,7 +9774,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10465,7 +9793,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10484,7 +9812,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10503,7 +9831,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10522,7 +9850,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10541,7 +9869,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10560,7 +9888,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10579,7 +9907,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10598,7 +9926,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10617,7 +9945,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10636,7 +9964,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10655,7 +9983,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10674,7 +10002,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10693,7 +10021,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10712,7 +10040,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10731,7 +10059,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10750,7 +10078,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10769,7 +10097,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10791,7 +10119,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10810,7 +10138,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10830,7 +10158,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10849,7 +10177,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10868,7 +10196,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10887,7 +10215,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10906,7 +10234,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10925,7 +10253,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10944,7 +10272,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10963,7 +10291,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -10988,7 +10316,7 @@
           "can_use_on_swarming_builders": true,
           "dimension_sets": [
             {
-              "os": "Ubuntu-16.04",
+              "os": "Ubuntu-18.04",
               "pool": "chrome.tests",
               "ssd": "0"
             }
@@ -11067,25 +10395,6 @@
         "test": "angle_unittests",
         "test_id_prefix": "ninja://third_party/angle/src/tests:angle_unittests/",
         "use_isolated_scripts_api": true
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04",
-              "pool": "chrome.tests",
-              "ssd": "0"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "app_list_unittests",
-        "test_id_prefix": "ninja://ash/app_list:app_list_unittests/"
       },
       {
         "merge": {
@@ -12942,25 +12251,6 @@
           ],
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
-        "test": "app_list_unittests",
-        "test_id_prefix": "ninja://ash/app_list:app_list_unittests/"
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04",
-              "pool": "chrome.tests",
-              "ssd": "0"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
         "test": "app_shell_unittests",
         "test_id_prefix": "ninja://extensions/shell:app_shell_unittests/"
       },
@@ -13176,7 +12466,7 @@
       },
       {
         "args": [
-          "--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.browser_tests.filter"
+          "--test-launcher-filter-file=../../testing/buildbot/filters/chromeos.browser_tests.filter;../../testing/buildbot/filters/chromeos.lts.browser_tests.filter"
         ],
         "merge": {
           "args": [],
@@ -14783,25 +14073,6 @@
         "test": "angle_unittests",
         "test_id_prefix": "ninja://third_party/angle/src/tests:angle_unittests/",
         "use_isolated_scripts_api": true
-      },
-      {
-        "merge": {
-          "args": [],
-          "script": "//testing/merge_scripts/standard_gtest_merge.py"
-        },
-        "swarming": {
-          "can_use_on_swarming_builders": true,
-          "dimension_sets": [
-            {
-              "os": "Ubuntu-16.04",
-              "pool": "chrome.tests",
-              "ssd": "0"
-            }
-          ],
-          "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com"
-        },
-        "test": "app_list_unittests",
-        "test_id_prefix": "ninja://ash/app_list:app_list_unittests/"
       },
       {
         "merge": {

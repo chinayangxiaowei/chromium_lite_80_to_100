@@ -71,7 +71,6 @@ ElementRuleCollector::ElementRuleCollector(
       style_recalc_context_(style_recalc_context),
       selector_filter_(filter),
       style_(style),
-      pseudo_style_request_(kPseudoIdNone),
       mode_(SelectorChecker::kResolvingStyle),
       can_use_fast_reject_(
           selector_filter_.ParentStackIsConsistent(context.ParentNode())),
@@ -193,7 +192,7 @@ void ElementRuleCollector::CollectMatchingRulesForList(
     context.is_inside_visited_link =
         rule_data->LinkMatchType() == CSSSelector::kMatchVisited;
     DCHECK(!context.is_inside_visited_link ||
-           inside_link_ != EInsideLink::kNotInsideLink);
+           inside_link_ == EInsideLink::kInsideVisitedLink);
     if (!checker.Match(context, result)) {
       rejected++;
       continue;
@@ -278,11 +277,7 @@ void ElementRuleCollector::CollectMatchingRules(
     CollectMatchingRulesForList(match_request.rule_set->LinkPseudoClassRules(),
                                 match_request);
   }
-  if (inside_link_ != EInsideLink::kNotInsideLink) {
-    // Collect rules for visited links regardless of whether they affect
-    // rendering to prevent sniffing of visited links via CSS transitions.
-    // If the visited or unvisited style changes and an affected property has a
-    // transition rule, we create a transition even if it has no visible effect.
+  if (inside_link_ == EInsideLink::kInsideVisitedLink) {
     CollectMatchingRulesForList(match_request.rule_set->VisitedDependentRules(),
                                 match_request);
   }
@@ -414,9 +409,8 @@ void ElementRuleCollector::DidMatchRule(
     if (!rule_data->Rule()->Properties().IsEmpty())
       style_->SetHasPseudoElementStyle(dynamic_pseudo);
   } else {
-    matched_rules_.push_back(MatchedRule(rule_data, result.specificity,
-                                         match_request.style_sheet_index,
-                                         match_request.style_sheet));
+    matched_rules_.push_back(MatchedRule(
+        rule_data, match_request.style_sheet_index, match_request.style_sheet));
   }
 }
 

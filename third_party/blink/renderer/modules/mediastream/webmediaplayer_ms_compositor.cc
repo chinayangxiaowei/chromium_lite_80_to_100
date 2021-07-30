@@ -82,15 +82,9 @@ scoped_refptr<media::VideoFrame> CopyFrame(
     }
   } else {
     DCHECK(frame->IsMappable());
-    if (frame->format() != media::PIXEL_FORMAT_I420A &&
-        frame->format() != media::PIXEL_FORMAT_I420 &&
-        frame->format() != media::PIXEL_FORMAT_NV12 &&
-        frame->format() != media::PIXEL_FORMAT_ARGB) {
-      DLOG(WARNING) << frame->format() << " is not supported.";
-      return media::VideoFrame::CreateColorFrame(
-          frame->visible_rect().size(), 0u, 0x80, 0x80, frame->timestamp());
-    }
-
+    DCHECK(frame->format() == media::PIXEL_FORMAT_I420A ||
+           frame->format() == media::PIXEL_FORMAT_I420 ||
+           frame->format() == media::PIXEL_FORMAT_NV12);
     const gfx::Size& coded_size = frame->coded_size();
     new_frame = media::VideoFrame::CreateFrame(
         frame->format(), coded_size, frame->visible_rect(),
@@ -109,12 +103,6 @@ scoped_refptr<media::VideoFrame> CopyFrame(
                        new_frame->stride(media::VideoFrame::kYPlane),
                        new_frame->data(media::VideoFrame::kUVPlane),
                        new_frame->stride(media::VideoFrame::kUVPlane),
-                       coded_size.width(), coded_size.height());
-    } else if (frame->format() == media::PIXEL_FORMAT_ARGB) {
-      libyuv::ARGBCopy(frame->data(media::VideoFrame::kARGBPlane),
-                       frame->stride(media::VideoFrame::kARGBPlane),
-                       new_frame->data(media::VideoFrame::kARGBPlane),
-                       new_frame->stride(media::VideoFrame::kARGBPlane),
                        coded_size.width(), coded_size.height());
     } else {
       libyuv::I420Copy(frame->data(media::VideoFrame::kYPlane),
@@ -594,7 +582,8 @@ void WebMediaPlayerMSCompositor::RenderWithoutAlgorithmOnCompositor(
   DCHECK(video_frame_compositor_task_runner_->BelongsToCurrentThread());
   {
     base::AutoLock auto_lock(current_frame_lock_);
-    if (current_frame_)
+    // Last timestamp in the stream might not have timestamp.
+    if (current_frame_ && !frame->timestamp().is_zero())
       last_render_length_ = frame->timestamp() - current_frame_->timestamp();
     SetCurrentFrame(std::move(frame), is_copy, base::nullopt);
   }

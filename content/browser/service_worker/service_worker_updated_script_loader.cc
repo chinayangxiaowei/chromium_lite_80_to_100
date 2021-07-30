@@ -159,6 +159,11 @@ void ServiceWorkerUpdatedScriptLoader::ResumeReadingBodyFromNet() {
 
 // URLLoaderClient for network loader ------------------------------------------
 
+void ServiceWorkerUpdatedScriptLoader::OnReceiveEarlyHints(
+    network::mojom::EarlyHintsPtr early_hints) {
+  NOTREACHED();
+}
+
 void ServiceWorkerUpdatedScriptLoader::OnReceiveResponse(
     network::mojom::URLResponseHeadPtr response_head) {
   NOTREACHED();

@@ -6,10 +6,6 @@
 
 #include <algorithm>
 
-#include "chrome/browser/platform_util.h"
-#include "content/public/browser/web_contents.h"
-#include "ui/views/widget/widget.h"
-
 // Returns:
 //    |value| if |lower_bound| < |value| < |upper_bound|
 //    |lower_bound| if |value| < |lower_bound| < |upper_bound|
@@ -19,18 +15,17 @@ int NormalizeValueBasedOnBounds(int lower_bound, int upper_bound, int value) {
 }
 
 void CalculatePopupXAndWidth(int popup_preferred_width,
-                             const gfx::Rect& content_area_bounds,
+                             const gfx::Rect& window_bounds,
                              const gfx::Rect& element_bounds,
                              bool is_rtl,
                              gfx::Rect* popup_bounds) {
   int right_growth_start = NormalizeValueBasedOnBounds(
-      content_area_bounds.x(), content_area_bounds.right(), element_bounds.x());
-  int left_growth_end = NormalizeValueBasedOnBounds(content_area_bounds.x(),
-                                                    content_area_bounds.right(),
-                                                    element_bounds.right());
+      window_bounds.x(), window_bounds.right(), element_bounds.x());
+  int left_growth_end = NormalizeValueBasedOnBounds(
+      window_bounds.x(), window_bounds.right(), element_bounds.right());
 
-  int right_available = content_area_bounds.right() - right_growth_start;
-  int left_available = left_growth_end - content_area_bounds.x();
+  int right_available = window_bounds.right() - right_growth_start;
+  int left_available = left_growth_end - window_bounds.x();
 
   int popup_width = std::min(popup_preferred_width,
                              std::max(left_available, right_available));
@@ -53,18 +48,16 @@ void CalculatePopupXAndWidth(int popup_preferred_width,
 }
 
 void CalculatePopupYAndHeight(int popup_preferred_height,
-                              const gfx::Rect& content_area_bounds,
+                              const gfx::Rect& window_bounds,
                               const gfx::Rect& element_bounds,
                               gfx::Rect* popup_bounds) {
-  int top_growth_end = NormalizeValueBasedOnBounds(content_area_bounds.y(),
-                                                   content_area_bounds.bottom(),
-                                                   element_bounds.y());
+  int top_growth_end = NormalizeValueBasedOnBounds(
+      window_bounds.y(), window_bounds.bottom(), element_bounds.y());
   int bottom_growth_start = NormalizeValueBasedOnBounds(
-      content_area_bounds.y(), content_area_bounds.bottom(),
-      element_bounds.bottom());
+      window_bounds.y(), window_bounds.bottom(), element_bounds.bottom());
 
-  int top_available = top_growth_end - content_area_bounds.y();
-  int bottom_available = content_area_bounds.bottom() - bottom_growth_start;
+  int top_available = top_growth_end - window_bounds.y();
+  int bottom_available = window_bounds.bottom() - bottom_growth_start;
 
   popup_bounds->set_height(popup_preferred_height);
   popup_bounds->set_y(top_growth_end);
@@ -75,22 +68,21 @@ void CalculatePopupYAndHeight(int popup_preferred_height,
         gfx::Rect(popup_bounds->x(), element_bounds.bottom(),
                   popup_bounds->width(), bottom_available));
   } else {
-    popup_bounds->AdjustToFit(gfx::Rect(popup_bounds->x(),
-                                        content_area_bounds.y(),
+    popup_bounds->AdjustToFit(gfx::Rect(popup_bounds->x(), window_bounds.y(),
                                         popup_bounds->width(), top_available));
   }
 }
 
 gfx::Rect CalculatePopupBounds(const gfx::Size& desired_size,
-                               const gfx::Rect& content_area_bounds,
+                               const gfx::Rect& window_bounds,
                                const gfx::Rect& element_bounds,
                                bool is_rtl) {
   gfx::Rect popup_bounds;
 
-  CalculatePopupXAndWidth(desired_size.width(), content_area_bounds,
-                          element_bounds, is_rtl, &popup_bounds);
-  CalculatePopupYAndHeight(desired_size.height(), content_area_bounds,
-                           element_bounds, &popup_bounds);
+  CalculatePopupXAndWidth(desired_size.width(), window_bounds, element_bounds,
+                          is_rtl, &popup_bounds);
+  CalculatePopupYAndHeight(desired_size.height(), window_bounds, element_bounds,
+                           &popup_bounds);
 
   return popup_bounds;
 }
@@ -117,24 +109,4 @@ bool CanShowDropdownHere(int item_height,
           element_top_is_within_content_area_bounds) ||
          (enough_space_for_one_item_in_content_area_below_element &&
           element_bottom_is_within_content_area_bounds);
-}
-
-bool BoundsOverlapWithAnyOpenPrompt(const gfx::Rect& screen_bounds,
-                                    content::WebContents* web_contents) {
-  gfx::NativeView top_level_view =
-      platform_util::GetViewForWindow(web_contents->GetTopLevelNativeWindow());
-  if (!top_level_view)
-    return false;
-  // On Aura-based systems, prompts are siblings to the top level native window,
-  // and hence we need to go one level up to start searching from the root
-  // window.
-  top_level_view = platform_util::GetParent(top_level_view)
-                       ? platform_util::GetParent(top_level_view)
-                       : top_level_view;
-  views::Widget::Widgets all_widgets;
-  views::Widget::GetAllChildWidgets(top_level_view, &all_widgets);
-  return base::ranges::any_of(all_widgets, [&screen_bounds](views::Widget* w) {
-    return w->IsDialogBox() &&
-           w->GetWindowBoundsInScreen().Intersects(screen_bounds);
-  });
 }

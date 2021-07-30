@@ -389,6 +389,9 @@ class BBJSONGenerator(object):
   def is_chromeos(self, tester_config):
     return tester_config.get('os_type') == 'chromeos'
 
+  def is_lacros(self, tester_config):
+    return tester_config.get('os_type') == 'lacros'
+
   def is_linux(self, tester_config):
     return tester_config.get('os_type') == 'linux'
 
@@ -576,6 +579,7 @@ class BBJSONGenerator(object):
         args.extend(val)
 
     add_conditional_args('desktop_args', lambda cfg: not self.is_android(cfg))
+    add_conditional_args('lacros_args', self.is_lacros)
     add_conditional_args('linux_args', self.is_linux)
     add_conditional_args('android_args', self.is_android)
     add_conditional_args('chromeos_args', self.is_chromeos)
@@ -1422,7 +1426,7 @@ class BBJSONGenerator(object):
       self.write_file(self.pyl_file_path(filename + suffix), jsonstr)
 
   def get_valid_bot_names(self):
-    # Extract bot names from infra/config/generated/luci/luci-milo.cfg.
+    # Extract bot names from infra/config/generated/luci-milo.cfg.
     # NOTE: This reference can cause issues; if a file changes there, the
     # presubmit here won't be run by default. A manually maintained list there
     # tries to run presubmit here when luci-milo.cfg is changed. If any other
@@ -1443,8 +1447,7 @@ class BBJSONGenerator(object):
 
     bot_names = set()
     milo_configs = glob.glob(
-        os.path.join(self.args.infra_config_dir, 'generated', 'luci',
-                     'luci-milo*.cfg'))
+        os.path.join(self.args.infra_config_dir, 'generated', 'luci-milo*.cfg'))
     for c in milo_configs:
       for l in self.read_file(c).splitlines():
         if (not 'name: "buildbucket/luci.chromium.' in l and
@@ -1465,11 +1468,6 @@ class BBJSONGenerator(object):
         'ANGLE GPU Android Release (Nexus 5X)',
         'ANGLE GPU Linux Release (Intel HD 630)',
         'ANGLE GPU Linux Release (NVIDIA)',
-        'ANGLE GPU Mac Release (Intel)',
-        'ANGLE GPU Mac Retina Release (AMD)',
-        'ANGLE GPU Mac Retina Release (NVIDIA)',
-        'ANGLE GPU Win10 x64 Release (Intel HD 630)',
-        'ANGLE GPU Win10 x64 Release (NVIDIA)',
         'Optional Android Release (Nexus 5X)',
         'Optional Linux Release (Intel HD 630)',
         'Optional Linux Release (NVIDIA)',
@@ -1478,7 +1476,6 @@ class BBJSONGenerator(object):
         'Optional Mac Retina Release (NVIDIA)',
         'Optional Win10 x64 Release (Intel HD 630)',
         'Optional Win10 x64 Release (NVIDIA)',
-        'Win7 ANGLE Tryserver (AMD)',
         # chromium.chromiumos
         'linux-lacros-rel',
         # chromium.fyi

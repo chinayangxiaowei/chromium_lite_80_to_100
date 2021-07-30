@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/optional.h"
-#include "base/memory/weak_ptr.h"
 #include "content/public/renderer/plugin_ax_tree_source.h"
 #include "ppapi/c/pp_instance.h"
 #include "ppapi/c/private/ppb_pdf.h"
@@ -127,6 +126,7 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
   void ClearAccessibilityNodes();
 
   content::RenderAccessibility* GetRenderAccessibility();
+  content::RenderAccessibility* GetRenderAccessibilityIfEnabled();
   std::unique_ptr<gfx::Transform> MakeTransformFromViewInfo() const;
 
   ui::AXTreeData tree_data_;
@@ -172,8 +172,6 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource {
   // Index of the next expected PDF accessibility page info, used to ignore
   // outdated calls of SetAccessibilityPageInfo().
   uint32_t next_page_index_ = 0;
-
-  base::WeakPtrFactory<PdfAccessibilityTree> weak_ptr_factory_{this};
 };
 
 }  // namespace pdf

@@ -17,7 +17,7 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "project-chromium-admins",
+            groups = "google/luci-task-force@google.com",
         ),
         acl.entry(
             roles = acl.SCHEDULER_OWNER,
@@ -62,6 +62,7 @@ builder(
 builder(
     name = "WebRTC Chromium Linux Tester",
     triggered_by = ["WebRTC Chromium Linux Builder"],
+    os = os.LINUX_BIONIC,
 )
 
 builder(

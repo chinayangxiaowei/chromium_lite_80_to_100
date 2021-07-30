@@ -86,8 +86,6 @@ void HRTFDatabaseLoader::LoadTask() {
 void HRTFDatabaseLoader::LoadAsynchronously() {
   DCHECK(IsMainThread());
 
-  MutexLocker locker(lock_);
-
   // m_hrtfDatabase and m_thread should both be unset because this should be a
   // new HRTFDatabaseLoader object that was just created by
   // createAndLoadAsynchronouslyIfNecessary and because we haven't started
@@ -124,10 +122,6 @@ void HRTFDatabaseLoader::CleanupTask(base::WaitableEvent* sync) {
 }
 
 void HRTFDatabaseLoader::WaitForLoaderThreadCompletion() {
-  // We can lock this because this is called from either the main thread or
-  // the offline audio rendering thread.
-  MutexLocker locker(lock_);
-
   if (!thread_)
     return;
 

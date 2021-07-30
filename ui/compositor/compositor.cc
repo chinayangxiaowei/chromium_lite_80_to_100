@@ -5,7 +5,9 @@
 #include "ui/compositor/compositor.h"
 
 #include <stddef.h>
+
 #include <algorithm>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -246,7 +248,8 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   if (base::FeatureList::IsEnabled(features::kUiCompositorScrollWithLayers) &&
       compositor_delegate) {
     input_handler_weak_ = cc::InputHandler::Create(*compositor_delegate);
-    scroll_input_handler_.reset(new ScrollInputHandler(input_handler_weak_));
+    scroll_input_handler_ =
+        std::make_unique<ScrollInputHandler>(input_handler_weak_);
   }
 
   animation_timeline_ =
@@ -650,10 +653,8 @@ void Compositor::BeginMainFrameNotExpectedUntil(base::TimeTicks time) {}
 
 static void SendDamagedRectsRecursive(ui::Layer* layer) {
   layer->SendDamagedRects();
-  // Iterate using the size for the case of mutation during sending damaged
-  // regions. https://crbug.com/1242257.
-  for (size_t i = 0; i < layer->children().size(); ++i)
-    SendDamagedRectsRecursive(layer->children()[i]);
+  for (auto* child : layer->children())
+    SendDamagedRectsRecursive(child);
 }
 
 void Compositor::UpdateLayerTreeHost() {
@@ -752,7 +753,11 @@ void Compositor::StartThroughputTracker(
 }
 
 void Compositor::StopThroughtputTracker(TrackerId tracker_id) {
-  DCHECK(base::Contains(throughput_tracker_map_, tracker_id));
+  // TODO(crbug.com/1183374): DCHECKs are disabled during automated testing on
+  // CrOS and this check failed when tested on an experimental builder. Revert
+  // https://crrev.com/c/2727841 (or uncomment) to enable it. See
+  // go/chrome-dcheck-on-cros or http://crbug.com/1113456 for more details.
+  // DCHECK(base::Contains(throughput_tracker_map_, tracker_id));
   animation_host_->StopThroughputTracking(tracker_id);
 }
 

@@ -7,6 +7,7 @@
 #include "base/optional.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/css/css_test_helpers.h"
+#include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/selector_filter.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -38,7 +39,7 @@ class ElementRuleCollectorTest : public PageTestBase {
     ElementResolveContext context(*element);
     SelectorFilter filter;
     MatchResult result;
-    auto style = ComputedStyle::Create();
+    auto style = GetDocument().GetStyleResolver().CreateComputedStyle();
     ElementRuleCollector collector(context, StyleRecalcContext(), filter,
                                    result, style.get(), InsideLink(element));
 
@@ -110,7 +111,7 @@ TEST_F(ElementRuleCollectorTest, LinkMatchType) {
   EXPECT_EQ(Match(link, "#foo"), base::nullopt);
 
   EXPECT_EQ(Match(foo, "#foo"), kMatchLink);
-  EXPECT_EQ(Match(link, ":visited"), kMatchVisited);
+  EXPECT_EQ(Match(link, ":visited"), base::nullopt);
   EXPECT_EQ(Match(link, ":link"), kMatchLink);
   // Note that for elements that are not inside links at all, we always
   // expect kMatchLink, since kMatchLink represents the regular (non-visited)
@@ -242,9 +243,9 @@ TEST_F(ElementRuleCollectorTest, LinkMatchTypeHostContext) {
     EXPECT_EQ(Match(element, ":host-context(a) div", scope), kMatchAll);
     EXPECT_EQ(Match(element, ":host-context(:link) div", scope), kMatchLink);
     EXPECT_EQ(Match(element, ":host-context(:visited) div", scope),
-              kMatchVisited);
+              base::nullopt);
     EXPECT_EQ(Match(element, ":host-context(:is(:visited, :link)) div", scope),
-              kMatchAll);
+              kMatchLink);
   }
 }
 

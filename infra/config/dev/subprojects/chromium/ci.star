@@ -20,7 +20,7 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "project-chromium-admins",
+            groups = "google/luci-task-force@google.com",
         ),
     ],
 )

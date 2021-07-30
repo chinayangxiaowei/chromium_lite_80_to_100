@@ -144,7 +144,7 @@ public abstract class ChromeSwitches {{
      */
     public static final String CHROME_HOME_SWIPE_LOGIC_VELOCITY = "velocity";
 
-    /** Switch for enabling the Chrome Survey. */
+    /** Switch for enabling the Chrome Survey. Only works when UMA is accepted. */
     public static final String CHROME_FORCE_ENABLE_SURVEY = "force-enable-chrome-survey";
 
     /** Switch to enable incognito tabs to be seen in Android Recents. */
@@ -187,6 +187,10 @@ public abstract class ChromeSwitches {{
     /** Disable the default browser promo. */
     public static final String DISABLE_DEFAULT_BROWSER_PROMO =
             "disable-default-browser-promo";
+
+    /** Debug Chime notifications. */
+    public static final String DEBUG_CHIME_NOTIFICATION =
+            "debug-chime-notification";
 
 {NATIVE_STRINGS}
 
