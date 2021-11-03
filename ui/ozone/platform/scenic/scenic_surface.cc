@@ -8,7 +8,6 @@
 #include <lib/ui/scenic/cpp/view_token_pair.h>
 #include <lib/zx/eventpair.h>
 
-#include "base/fuchsia/fuchsia_logging.h"
 #include "base/numerics/math_constants.h"
 #include "ui/ozone/platform/scenic/scenic_gpu_host.h"
 #include "ui/ozone/platform/scenic/scenic_surface_factory.h"
@@ -41,13 +40,6 @@ float OverlayTransformToRadians(gfx::OverlayTransform plane_transform) {
   }
   NOTREACHED();
   return 0;
-}
-
-zx::event DuplicateZxEvent(const zx::event& event) {
-  zx::event result;
-  zx_status_t status = event.duplicate(ZX_RIGHT_SAME_RIGHTS, &result);
-  ZX_DCHECK(status == ZX_OK, status);
-  return result;
 }
 
 }  // namespace
@@ -117,33 +109,6 @@ bool ScenicSurface::SetTextureToNewImagePipe(
   return true;
 }
 
-void ScenicSurface::FlushOverlaysLayout(
-    const std::vector<zx::event>& acquire_fences) {
-  // Update overlay visibility.
-  for (auto it = overlays_.begin(); it != overlays_.end(); ++it) {
-    auto& overlay_view = it->second;
-    if (overlay_view.visible != overlay_view.should_be_visible) {
-      overlay_view.visible = overlay_view.should_be_visible;
-      layout_update_required_ = true;
-    }
-  }
-
-  if (layout_update_required_) {
-    layout_update_required_ = false;
-
-    for (auto& fence : acquire_fences)
-      scenic_session_.EnqueueAcquireFence(DuplicateZxEvent(fence));
-
-    UpdateViewHolderScene();
-  }
-
-  // Reset `should_be_visible` flag for the next present. The flag will be set
-  // again in `UpdateOverlayViewPosition()` if the overlay wasn't hidden.
-  for (auto& overlay : overlays_) {
-    overlay.second.should_be_visible = false;
-  }
-}
-
 void ScenicSurface::SetTextureToImage(const scenic::Image& image) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   main_material_.SetTexture(image);
@@ -157,9 +122,15 @@ bool ScenicSurface::PresentOverlayView(
   scenic::ViewHolder view_holder(&scenic_session_, std::move(view_holder_token),
                                  "OverlayViewHolder");
   scenic::EntityNode entity_node(&scenic_session_);
+  fuchsia::ui::gfx::ViewProperties view_properties;
+  view_properties.bounding_box = {{-0.5f, -0.5f, 0.f}, {0.5f, 0.5f, 0.f}};
+  view_properties.focus_change = false;
+  view_holder.SetViewProperties(std::move(view_properties));
   view_holder.SetHitTestBehavior(fuchsia::ui::gfx::HitTestBehavior::kSuppress);
 
   entity_node.AddChild(view_holder);
+  parent_->AddChild(entity_node);
+  safe_presenter_.QueuePresent();
 
   DCHECK(!overlays_.count(id));
   overlays_.emplace(
@@ -174,12 +145,11 @@ bool ScenicSurface::UpdateOverlayViewPosition(
     int plane_z_order,
     const gfx::Rect& display_bounds,
     const gfx::RectF& crop_rect,
-    gfx::OverlayTransform plane_transform) {
+    gfx::OverlayTransform plane_transform,
+    std::vector<zx::event> acquire_fences) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(overlays_.count(id));
   auto& overlay_view_info = overlays_.at(id);
-
-  overlay_view_info.should_be_visible = true;
 
   if (overlay_view_info.plane_z_order == plane_z_order &&
       overlay_view_info.display_bounds == display_bounds &&
@@ -193,7 +163,12 @@ bool ScenicSurface::UpdateOverlayViewPosition(
   overlay_view_info.crop_rect = crop_rect;
   overlay_view_info.plane_transform = plane_transform;
 
-  layout_update_required_ = true;
+  for (auto& fence : acquire_fences)
+    scenic_session_.EnqueueAcquireFence(std::move(fence));
+
+  // TODO(crbug.com/1143514): Only queue commands for the affected overlays
+  // instead of the whole scene.
+  UpdateViewHolderScene();
 
   return true;
 }
@@ -226,6 +201,8 @@ mojo::PlatformHandle ScenicSurface::CreateView() {
 
 void ScenicSurface::UpdateViewHolderScene() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (overlays_.empty())
+    return;
 
   // |plane_z_order| for main surface is 0.
   int min_z_order = 0;
@@ -234,15 +211,6 @@ void ScenicSurface::UpdateViewHolderScene() {
   }
   for (auto& overlay : overlays_) {
     auto& info = overlay.second;
-
-    if (!info.visible) {
-      // `Detach()` is a no-op if the node is not attached.
-      info.entity_node.Detach();
-      continue;
-    }
-
-    // No-op if the node is already attached.
-    parent_->AddChild(info.entity_node);
 
     // Apply view bound clipping around the ImagePipe that has size 1x1 and
     // centered at (0, 0).

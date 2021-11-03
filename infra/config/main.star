@@ -10,7 +10,7 @@ load("//lib/branches.star", "branches")
 load("//project.star", "settings")
 
 lucicfg.check_version(
-    min = "1.29.1",
+    min = "1.28.0",
     message = "Update depot_tools",
 )
 
@@ -21,7 +21,10 @@ lucicfg.enable_experiment("crbug.com/1085650")
 lucicfg.config(
     config_dir = "generated",
     tracked_files = [
+        "builders/*/*/*",
         "cq-builders.md",
+        "cq-usage/default.cfg",
+        "cq-usage/full.cfg",
         "luci/commit-queue.cfg",
         "luci/cr-buildbucket.cfg",
         "luci/luci-logdog.cfg",
@@ -78,12 +81,6 @@ luci.project(
         acl.entry(
             roles = acl.SCHEDULER_OWNER,
             groups = "project-chromium-admins",
-        ),
-    ],
-    bindings = [
-        luci.binding(
-            roles = "role/configs.validator",
-            groups = "project-chromium-try-task-accounts",
         ),
     ],
 )
@@ -144,13 +141,8 @@ luci.realm(
     ],
 )
 
-luci.builder.defaults.experiments.set({
-    # TODO(crbug.com/1135718): Promote out of experiment for all builders.
-    "chromium.chromium_tests.use_rdb_results": 100,
-    # Launch Swarming tasks in "realms-aware mode", crbug.com/1136313.
-    "luci.use_realms": 100,
-})
-
+# Launch Swarming tasks in "realms-aware mode", crbug.com/1136313.
+luci.builder.defaults.experiments.set({"luci.use_realms": 100})
 luci.builder.defaults.test_presentation.set(resultdb.test_presentation(grouping_keys = ["status", "v.test_suite"]))
 
 exec("//swarming.star")
@@ -166,6 +158,7 @@ branches.exec("//subprojects/goma/subproject.star")
 branches.exec("//subprojects/reclient/subproject.star")
 branches.exec("//subprojects/webrtc/subproject.star")
 
+exec("//generators/cq-usage.star")
 branches.exec("//generators/cq-builders-md.star")
 
 exec("//generators/scheduler-noop-jobs.star")

@@ -2,18 +2,23 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# The value for each attribute should be the corresponding value that can be
+# passed to the --type flag of scripts/branch.py
+branch_type = struct(
+    STANDARD = "standard",
+    DESKTOP_EXTENDED_STABLE = "desktop-extended-stable",
+    CROS_LTS = "cros-lts",
+)
+
+_BRANCH_TYPES = tuple([getattr(branch_type, a) for a in dir(branch_type)])
+
 def _project_settings(
         *,
         project,
         project_title,
-        is_main,
-        is_lts_branch,
-        is_fuchsia_branch,
-        chrome_project,
         ref,
-        cq_ref_regexp,
-        try_triggering_projects,
-        tree_status_host):
+        chrome_project,
+        branch_types = []):
     """Declare settings for the project.
 
     This provides the central location for what must be modified when
@@ -25,51 +30,39 @@ def _project_settings(
       * project - The name of the LUCI project.
       * project_title - A string identifying the project in title contexts (e.g.
         titles of consoles).
-      * is_main - Whether this branch is main/master/trunk.
-      * is_lts_branch - Whether this branch is in the LTS channel.
-      * is_fuchsia_branch - Whether this branch is the initial fuchsia one-off
-        branch.
       * ref - The git ref containing the code for this branch.
+      * chrome_project - The name of the corresponding chrome project.
+      * branch_types - Values indicating what type(s) apply to the branch. If no
+        branch types are specified, that indicates main. It is an error for
+        branch_type.STANDARD to appear along with any other values.
+
+    Returns:
+      A struct with attributes set to the input parameters. Additionally, the
+      is_main attribute is set to True if branch_types is empty or False if
+      branch_types is not empty.
     """
-    if is_main and (is_lts_branch or is_fuchsia_branch):
-        fail("is_main and is_lts_branch can't both be True")
+    invalid_branch_types = [t for t in branch_types if t not in _BRANCH_TYPES]
+    if invalid_branch_types:
+        fail("The following branch types are invalid: {}".format(invalid_branch_types))
+    if branch_type.STANDARD in branch_types and len(branch_types) != 1:
+        fail("STANDARD branch type cannot be specified along with other branch types")
     return struct(
         project = project,
         project_title = project_title,
-        is_main = is_main,
-        is_lts_branch = is_lts_branch,
-        is_fuchsia_branch = is_fuchsia_branch,
         ref = ref,
         chrome_project = chrome_project,
+        is_main = not branch_types,
+        branch_types = branch_types,
     )
 
-settings = _project_settings(
-    # Set this to the name of the milestone's project
-    project = "chromium-m92",
-    # Set this to how the branch should be referred to in console titles
-    project_title = "Chromium M92",
-    # Set this to False for branches
-    is_main = False,
-    # Set this to True for LTC/LTS branches
-    is_lts_branch = False,
-    is_fuchsia_branch = True,
-    # Set this to the branch ref for branches
-    ref = "refs/branch-heads/4515",
-    chrome_project = "chrome-m92",
-    # Set this to the branch ref for branches
-    cq_ref_regexp = "refs/branch-heads/4515",
-    # Set this to None for branches
-    try_triggering_projects = None,
-    # Set this to None for branches
-    tree_status_host = None,
-)
+settings = _project_settings(**json.decode(io.read_file("./settings.json")))
 
 def _generate_project_pyl(ctx):
     ctx.output["project.pyl"] = "\n".join([
         "# This is a non-LUCI generated file",
         "# This is consumed by presubmit checks that need to validate the config",
         repr(dict(
-            # On master, we want to ensure that we don't have source side specs
+            # On main, we want to ensure that we don't have source side specs
             # defined for non-existent builders
             # On branches, we don't want to re-generate the source side specs as
             # that would increase branch day toil and complicate cherry-picks

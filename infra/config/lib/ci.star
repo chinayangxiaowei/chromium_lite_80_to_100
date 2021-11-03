@@ -110,6 +110,9 @@ def ci_builder(
     experiments.setdefault("chromium.resultdb.result_sink.junit_tests", 100)
     experiments.setdefault("chromium.resultdb.result_sink.gtests_local", 100)
 
+    # TODO(crbug.com/1135718): Promote out of experiment for all builders.
+    experiments.setdefault("chromium.chromium_tests.use_rdb_results", 100)
+
     goma_enable_ats = defaults.get_value_from_kwargs("goma_enable_ats", kwargs)
     if goma_enable_ats == args.COMPUTE:
         os = defaults.get_value_from_kwargs("os", kwargs)
@@ -616,6 +619,20 @@ def gpu_windows_builder(*, name, **kwargs):
         **kwargs
     )
 
+def infra_builder(
+        *,
+        name,
+        goma_backend = builders.goma.backend.RBE_PROD,
+        os = builders.os.LINUX_BIONIC_REMOVE,
+        **kwargs):
+    return ci.builder(
+        name = name,
+        builder_group = "infra",
+        goma_backend = goma_backend,
+        os = os,
+        **kwargs
+    )
+
 def linux_builder(
         *,
         name,
@@ -859,6 +876,7 @@ ci = struct(
     gpu_mac_builder = gpu_mac_builder,
     gpu_thin_tester = gpu_thin_tester,
     gpu_windows_builder = gpu_windows_builder,
+    infra_builder = infra_builder,
     linux_builder = linux_builder,
     mac_builder = mac_builder,
     mac_ios_builder = mac_ios_builder,
@@ -871,4 +889,9 @@ ci = struct(
     thin_tester = thin_tester,
     updater_builder = updater_builder,
     win_builder = win_builder,
+)
+
+rbe_instance = struct(
+    DEFAULT = "rbe-chromium-trusted",
+    GVISOR_SHADOW = "rbe-chromium-gvisor-shadow",
 )

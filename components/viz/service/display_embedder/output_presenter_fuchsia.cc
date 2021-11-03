@@ -53,6 +53,18 @@ zx::event DuplicateZxEvent(const zx::event& event) {
   return result;
 }
 
+// Duplicates the given zx::events and stores in gfx::GpuFences.
+std::vector<gfx::GpuFence> ZxEventsToGpuFences(
+    const std::vector<zx::event>& events) {
+  std::vector<gfx::GpuFence> fences;
+  for (const auto& event : events) {
+    gfx::GpuFenceHandle handle;
+    handle.owned_event = DuplicateZxEvent(event);
+    fences.emplace_back(std::move(handle));
+  }
+  return fences;
+}
+
 class PresenterImageFuchsia : public OutputPresenter::Image {
  public:
   explicit PresenterImageFuchsia(uint32_t image_id);
@@ -155,19 +167,17 @@ std::unique_ptr<OutputPresenterFuchsia> OutputPresenterFuchsia::Create(
   if (!window_surface->SetTextureToNewImagePipe(image_pipe.NewRequest()))
     return {};
 
-  return std::make_unique<OutputPresenterFuchsia>(
-      window_surface, std::move(image_pipe), deps, shared_image_factory,
-      representation_factory);
+  return std::make_unique<OutputPresenterFuchsia>(std::move(image_pipe), deps,
+                                                  shared_image_factory,
+                                                  representation_factory);
 }
 
 OutputPresenterFuchsia::OutputPresenterFuchsia(
-    ui::PlatformWindowSurface* window_surface,
     fuchsia::images::ImagePipe2Ptr image_pipe,
     SkiaOutputSurfaceDependency* deps,
     gpu::SharedImageFactory* shared_image_factory,
     gpu::SharedImageRepresentationFactory* representation_factory)
-    : window_surface_(window_surface),
-      image_pipe_(std::move(image_pipe)),
+    : image_pipe_(std::move(image_pipe)),
       dependency_(deps),
       shared_image_factory_(shared_image_factory),
       shared_image_representation_factory_(representation_factory) {
@@ -233,6 +243,10 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
                                        size_t num_images) {
   if (!image_pipe_)
     return {};
+
+  // Fuchsia allocates images in batches and does not support allocating and
+  // releasing images on demand.
+  CHECK_NE(num_images, 1u);
 
   // If we already allocated buffer collection then it needs to be released.
   if (last_buffer_collection_id_) {
@@ -443,7 +457,7 @@ void OutputPresenterFuchsia::PresentNextFrame() {
                                  overlay.plane_z_order, overlay.transform,
                                  gfx::ToRoundedRect(overlay.display_rect),
                                  overlay.uv_rect, !overlay.is_opaque,
-                                 /*acquire_fences=*/{},
+                                 ZxEventsToGpuFences(frame.acquire_fences),
                                  /*release_fences=*/{});
   }
 
@@ -471,8 +485,6 @@ void OutputPresenterFuchsia::PresentNextFrame() {
   for (auto& fence : frame.release_fences) {
     release_fences_from_last_present_.push_back(DuplicateZxEvent(fence));
   }
-
-  window_surface_->FlushOverlaysLayout(frame.acquire_fences);
 
   image_pipe_->PresentImage(
       frame.image_id, present_time.ToZxTime(), std::move(frame.acquire_fences),
@@ -503,8 +515,8 @@ void OutputPresenterFuchsia::OnPresentComplete(
   }
 
   presentation_state_ =
-      PresentationState{pending_frames_.front().ordinal, presentation_time,
-                        presentation_interval};
+      PresentationState{static_cast<int>(pending_frames_.front().ordinal),
+                        presentation_time, presentation_interval};
 
   pending_frames_.pop_front();
 }

@@ -24,6 +24,7 @@ class PermissionRequestChip : public PermissionChip {
  private:
   // PermissionChip:
   views::View* CreateBubble() override;
+  void Collapse(bool allow_restart) override;
 
   void RecordChipButtonPressed();
 
