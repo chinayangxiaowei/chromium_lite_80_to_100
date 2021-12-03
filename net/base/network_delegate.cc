@@ -35,14 +35,13 @@ int NetworkDelegate::NotifyBeforeURLRequest(URLRequest* request,
 
 int NetworkDelegate::NotifyBeforeStartTransaction(
     URLRequest* request,
-    CompletionOnceCallback callback,
-    HttpRequestHeaders* headers) {
+    const HttpRequestHeaders& headers,
+    OnBeforeStartTransactionCallback callback) {
   TRACE_EVENT0(NetTracingCategory(),
                "NetworkDelegate::NotifyBeforeStartTransation");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(headers);
   DCHECK(!callback.is_null());
-  return OnBeforeStartTransaction(request, std::move(callback), headers);
+  return OnBeforeStartTransaction(request, headers, std::move(callback));
 }
 
 int NetworkDelegate::NotifyHeadersReceived(
@@ -51,7 +50,7 @@ int NetworkDelegate::NotifyHeadersReceived(
     const HttpResponseHeaders* original_response_headers,
     scoped_refptr<HttpResponseHeaders>* override_response_headers,
     const IPEndPoint& endpoint,
-    base::Optional<GURL>* preserve_fragment_on_redirect_url) {
+    absl::optional<GURL>* preserve_fragment_on_redirect_url) {
   TRACE_EVENT0(NetTracingCategory(), "NetworkDelegate::NotifyHeadersReceived");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(original_response_headers);
@@ -119,7 +118,7 @@ bool NetworkDelegate::CanSetCookie(const URLRequest& request,
 bool NetworkDelegate::ForcePrivacyMode(
     const GURL& url,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& top_frame_origin) const {
+    const absl::optional<url::Origin>& top_frame_origin) const {
   TRACE_EVENT0(NetTracingCategory(), "NetworkDelegate::ForcePrivacyMode");
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   return OnForcePrivacyMode(url, site_for_cookies, top_frame_origin);

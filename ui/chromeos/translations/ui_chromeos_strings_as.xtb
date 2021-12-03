@@ -41,6 +41,7 @@
 <translation id="1395262318152388157">ছীক স্লাইডাৰ</translation>
 <translation id="1404323374378969387">ন’ৰৱেজিয়ান</translation>
 <translation id="1430915738399379752">প্ৰিণ্ট কৰক</translation>
+<translation id="1433628812591023318">Parallels Desktopত ফাইল ৰাখিবলৈ, ফাইলটো Windows ফাইললৈ নিবই লাগিব।</translation>
 <translation id="1435838927755162558">Parallels Desktopৰ জৰিয়তে ফ’ল্ডাৰটো শ্বেয়াৰ কৰক</translation>
 <translation id="1467432559032391204">বাওঁফালে</translation>
 <translation id="1471718551822868769">শ্ল’ভাক</translation>
@@ -196,6 +197,7 @@
 <translation id="3067790092342515856">Windows ফাইলসমূহ</translation>
 <translation id="3078461028045006476"><ph name="EXTENSION_NAME" />ৰ জৰিয়তে শ্বেয়াৰ কৰক</translation>
 <translation id="3083975830683400843">Chromebits</translation>
+<translation id="3113153474486991170">এই অৱস্থানটোৰ পৰা "<ph name="PATH" />" খুলিব পৰা নগ'ল। খুলিবলৈ অনুগ্ৰহ কৰি "মোৰ ফাইল"লৈ প্ৰতিলিপি কৰক।</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3144126448740580210">কৰা হ’ল</translation>
 <translation id="3188257591659621405">মোৰ ফাইলসমূহ</translation>
@@ -223,6 +225,7 @@
 <translation id="3358452157379365236">গিটাৰ</translation>
 <translation id="3382143449143186018">InScript কীব’ৰ্ডৰ সৈতে নেপালী</translation>
 <translation id="3408236822532681288">Neo 2 কীব’ৰ্ডৰ সৈতে জাৰ্মান (জাৰ্মানী)</translation>
+<translation id="3414856743105198592">আঁতৰাব পৰা মিডিয়া ফর্মেট কৰা কার্যয়ে সকলো ডেটা মচিব। আপুনি অব্যাহত ৰাখিব খোজেনে?</translation>
 <translation id="3437801641691368414">সৃষ্টি কৰাৰ সময়</translation>
 <translation id="343907260260897561">তাৎক্ষণিক কেমেৰা</translation>
 <translation id="3455931012307786678">ইষ্ট’নিয়া</translation>
@@ -274,6 +277,7 @@
 <translation id="3899991606604168269">বহুভাষিক কীব’ৰ্ডৰ সৈতে ফৰাচী (কানাডা)</translation>
 <translation id="3924145049010392604">মেটা</translation>
 <translation id="3930521966936686665">ইয়াত প্লে‘ কৰক</translation>
+<translation id="3943857333388298514">পেষ্ট কৰক</translation>
 <translation id="3952872973865944257">তেলুগু ফ’নেটিক</translation>
 <translation id="3958548648197196644">কিৱি</translation>
 <translation id="3966388904776714213">অডিঅ’ প্লেয়াৰ</translation>
@@ -363,6 +367,7 @@
 <translation id="4900532980794411603">Parallels Desktopৰ জৰিয়তে শ্বেয়াৰ কৰক</translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" />ৰ বেক আপ ল‘বলৈ সাজু</translation>
 <translation id="4924638091161556692">স্থিৰ কৰা হৈছে</translation>
+<translation id="4935975195727477204">গাজানীয়া ফুল</translation>
 <translation id="4943368462779413526">ফুটবল</translation>
 <translation id="4961158930123534723">Parallels Desktopৰ জৰিয়তে ১ টা ফ’ল্ডাৰ শ্বেয়াৰ কৰা হৈছে</translation>
 <translation id="4969785127455456148">এলবাম</translation>
@@ -445,6 +450,7 @@
 <translation id="5602622065581044566">ফ’নেটিক কীব’ৰ্ডৰ সৈতে বুলগেৰিয়ান</translation>
 <translation id="5605830556594064952">ইউ.এছ. ডভ’ৰাক</translation>
 <translation id="5625294776298156701">Tamil99 কীব’ৰ্ডৰ সৈতে তামিল</translation>
+<translation id="5633226425545095130">এই বস্তুটো ইয়াৰ পৰা নিয়াটোৱে এইটোক শ্বেয়াৰ কৰা ফ'ল্ডাৰ '<ph name="DESTINATION_NAME" />' চাব পৰা সকলো লোকৰ সৈতে শ্বেয়াৰ কৰিব।</translation>
 <translation id="5649768706273821470">শুনক</translation>
 <translation id="5678784840044122290">Linux এপ্লিকেশ্বন আপোনাৰ টার্মিনেলৰ ভিতৰত উপলব্ধ হ'ব আৰু আপোনাৰ লঞ্চাৰতো এখন আইকন দেখুৱাব পাৰে।</translation>
 <translation id="5686799162999241776"><ph name="BEGIN_BOLD" />আৰ্কাইভ বা ভাৰ্চুৱেল ডিস্কৰ পৰা সংযোগ বিচ্ছিনন্ন কৰিব পৰা নাই<ph name="END_BOLD" />
@@ -594,6 +600,7 @@
 <translation id="7238097264433196391">ড্ৰাইভৰ নাম</translation>
 <translation id="7248671827512403053">এপ্লিকেশ্বন</translation>
 <translation id="7268659760406822741">উপলব্ধ সেৱাসমূহ</translation>
+<translation id="7283041136720745563">আপোনাৰ Google Driveৰ কোটা পর্যাপ্ত পৰিমাণে ডাঙৰ নহয়।</translation>
 <translation id="7294063083760278948">তেলুগু লিপ্যন্তৰণ</translation>
 <translation id="7295662345261934369">আনৰ সৈতে শ্বেয়াৰ কৰক</translation>
 <translation id="7309413087278791451">জাৰ্মান (বেলজিয়াম)</translation>
@@ -605,6 +612,7 @@
 <translation id="7417453074306512035">ইথিঅ’পিক কীব’র্ড</translation>
 <translation id="7417705661718309329">Google মেপ</translation>
 <translation id="7460898608667578234">ইউক্ৰেনিয়ান</translation>
+<translation id="7486315294984620427">Parallels Desktopত ফাইল টানি আনি এৰিবলৈ, ফাইলটো Windows ফাইললৈ প্ৰতিলিপি কৰিবই লাগিব।</translation>
 <translation id="7489215562877293245"><ph name="FILE_COUNT" /> বিচাৰি পোৱা গৈছে
     <ph name="LINE_BREAK1" />
     <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" />ত বেক আপ কৰিবলৈ সাজু আছে</translation>
@@ -717,6 +725,7 @@
 <translation id="8395901698320285466">দীঘ-প্ৰস্থ</translation>
 <translation id="8437209419043462667">ইউএছ</translation>
 <translation id="8456681095658380701">অমান্য নাম</translation>
+<translation id="8459404855768962328">এই বস্তুটোৰ প্ৰতিলিপি কৰাটোৱে এইটোক শ্বেয়াৰ কৰা ফ'ল্ডাৰ '<ph name="DESTINATION_NAME" />' চাব পৰা সকলো লোকৰ সৈতে শ্বেয়াৰ কৰিব।</translation>
 <translation id="8461467696380332069">শ্বেল্ফত আপোনাৰ ফাইল ক্ষিপ্ৰতাৰে এক্সেছ কৰিবলৈ এটা ফাইলত ৰাইট-ক্লিক কৰক আৰু "শ্বেল্ফত পিন কৰক" বাছনি কৰক।</translation>
 <translation id="8463494891489624050">ভিয়েটনামিজ VIQR</translation>
 <translation id="8466234950814670489">টাৰ আৰ্কাইভ</translation>

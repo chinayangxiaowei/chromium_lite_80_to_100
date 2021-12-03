@@ -8,11 +8,15 @@
 #include "base/macros.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/permission_bubble/permission_prompt_bubble_view.h"
 #include "chrome/browser/ui/views/permission_bubble/permission_prompt_style.h"
 #include "components/permissions/permission_prompt.h"
 
 class Browser;
-class PermissionPromptBubbleView;
+
+namespace views {
+class BubbleDialogDelegateView;
+}
 
 namespace content {
 class WebContents;
@@ -35,24 +39,17 @@ class PermissionPromptImpl : public permissions::PermissionPrompt,
   permissions::PermissionPromptDisposition GetPromptDisposition()
       const override;
 
-  PermissionPromptBubbleView* prompt_bubble_for_testing() {
-    if (prompt_bubble_)
-      return prompt_bubble_;
-    return permission_chip_ ? permission_chip_->prompt_bubble_for_testing()
-                            : nullptr;
-  }
+  views::Widget* GetPromptBubbleWidgetForTesting();
 
   // views::WidgetObserver:
   void OnWidgetClosing(views::Widget* widget) override;
 
  private:
   LocationBarView* GetLocationBarView();
-
   void ShowBubble();
-
   void ShowChipUI();
-
   bool ShouldCurrentRequestUseChipUI();
+  void FinalizeChip();
 
   // The popup bubble. Not owned by this class; it will delete itself when a
   // decision is made.
@@ -63,7 +60,7 @@ class PermissionPromptImpl : public permissions::PermissionPrompt,
 
   PermissionPromptStyle prompt_style_;
 
-  PermissionChip* permission_chip_ = nullptr;
+  PermissionChip* chip_ = nullptr;
 
   permissions::PermissionPrompt::Delegate* const delegate_;
 

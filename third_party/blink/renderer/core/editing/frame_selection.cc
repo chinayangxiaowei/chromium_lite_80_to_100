@@ -158,6 +158,10 @@ VisibleSelection FrameSelection::ComputeVisibleSelectionInDOMTreeDeprecated()
     const {
   // TODO(editing-dev): Hoist UpdateStyleAndLayout
   // to caller. See http://crbug.com/590369 for more details.
+  DisplayLockUtilities::ScopedForcedUpdate base_scope(
+      GetSelectionInDOMTree().Base().AnchorNode());
+  DisplayLockUtilities::ScopedForcedUpdate extent_scope(
+      GetSelectionInDOMTree().Extent().AnchorNode());
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kSelection);
   return ComputeVisibleSelectionInDOMTree();
 }
@@ -571,6 +575,18 @@ bool FrameSelection::ShouldPaintCaret(const LayoutBlock& block) const {
   DCHECK_GE(GetDocument().Lifecycle().GetState(),
             DocumentLifecycle::kLayoutClean);
   bool result = frame_caret_->ShouldPaintCaret(block);
+  DCHECK(!result ||
+         (ComputeVisibleSelectionInDOMTree().IsCaret() &&
+          (IsEditablePosition(ComputeVisibleSelectionInDOMTree().Start()) ||
+           frame_->IsCaretBrowsingEnabled())));
+  return result;
+}
+
+bool FrameSelection::ShouldPaintCaret(
+    const NGPhysicalBoxFragment& box_fragment) const {
+  DCHECK_GE(GetDocument().Lifecycle().GetState(),
+            DocumentLifecycle::kLayoutClean);
+  bool result = frame_caret_->ShouldPaintCaret(box_fragment);
   DCHECK(!result ||
          (ComputeVisibleSelectionInDOMTree().IsCaret() &&
           (IsEditablePosition(ComputeVisibleSelectionInDOMTree().Start()) ||
@@ -1086,24 +1102,6 @@ void FrameSelection::SetSelectionFromNone() {
                                  .Collapse(FirstPositionInOrBeforeNode(*body))
                                  .Build());
   }
-}
-
-// TODO(yoichio): We should have LocalFrame having FrameCaret,
-// Editor and PendingSelection using FrameCaret directly
-// and get rid of this.
-bool FrameSelection::ShouldShowBlockCursor() const {
-  return frame_caret_->ShouldShowBlockCursor();
-}
-
-// TODO(yoichio): We should have LocalFrame having FrameCaret,
-// Editor and PendingSelection using FrameCaret directly
-// and get rid of this.
-// TODO(yoichio): We should use "caret-shape" in "CSS Basic User Interface
-// Module Level 4" https://drafts.csswg.org/css-ui-4/
-// To use "caret-shape", we need to expose inserting mode information to CSS;
-// https://github.com/w3c/csswg-drafts/issues/133
-void FrameSelection::SetShouldShowBlockCursor(bool should_show_block_cursor) {
-  frame_caret_->SetShouldShowBlockCursor(should_show_block_cursor);
 }
 
 #if DCHECK_IS_ON()

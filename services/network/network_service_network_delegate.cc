@@ -103,16 +103,16 @@ int NetworkServiceNetworkDelegate::OnBeforeURLRequest(
 
 int NetworkServiceNetworkDelegate::OnBeforeStartTransaction(
     net::URLRequest* request,
-    net::CompletionOnceCallback callback,
-    net::HttpRequestHeaders* headers) {
+    const net::HttpRequestHeaders& headers,
+    OnBeforeStartTransactionCallback callback) {
   URLLoader* url_loader = URLLoader::ForRequest(*request);
   if (url_loader)
-    return url_loader->OnBeforeStartTransaction(std::move(callback), headers);
+    return url_loader->OnBeforeStartTransaction(headers, std::move(callback));
 
 #if !defined(OS_IOS)
   WebSocket* web_socket = WebSocket::ForRequest(*request);
   if (web_socket)
-    return web_socket->OnBeforeStartTransaction(std::move(callback), headers);
+    return web_socket->OnBeforeStartTransaction(headers, std::move(callback));
 #endif  // !defined(OS_IOS)
 
   return net::OK;
@@ -124,7 +124,7 @@ int NetworkServiceNetworkDelegate::OnHeadersReceived(
     const net::HttpResponseHeaders* original_response_headers,
     scoped_refptr<net::HttpResponseHeaders>* override_response_headers,
     const net::IPEndPoint& endpoint,
-    base::Optional<GURL>* preserve_fragment_on_redirect_url) {
+    absl::optional<GURL>* preserve_fragment_on_redirect_url) {
   auto chain = base::MakeRefCounted<PendingCallbackChain>(std::move(callback));
   URLLoader* url_loader = URLLoader::ForRequest(*request);
   if (url_loader) {
@@ -237,7 +237,7 @@ bool NetworkServiceNetworkDelegate::OnCanSetCookie(
 bool NetworkServiceNetworkDelegate::OnForcePrivacyMode(
     const GURL& url,
     const net::SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& top_frame_origin) const {
+    const absl::optional<url::Origin>& top_frame_origin) const {
   return !network_context_->cookie_manager()
               ->cookie_settings()
               .IsCookieAccessAllowed(url, site_for_cookies.RepresentativeUrl(),

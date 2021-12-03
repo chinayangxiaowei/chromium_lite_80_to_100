@@ -7,6 +7,7 @@
 
 luci.project(
     name = "chromium",
+    config_dir = "luci",
     dev = True,
     buildbucket = "cr-buildbucket-dev.appspot.com",
     logdog = "luci-logdog-dev.appspot.com",
@@ -63,6 +64,7 @@ luci.builder.defaults.experiments.set({
     # Enable resultsink for dev swarming tasks.
     "chromium.resultdb.result_sink": 100,
 })
+luci.builder.defaults.test_presentation.set(resultdb.test_presentation(grouping_keys = ["status", "v.test_suite"]))
 
 exec("//dev/swarming.star")
 

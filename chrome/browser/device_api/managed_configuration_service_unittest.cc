@@ -35,7 +35,7 @@ class ManagedConfigurationServiceTest : public ChromeRenderViewHostTestHarness {
 TEST_F(ManagedConfigurationServiceTest, Incognito) {
   std::unique_ptr<content::WebContents> incognito_web_contents =
       content::WebContentsTester::CreateTestWebContents(
-          profile()->GetPrimaryOTRProfile(), nullptr);
+          profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true), nullptr);
   TryCreatingService(incognito_web_contents.get());
 
   remote()->FlushForTesting();

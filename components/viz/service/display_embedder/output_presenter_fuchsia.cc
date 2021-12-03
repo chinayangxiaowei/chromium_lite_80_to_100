@@ -6,7 +6,6 @@
 
 #include <fuchsia/sysmem/cpp/fidl.h>
 #include <lib/sys/cpp/component_context.h>
-#include <lib/sys/inspect/cpp/component.h>
 
 #include <algorithm>
 #include <memory>
@@ -47,18 +46,11 @@ void GrSemaphoresToZxEvents(gpu::VulkanImplementation* vulkan_implementation,
   }
 }
 
-// Duplicates the given zx::events and stores in gfx::GpuFences.
-std::vector<gfx::GpuFence> ZxEventsToGpuFences(
-    const std::vector<zx::event>& events) {
-  std::vector<gfx::GpuFence> fences;
-  for (const auto& event : events) {
-    gfx::GpuFenceHandle handle;
-    zx_status_t status =
-        event.duplicate(ZX_RIGHT_SAME_RIGHTS, &handle.owned_event);
-    ZX_DCHECK(status == ZX_OK, status);
-    fences.emplace_back(std::move(handle));
-  }
-  return fences;
+zx::event DuplicateZxEvent(const zx::event& event) {
+  zx::event result;
+  zx_status_t status = event.duplicate(ZX_RIGHT_SAME_RIGHTS, &result);
+  ZX_DCHECK(status == ZX_OK, status);
+  return result;
 }
 
 class PresenterImageFuchsia : public OutputPresenter::Image {
@@ -67,7 +59,7 @@ class PresenterImageFuchsia : public OutputPresenter::Image {
   ~PresenterImageFuchsia() override;
 
   void BeginPresent() final;
-  void EndPresent() final;
+  void EndPresent(gfx::GpuFenceHandle release_fence) final;
   int GetPresentCount() const final;
   void OnContextLost() final;
 
@@ -108,8 +100,9 @@ void PresenterImageFuchsia::BeginPresent() {
   }
 }
 
-void PresenterImageFuchsia::EndPresent() {
+void PresenterImageFuchsia::EndPresent(gfx::GpuFenceHandle release_fence) {
   DCHECK(present_count_);
+  DCHECK(release_fence.is_null());
   --present_count_;
   if (!present_count_)
     read_access_.reset();
@@ -135,18 +128,6 @@ void PresenterImageFuchsia::TakeSemaphores(
 
 }  // namespace
 
-OutputPresenterFuchsia::PendingOverlay::PendingOverlay(
-    OverlayCandidate candidate,
-    std::vector<gfx::GpuFence> release_fences)
-    : candidate(std::move(candidate)),
-      release_fences(std::move(release_fences)) {}
-OutputPresenterFuchsia::PendingOverlay::~PendingOverlay() = default;
-
-OutputPresenterFuchsia::PendingOverlay::PendingOverlay(PendingOverlay&&) =
-    default;
-OutputPresenterFuchsia::PendingOverlay&
-OutputPresenterFuchsia::PendingOverlay::operator=(PendingOverlay&&) = default;
-
 OutputPresenterFuchsia::PendingFrame::PendingFrame(uint32_t ordinal)
     : ordinal(ordinal) {}
 OutputPresenterFuchsia::PendingFrame::~PendingFrame() = default;
@@ -161,16 +142,10 @@ std::unique_ptr<OutputPresenterFuchsia> OutputPresenterFuchsia::Create(
     SkiaOutputSurfaceDependency* deps,
     gpu::SharedImageFactory* shared_image_factory,
     gpu::SharedImageRepresentationFactory* representation_factory) {
-  auto* inspector = base::ComponentInspectorForProcess();
-
   if (!base::FeatureList::IsEnabled(
           features::kUseSkiaOutputDeviceBufferQueue)) {
-    inspector->root().CreateString("output_presenter", "swapchain", inspector);
     return {};
   }
-
-  inspector->root().CreateString("output_presenter",
-                                 "SkiaOutputDeviceBufferQueue", inspector);
 
   // SetTextureToNewImagePipe() will call ScenicSession::Present() to send
   // CreateImagePipe2Cmd creation command, but it will be processed only after
@@ -180,17 +155,19 @@ std::unique_ptr<OutputPresenterFuchsia> OutputPresenterFuchsia::Create(
   if (!window_surface->SetTextureToNewImagePipe(image_pipe.NewRequest()))
     return {};
 
-  return std::make_unique<OutputPresenterFuchsia>(std::move(image_pipe), deps,
-                                                  shared_image_factory,
-                                                  representation_factory);
+  return std::make_unique<OutputPresenterFuchsia>(
+      window_surface, std::move(image_pipe), deps, shared_image_factory,
+      representation_factory);
 }
 
 OutputPresenterFuchsia::OutputPresenterFuchsia(
+    ui::PlatformWindowSurface* window_surface,
     fuchsia::images::ImagePipe2Ptr image_pipe,
     SkiaOutputSurfaceDependency* deps,
     gpu::SharedImageFactory* shared_image_factory,
     gpu::SharedImageRepresentationFactory* representation_factory)
-    : image_pipe_(std::move(image_pipe)),
+    : window_surface_(window_surface),
+      image_pipe_(std::move(image_pipe)),
       dependency_(deps),
       shared_image_factory_(shared_image_factory),
       shared_image_representation_factory_(representation_factory) {
@@ -212,7 +189,16 @@ OutputPresenterFuchsia::OutputPresenterFuchsia(
   });
 }
 
-OutputPresenterFuchsia::~OutputPresenterFuchsia() {}
+OutputPresenterFuchsia::~OutputPresenterFuchsia() {
+  // Signal release fences that were submitted in the last PresentImage(). This
+  // is necessary because ExternalVkImageBacking destructor will wait for the
+  // corresponding semaphores, while they may not be signaled by the ImagePipe.
+  for (auto& fence : release_fences_from_last_present_) {
+    auto status =
+        fence.signal(/*clear_mask=*/0, /*set_maks=*/ZX_EVENT_SIGNALED);
+    ZX_DCHECK(status == ZX_OK, status);
+  }
+}
 
 void OutputPresenterFuchsia::InitializeCapabilities(
     OutputSurface::Capabilities* capabilities) {
@@ -308,10 +294,9 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
   }
 
   // Create PresenterImageFuchsia for each buffer in the collection.
-  uint32_t image_usage =
-      gpu::SHARED_IMAGE_USAGE_RASTER | gpu::SHARED_IMAGE_USAGE_SCANOUT;
-  if (vulkan->enforce_protected_memory())
-    image_usage |= gpu::SHARED_IMAGE_USAGE_PROTECTED;
+  uint32_t image_usage = gpu::SHARED_IMAGE_USAGE_DISPLAY |
+                         gpu::SHARED_IMAGE_USAGE_RASTER |
+                         gpu::SHARED_IMAGE_USAGE_SCANOUT;
 
   std::vector<std::unique_ptr<OutputPresenter::Image>> images;
   images.reserve(num_images);
@@ -334,8 +319,9 @@ OutputPresenterFuchsia::AllocateImages(gfx::ColorSpace color_space,
     auto mailbox = gpu::Mailbox::GenerateForSharedImage();
     if (!shared_image_factory_->CreateSharedImage(
             mailbox, gpu::kDisplayCompositorClientId, std::move(gmb_handle),
-            buffer_format_, gpu::kNullSurfaceHandle, frame_size_, color_space,
-            kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType, image_usage)) {
+            buffer_format_, gfx::BufferPlane::DEFAULT, gpu::kNullSurfaceHandle,
+            frame_size_, color_space, kTopLeft_GrSurfaceOrigin,
+            kPremul_SkAlphaType, image_usage)) {
       return {};
     }
 
@@ -426,25 +412,8 @@ void OutputPresenterFuchsia::ScheduleOverlays(
   if (!next_frame_)
     next_frame_ = PendingFrame(next_frame_ordinal_++);
 
-  for (size_t i = 0; i < overlays.size(); ++i) {
-    auto semaphore = dependency_->GetSharedContextState()
-                         ->external_semaphore_pool()
-                         ->GetOrCreateSemaphore();
-    gfx::GpuFenceHandle fence_handle;
-    fence_handle.owned_event = semaphore.handle().TakeHandle();
-
-    accesses[i]->SetReleaseFence(fence_handle.Clone());
-    std::vector<gfx::GpuFence> release_fences;
-    release_fences.emplace_back(std::move(fence_handle));
-    next_frame_->overlays.emplace_back(std::move(overlays[i]),
-                                       std::move(release_fences));
-    // TODO(crbug.com/1144890): Enqueue overlay plane's acquire fences
-    // after |supports_commit_overlay_planes| is supported. Overlay plane might
-    // display the same Image more than once, which can create a fence
-    // dependency that can be broken by a later Image. However, primary plane
-    // implementation allows only one present at a time. In this scenario,
-    // merging fences might cause hangs, see crbug.com/1151042.
-  }
+  DCHECK(next_frame_->overlays.empty());
+  next_frame_->overlays = std::move(overlays);
 }
 
 void OutputPresenterFuchsia::PresentNextFrame() {
@@ -462,7 +431,7 @@ void OutputPresenterFuchsia::PresentNextFrame() {
       "image_id", frame.image_id);
 
   for (size_t i = 0; i < frame.overlays.size(); ++i) {
-    auto& overlay = frame.overlays[i].candidate;
+    auto& overlay = frame.overlays[i];
     DCHECK(overlay.mailbox.IsSharedImage());
     auto pixmap =
         dependency_->GetSharedImageManager()->GetNativePixmap(overlay.mailbox);
@@ -474,8 +443,8 @@ void OutputPresenterFuchsia::PresentNextFrame() {
                                  overlay.plane_z_order, overlay.transform,
                                  gfx::ToRoundedRect(overlay.display_rect),
                                  overlay.uv_rect, !overlay.is_opaque,
-                                 ZxEventsToGpuFences(frame.acquire_fences),
-                                 std::move(frame.overlays[i].release_fences));
+                                 /*acquire_fences=*/{},
+                                 /*release_fences=*/{});
   }
 
   auto now = base::TimeTicks::Now();
@@ -497,6 +466,13 @@ void OutputPresenterFuchsia::PresentNextFrame() {
   // since Scenic doesn't allow it (see crbug.com/1181528).
   present_time = std::max(present_time, last_frame_present_time_);
   last_frame_present_time_ = present_time;
+
+  release_fences_from_last_present_.clear();
+  for (auto& fence : frame.release_fences) {
+    release_fences_from_last_present_.push_back(DuplicateZxEvent(fence));
+  }
+
+  window_surface_->FlushOverlaysLayout(frame.acquire_fences);
 
   image_pipe_->PresentImage(
       frame.image_id, present_time.ToZxTime(), std::move(frame.acquire_fences),

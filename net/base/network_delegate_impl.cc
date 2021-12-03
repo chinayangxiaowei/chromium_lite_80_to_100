@@ -16,8 +16,8 @@ int NetworkDelegateImpl::OnBeforeURLRequest(URLRequest* request,
 
 int NetworkDelegateImpl::OnBeforeStartTransaction(
     URLRequest* request,
-    CompletionOnceCallback callback,
-    HttpRequestHeaders* headers) {
+    const HttpRequestHeaders& headers,
+    OnBeforeStartTransactionCallback callback) {
   return OK;
 }
 
@@ -27,7 +27,7 @@ int NetworkDelegateImpl::OnHeadersReceived(
     const HttpResponseHeaders* original_response_headers,
     scoped_refptr<HttpResponseHeaders>* override_response_headers,
     const IPEndPoint& endpoint,
-    base::Optional<GURL>* preserve_fragment_on_redirect_url) {
+    absl::optional<GURL>* preserve_fragment_on_redirect_url) {
   return OK;
 }
 
@@ -62,7 +62,7 @@ bool NetworkDelegateImpl::OnCanSetCookie(const URLRequest& request,
 bool NetworkDelegateImpl::OnForcePrivacyMode(
     const GURL& url,
     const SiteForCookies& site_for_cookies,
-    const base::Optional<url::Origin>& top_frame_origin) const {
+    const absl::optional<url::Origin>& top_frame_origin) const {
   return false;
 }
 

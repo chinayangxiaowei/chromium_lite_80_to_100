@@ -19,6 +19,8 @@ the category of the branch:
 * LTS_BRANCHES - The resource is defined only for the long-term support branches
     (LTC and LTR).
     [`not settings.is_main and settings.is_lts_branch`]
+* FUCHSIA_BRANCHES - The resource is defined only for the fuchsia long-term
+    support branches.
 
 The `branch_selector` argument can also be one of the following constants
 composing multiple categories:
@@ -26,6 +28,9 @@ composing multiple categories:
     the standad release channels: trunk -> beta -> stable.
 * LTS_MILESTONE - The resource is defined for a branch as it move through the
     long-term suport release channels: trunk -> beta -> stable -> LTC -> LTR.
+* FUCHSIA_MILESTONE - The resource is defined for a branch as it moves
+  the release channels, including the one-off branch for the initial fuchsia
+  release: trunk -> beta -> stable -> fuchsia one-off 
 * ALL_BRANCHES - The resource is defined for all branches and main/master/trunk.
 * NOT_MAIN - The resource is defined for all branches, but not for
     main/master/trunk.
@@ -49,8 +54,9 @@ def _branch_selector(tag):
 MAIN = _branch_selector("MAIN")
 STANDARD_BRANCHES = _branch_selector("STANDARD_BRANCHES")
 LTS_BRANCHES = _branch_selector("LTS_BRANCHES")
+FUCHSIA_BRANCHES = _branch_selector("FUCHSIA_BRANCHES")
 
-_BRANCH_SELECTORS = (MAIN, STANDARD_BRANCHES, LTS_BRANCHES)
+_BRANCH_SELECTORS = (MAIN, STANDARD_BRANCHES, LTS_BRANCHES, FUCHSIA_BRANCHES)
 
 def _matches(branch_selector):
     """Returns whether `branch_selector` matches the project settings."""
@@ -63,24 +69,34 @@ def _matches(branch_selector):
             if settings.is_main:
                 return True
         elif b == STANDARD_BRANCHES:
-            if not settings.is_main and not settings.is_lts_branch:
+            if not settings.is_main and not (settings.is_lts_branch or settings.is_fuchsia_branch):
                 return True
         elif b == LTS_BRANCHES:
             if settings.is_lts_branch:
+                return True
+        elif b == FUCHSIA_BRANCHES:
+            if settings.is_fuchsia_branch:
                 return True
         else:
             fail("elements of branch_selectors must be one of {}, got {!r}"
                 .format(_BRANCH_SELECTORS, b))
     return False
 
-def _value(*, for_main = None, for_branches = None):
-    """Provide a value that varies between main/master/trunk and branches.
+def _value(values, *, default = None):
+    """Provide a value that varies depending on the project settings.
 
-    If the current project settings indicate that this is main/master/trunk,
-    then `for_main` will be returned. Otherwise, `for_branches` will be
-    returned.
+    Args:
+      values - A mapping from branch selectors to the value to be used for the
+        matching branches. The keys can be either a single selector or a tuple
+        of selectors. The selectors will be matched in the order declared in the
+        mapping.
+      default - The value to be returned if the project settings don't match any
+        of the branch selectors in the keys of `values`.
     """
-    return for_main if settings.is_main else for_branches
+    for selector, value in values.items():
+        if _matches(selector):
+            return value
+    return default
 
 def _exec(module, *, branch_selector = MAIN):
     """Execute `module` if `branch_selector` matches the project settings."""
@@ -101,14 +117,16 @@ branches = struct(
     MAIN = MAIN,
     STANDARD_BRANCHES = STANDARD_BRANCHES,
     LTS_BRANCHES = LTS_BRANCHES,
+    FUCHSIA_BRANCHES = FUCHSIA_BRANCHES,
 
     # Branch selectors for tracking milestones through release channels
-    STANDARD_MILESTONE = [MAIN, STANDARD_BRANCHES],
-    LTS_MILESTONE = [MAIN, STANDARD_BRANCHES, LTS_BRANCHES],
+    STANDARD_MILESTONE = (MAIN, STANDARD_BRANCHES),
+    LTS_MILESTONE = (MAIN, STANDARD_BRANCHES, LTS_BRANCHES),
+    FUCHSIA_MILESTONE = (MAIN, STANDARD_BRANCHES, FUCHSIA_BRANCHES),
 
     # Branch selectors to apply widely to branches
     ALL_BRANCHES = _BRANCH_SELECTORS,
-    NOT_MAIN = [b for b in _BRANCH_SELECTORS if b != MAIN],
+    NOT_MAIN = tuple([b for b in _BRANCH_SELECTORS if b != MAIN]),
 
     # Branch functions
     matches = _matches,

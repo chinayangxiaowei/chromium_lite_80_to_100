@@ -11,7 +11,6 @@
 #include <string>
 
 #include "base/callback.h"
-#include "base/optional.h"
 #include "base/threading/thread_checker.h"
 #include "net/base/auth.h"
 #include "net/base/completion_once_callback.h"
@@ -19,6 +18,7 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/proxy_resolution/proxy_retry_info.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
 
 class GURL;
 
@@ -55,16 +55,18 @@ class NET_EXPORT NetworkDelegate {
   int NotifyBeforeURLRequest(URLRequest* request,
                              CompletionOnceCallback callback,
                              GURL* new_url);
+  using OnBeforeStartTransactionCallback =
+      base::OnceCallback<void(int, const absl::optional<HttpRequestHeaders>&)>;
   int NotifyBeforeStartTransaction(URLRequest* request,
-                                   CompletionOnceCallback callback,
-                                   HttpRequestHeaders* headers);
+                                   const HttpRequestHeaders& headers,
+                                   OnBeforeStartTransactionCallback callback);
   int NotifyHeadersReceived(
       URLRequest* request,
       CompletionOnceCallback callback,
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& remote_endpoint,
-      base::Optional<GURL>* preserve_fragment_on_redirect_url);
+      absl::optional<GURL>* preserve_fragment_on_redirect_url);
   void NotifyBeforeRedirect(URLRequest* request,
                             const GURL& new_location);
   void NotifyResponseStarted(URLRequest* request, int net_error);
@@ -80,7 +82,7 @@ class NET_EXPORT NetworkDelegate {
   bool ForcePrivacyMode(
       const GURL& url,
       const SiteForCookies& site_for_cookies,
-      const base::Optional<url::Origin>& top_frame_origin) const;
+      const absl::optional<url::Origin>& top_frame_origin) const;
 
   bool CancelURLRequestWithPolicyViolatingReferrerHeader(
       const URLRequest& request,
@@ -132,7 +134,8 @@ class NET_EXPORT NetworkDelegate {
                                  GURL* new_url) = 0;
 
   // Called right before the network transaction starts. Allows the delegate to
-  // read/write |headers| before they get sent out.
+  // read |headers| and modify them by passing a new copy to |callback| before
+  // they get sent out.
   //
   // Returns OK to continue with the request, ERR_IO_PENDING if the result is
   // not ready yet, and any other status code to cancel the request. If
@@ -141,11 +144,11 @@ class NET_EXPORT NetworkDelegate {
   // or OnCompleted. Once cancelled, |request| and |headers| become invalid and
   // |callback| may not be called.
   //
-  // The default implementation returns OK (continue with request) without
-  // modifying |headers|.
-  virtual int OnBeforeStartTransaction(URLRequest* request,
-                                       CompletionOnceCallback callback,
-                                       HttpRequestHeaders* headers) = 0;
+  // The default implementation returns OK (continue with request).
+  virtual int OnBeforeStartTransaction(
+      URLRequest* request,
+      const HttpRequestHeaders& headers,
+      OnBeforeStartTransactionCallback callback) = 0;
 
   // Called for HTTP requests when the headers have been received.
   // |original_response_headers| contains the headers as received over the
@@ -171,7 +174,7 @@ class NET_EXPORT NetworkDelegate {
       const HttpResponseHeaders* original_response_headers,
       scoped_refptr<HttpResponseHeaders>* override_response_headers,
       const IPEndPoint& remote_endpoint,
-      base::Optional<GURL>* preserve_fragment_on_redirect_url) = 0;
+      absl::optional<GURL>* preserve_fragment_on_redirect_url) = 0;
 
   // Called right after a redirect response code was received. |new_location| is
   // only valid for the duration of the call.
@@ -223,7 +226,7 @@ class NET_EXPORT NetworkDelegate {
   virtual bool OnForcePrivacyMode(
       const GURL& url,
       const SiteForCookies& site_for_cookies,
-      const base::Optional<url::Origin>& top_frame_origin) const = 0;
+      const absl::optional<url::Origin>& top_frame_origin) const = 0;
 
   // Called when the |referrer_url| for requesting |target_url| during handling
   // of the |request| is does not comply with the referrer policy (e.g. a
