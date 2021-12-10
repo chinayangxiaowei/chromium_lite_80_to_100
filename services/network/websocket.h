@@ -22,6 +22,7 @@
 #include "base/types/strong_alias.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "net/base/network_delegate.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/websockets/websocket_event_interface.h"
 #include "services/network/network_service.h"
@@ -61,14 +62,14 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
       const net::SiteForCookies& site_for_cookies,
       const net::IsolationInfo& isolation_info,
       std::vector<mojom::HttpHeaderPtr> additional_headers,
-      int32_t process_id,
-      int32_t render_frame_id,
       const url::Origin& origin,
       uint32_t options,
       net::NetworkTrafficAnnotationTag traffic_annotation,
       HasRawHeadersAccess has_raw_cookie_access,
       mojo::PendingRemote<mojom::WebSocketHandshakeClient> handshake_client,
-      mojo::PendingRemote<mojom::AuthenticationHandler> auth_handler,
+      mojo::PendingRemote<mojom::AuthenticationAndCertificateObserver>
+          auth_cert_observer,
+      mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
       base::Optional<WebSocketThrottler::PendingConnection>
           pending_connection_tracker,
@@ -89,8 +90,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
 
   // These methods are called by the network delegate to forward these events to
   // the |header_client_|.
-  int OnBeforeStartTransaction(net::CompletionOnceCallback callback,
-                               net::HttpRequestHeaders* headers);
+  int OnBeforeStartTransaction(
+      const net::HttpRequestHeaders& headers,
+      net::NetworkDelegate::OnBeforeStartTransactionCallback callback);
   int OnHeadersReceived(
       net::CompletionOnceCallback callback,
       const net::HttpResponseHeaders* original_response_headers,
@@ -149,8 +151,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
       base::OnceCallback<void(const net::AuthCredentials*)> callback,
       const base::Optional<net::AuthCredentials>& credential);
   void OnBeforeSendHeadersComplete(
-      net::CompletionOnceCallback callback,
-      net::HttpRequestHeaders* out_headers,
+      net::NetworkDelegate::OnBeforeStartTransactionCallback callback,
       int result,
       const base::Optional<net::HttpRequestHeaders>& headers);
   void OnHeadersReceivedComplete(
@@ -179,9 +180,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
   WebSocketFactory* const factory_;
   mojo::Receiver<mojom::WebSocket> receiver_{this};
 
+  mojo::Remote<mojom::AuthenticationAndCertificateObserver> auth_cert_observer_;
   mojo::Remote<mojom::WebSocketHandshakeClient> handshake_client_;
   mojo::Remote<mojom::WebSocketClient> client_;
-  mojo::Remote<mojom::AuthenticationHandler> auth_handler_;
+  mojo::Remote<mojom::WebSocketAuthenticationHandler> auth_handler_;
   mojo::Remote<mojom::TrustedHeaderClient> header_client_;
 
   base::Optional<WebSocketThrottler::PendingConnection>
@@ -196,9 +198,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebSocket : public mojom::WebSocket {
   const uint32_t options_;
 
   const net::NetworkTrafficAnnotationTag traffic_annotation_;
-
-  const int32_t child_id_;
-  const int32_t frame_id_;
 
   // The web origin to use for the WebSocket.
   const url::Origin origin_;

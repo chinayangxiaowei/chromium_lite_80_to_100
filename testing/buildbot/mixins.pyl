@@ -219,7 +219,7 @@
         {
           'cpu': 'x86',
           'kvm': '1',
-          'os': 'Ubuntu-16.04',
+          'os': 'Ubuntu-18.04',
           'pool': 'chromium.tests',
         }
       ],
@@ -309,9 +309,11 @@
       },
     },
   },
-  'enable_resultdb': {
-    'resultdb': {
-      'enable': True,
+  'femu-additional-ram': {
+    '$mixin_append': {
+      'args': [
+        '--ram-size-mb=16384',
+      ],
     },
   },
   'flame': {
@@ -342,6 +344,14 @@
       },
     },
   },
+  'fuchsia-code-coverage': {
+    '$mixin_append': {
+      'args': [
+        '--code-coverage',
+        '--code-coverage-dir=${ISOLATED_OUTDIR}'
+      ],
+    },
+  },
   'fuchsia_runner_logs': {
     '$mixin_append': {
       'args': [
@@ -363,6 +373,16 @@
         'device_type': 'hammerhead',
         'os': 'Android',
       },
+    },
+  },
+  # Use of this mixin signals to the recipe that the test uploads its results
+  # to result-sink and doesn't need to be wrapped by result_adapter.
+  'has_native_resultdb_integration': {
+    'resultdb': {
+      'enable': True,
+      # TODO(crbug.com/1163797): Remove the 'enable' field in favor of
+      # 'has_native_resultdb_integration'.
+      'has_native_resultdb_integration': True,
     },
   },
   'intel_iris_5100': {
@@ -418,6 +438,13 @@
       'linux-release-64/sizes',
     ],
   },
+  'linux-bionic': {
+    'swarming': {
+      'dimensions': {
+        'os': 'Ubuntu-18.04',
+      },
+    },
+  },
   'linux-trusty': {
     'swarming': {
       'dimensions': {
@@ -432,12 +459,10 @@
       },
     },
   },
-  'linux_amd_r7_240': {
+  'linux-xenial-or-bionic': {
     'swarming': {
       'dimensions': {
-        'gpu': '1002:6613',
-        'os': 'Ubuntu',
-        'pool': 'chromium.tests.gpu',
+        'os': 'Ubuntu-16.04|Ubuntu-18.04',
       },
     },
   },
@@ -599,7 +624,7 @@
     'swarming': {
       'dimensions': {
         'gpu': '8086:0a2e',
-        'os': 'Mac-10.15.5',
+        'os': 'Mac-10.15.5|Mac-10.15.7',
       },
     },
   },
@@ -607,7 +632,7 @@
     'swarming': {
       'dimensions': {
         'gpu': '8086:0a2e',
-        'os': 'Mac-10.15.5',
+        'os': 'Mac-10.15.5|Mac-10.15.7',
       },
     },
   },
@@ -619,7 +644,7 @@
       'dimension_sets': [
         {
           'gpu': '8086:0a2e',
-          'os': 'Mac-10.15.5',
+          'os': 'Mac-10.15.5|Mac-10.15.7',
         },
       ],
     },
@@ -704,7 +729,7 @@
         {
           "cipd_package": 'infra/tools/mac_toolchain/${platform}',
           'location': '.',
-          'revision': 'git_revision:796d2b92cff93fc2059623ce0a66284373ceea0a',
+          'revision': 'git_revision:8811b82233df02ee372cae1e19e379ca8c6a2776',
         },
       ],
     },
@@ -1074,8 +1099,8 @@
       ],
     },
   },
-  # (default) xcode 12 gm seed
-  'xcode_12a7209': {
+  # (default in other projects) xcode 12.0 gm seed
+    'xcode_12a7209': {
     '$mixin_append': {
       'args': [
         '--xcode-build-version',
@@ -1091,18 +1116,18 @@
       ],
     },
   },
-  # latest Xcode 12 beta version.
-  'xcode_12c33': {
+  # (default in Chromium iOS) xcode 12.4 gm seed
+  'xcode_12d4e': {
     '$mixin_append': {
       'args': [
         '--xcode-build-version',
-        '12c33'
+        '12d4e'
       ],
     },
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_12c33',
+          'name': 'xcode_ios_12d4e',
           'path': 'Xcode.app',
         },
       ],

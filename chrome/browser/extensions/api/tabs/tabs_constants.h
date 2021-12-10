@@ -91,6 +91,7 @@ extern const char kTabNotFoundError[];
 extern const char kCannotDiscardTab[];
 extern const char kCannotFindTabToDiscard[];
 extern const char kTabStripNotEditableError[];
+extern const char kTabStripNotEditableQueryError[];
 extern const char kNoHighlightedTabError[];
 extern const char kNoSelectedTabError[];
 extern const char kIncognitoModeIsDisabled[];
@@ -110,6 +111,8 @@ extern const char kBrowserWindowNotAllowed[];
 extern const char kLockedFullscreenModeNewTabError[];
 extern const char kGroupParamsError[];
 extern const char kCannotNavigateToDevtools[];
+extern const char kCannotHighlightTabs[];
+extern const char kNotAllowedForDevToolsError[];
 
 }  // namespace tabs_constants
 }  // namespace extensions

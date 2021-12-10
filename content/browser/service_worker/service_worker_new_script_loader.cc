@@ -14,7 +14,6 @@
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_loader_helpers.h"
-#include "content/browser/service_worker/service_worker_storage.h"
 #include "content/browser/service_worker/service_worker_version.h"
 #include "content/browser/url_loader_factory_getter.h"
 #include "content/common/service_worker/service_worker_utils.h"
@@ -84,9 +83,13 @@ ServiceWorkerNewScriptLoader::ServiceWorkerNewScriptLoader(
   DCHECK_NE(cache_resource_id, blink::mojom::kInvalidServiceWorkerResourceId);
 
   network::ResourceRequest resource_request(original_request);
+  const bool is_main_script =
+      (resource_destination_ ==
+       network::mojom::RequestDestination::kServiceWorker);
+
 #if DCHECK_IS_ON()
   service_worker_loader_helpers::CheckVersionStatusBeforeWorkerScriptLoad(
-      version_->status(), resource_destination_);
+      version_->status(), is_main_script);
 #endif  // DCHECK_IS_ON()
 
   scoped_refptr<ServiceWorkerRegistration> registration =
@@ -94,9 +97,6 @@ ServiceWorkerNewScriptLoader::ServiceWorkerNewScriptLoader(
   // ServiceWorkerVersion keeps the registration alive while the service
   // worker is starting up, and it must be starting up here.
   DCHECK(registration);
-  const bool is_main_script =
-      (resource_destination_ ==
-       network::mojom::RequestDestination::kServiceWorker);
   if (is_main_script) {
     // Request SSLInfo. It will be persisted in service worker storage and
     // may be used by ServiceWorkerMainResourceLoader for navigations handled
@@ -285,7 +285,7 @@ void ServiceWorkerNewScriptLoader::OnStartLoadingResponseBody(
   DCHECK_EQ(LoaderState::kWaitingForBody, network_loader_state_);
   // Create a pair of the consumer and producer for responding to the client.
   mojo::ScopedDataPipeConsumerHandle client_consumer;
-  if (mojo::CreateDataPipe(nullptr, &client_producer_, &client_consumer) !=
+  if (mojo::CreateDataPipe(nullptr, client_producer_, client_consumer) !=
       MOJO_RESULT_OK) {
     CommitCompleted(network::URLLoaderCompletionStatus(net::ERR_FAILED),
                     ServiceWorkerConsts::kServiceWorkerFetchScriptError);

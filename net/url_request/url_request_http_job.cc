@@ -379,15 +379,10 @@ void URLRequestHttpJob::StartTransaction() {
   if (network_delegate) {
     OnCallToDelegate(
         NetLogEventType::NETWORK_DELEGATE_BEFORE_START_TRANSACTION);
-    // The NetworkDelegate must watch for OnRequestDestroyed and not modify
-    // |extra_headers| after it's called.
-    // TODO(mattm): change the API to remove the out-params and take the
-    // results as params of the callback.
     int rv = network_delegate->NotifyBeforeStartTransaction(
-        request_,
+        request_, request_info_.extra_headers,
         base::BindOnce(&URLRequestHttpJob::NotifyBeforeStartTransactionCallback,
-                       weak_factory_.GetWeakPtr()),
-        &request_info_.extra_headers);
+                       weak_factory_.GetWeakPtr()));
     // If an extension blocks the request, we rely on the callback to
     // MaybeStartTransactionInternal().
     if (rv == ERR_IO_PENDING)
@@ -398,10 +393,14 @@ void URLRequestHttpJob::StartTransaction() {
   StartTransactionInternal();
 }
 
-void URLRequestHttpJob::NotifyBeforeStartTransactionCallback(int result) {
+void URLRequestHttpJob::NotifyBeforeStartTransactionCallback(
+    int result,
+    const base::Optional<HttpRequestHeaders>& headers) {
   // The request should not have been cancelled or have already completed.
   DCHECK(!is_done());
 
+  if (headers)
+    request_info_.extra_headers = headers.value();
   MaybeStartTransactionInternal(result);
 }
 
@@ -548,10 +547,13 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
                                                request_->site_for_cookies())) {
       force_ignore_site_for_cookies = true;
     }
+    bool is_main_frame_navigation = IsolationInfo::RequestType::kMainFrame ==
+                                    request_->isolation_info().request_type();
     CookieOptions::SameSiteCookieContext same_site_context =
         net::cookie_util::ComputeSameSiteContextForRequest(
             request_->method(), request_->url(), request_->site_for_cookies(),
-            request_->initiator(), force_ignore_site_for_cookies);
+            request_->initiator(), is_main_frame_navigation,
+            force_ignore_site_for_cookies);
 
     net::SchemefulSite request_site(request_->url());
 
@@ -628,6 +630,17 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(
   // after the delegate got a chance to block them.
   CookieAccessResultList maybe_sent_cookies = excluded_list;
 
+  // If the cookie was excluded due to the fix for crbug.com/1166211, this
+  // applies a warning to the status that will show up in the netlog.
+  // TODO(crbug.com/1166211): Remove once no longer needed.
+  if (options.same_site_cookie_context().AffectedByBugfix1166211()) {
+    for (auto& cookie_with_access_result : maybe_sent_cookies) {
+      options.same_site_cookie_context()
+          .MaybeApplyBugfix1166211WarningToStatusAndLogHistogram(
+              cookie_with_access_result.access_result.status);
+    }
+  }
+
   if (!can_get_cookies) {
     for (CookieAccessResultList::iterator it = maybe_sent_cookies.begin();
          it != maybe_sent_cookies.end(); ++it) {
@@ -699,10 +712,12 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
           request_->url(), request_->site_for_cookies())) {
     force_ignore_site_for_cookies = true;
   }
+  bool is_main_frame_navigation = IsolationInfo::RequestType::kMainFrame ==
+                                  request_->isolation_info().request_type();
   CookieOptions::SameSiteCookieContext same_site_context =
       net::cookie_util::ComputeSameSiteContextForResponse(
           request_->url(), request_->site_for_cookies(), request_->initiator(),
-          force_ignore_site_for_cookies);
+          is_main_frame_navigation, force_ignore_site_for_cookies);
 
   const CookieAccessDelegate* delegate = cookie_store->cookie_access_delegate();
   net::SchemefulSite request_site(request_->url());
@@ -786,6 +801,15 @@ void URLRequestHttpJob::OnSetCookieResult(
                                        cookie ? cookie.value().Path() : "",
                                        access_result.status, capture_mode);
                                  });
+  }
+
+  // If the cookie was excluded due to the fix for crbug.com/1166211, this
+  // applies a warning to the status that will show up in the netlog.
+  // TODO(crbug.com/1166211): Remove once no longer needed.
+  if (options.same_site_cookie_context().AffectedByBugfix1166211()) {
+    options.same_site_cookie_context()
+        .MaybeApplyBugfix1166211WarningToStatusAndLogHistogram(
+            access_result.status);
   }
   set_cookie_access_result_list_.emplace_back(
       std::move(cookie), std::move(cookie_string), access_result);
@@ -1090,14 +1114,6 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
         // Request will not be canceled; though
         // it is expected that user will see malformed / garbage response.
         return upstream;
-      case SourceStream::TYPE_GZIP_FALLBACK_DEPRECATED:
-      case SourceStream::TYPE_SDCH_DEPRECATED:
-      case SourceStream::TYPE_SDCH_POSSIBLE_DEPRECATED:
-      case SourceStream::TYPE_REJECTED:
-      case SourceStream::TYPE_INVALID:
-      case SourceStream::TYPE_MAX:
-        NOTREACHED();
-        return nullptr;
     }
   }
 
@@ -1112,14 +1128,8 @@ std::unique_ptr<SourceStream> URLRequestHttpJob::SetUpSourceStream() {
       case SourceStream::TYPE_DEFLATE:
         downstream = GzipSourceStream::Create(std::move(upstream), type);
         break;
-      case SourceStream::TYPE_GZIP_FALLBACK_DEPRECATED:
-      case SourceStream::TYPE_SDCH_DEPRECATED:
-      case SourceStream::TYPE_SDCH_POSSIBLE_DEPRECATED:
       case SourceStream::TYPE_NONE:
-      case SourceStream::TYPE_INVALID:
-      case SourceStream::TYPE_REJECTED:
       case SourceStream::TYPE_UNKNOWN:
-      case SourceStream::TYPE_MAX:
         NOTREACHED();
         return nullptr;
     }

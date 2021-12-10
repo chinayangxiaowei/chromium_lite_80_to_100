@@ -6,9 +6,9 @@
 
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
+#include "chrome/browser/ash/login/demo_mode/demo_session.h"
+#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/login/users/fake_chrome_user_manager.h"
-#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -124,6 +124,8 @@ class UserSessionManagerTest : public testing::Test {
 // and clear it from the user context.
 TEST_F(UserSessionManagerTest, PasswordConsumerService_NoSave) {
   InitLoginPassword();
+  user_session_manager_->set_start_session_type_for_testing(
+      UserSessionManager::StartSessionType::kPrimary);
 
   // First service votes no: Should keep password in user context.
   user_session_manager_->VoteForSavingLoginPassword(
@@ -143,6 +145,8 @@ TEST_F(UserSessionManagerTest, PasswordConsumerService_NoSave) {
 // all services have voted.
 TEST_F(UserSessionManagerTest, PasswordConsumerService_Save) {
   InitLoginPassword();
+  user_session_manager_->set_start_session_type_for_testing(
+      UserSessionManager::StartSessionType::kPrimary);
 
   // First service votes yes: Should send password and remove from user context.
   user_session_manager_->VoteForSavingLoginPassword(
@@ -162,6 +166,8 @@ TEST_F(UserSessionManagerTest, PasswordConsumerService_Save) {
 // SessionManager on the second service and clear it from the user context.
 TEST_F(UserSessionManagerTest, PasswordConsumerService_NoSave_Save) {
   InitLoginPassword();
+  user_session_manager_->set_start_session_type_for_testing(
+      UserSessionManager::StartSessionType::kPrimary);
 
   // First service votes no: Should keep password in user context.
   user_session_manager_->VoteForSavingLoginPassword(
@@ -175,6 +181,20 @@ TEST_F(UserSessionManagerTest, PasswordConsumerService_NoSave_Save) {
       UserSessionManager::PasswordConsumingService::kKerberos, true);
   EXPECT_EQ(kFakePassword, FakeSessionManagerClient::Get()->login_password());
   EXPECT_TRUE(GetUserSessionManagerLoginPassword().empty());
+}
+
+// Calling VoteForSavingLoginPassword() with `save_password` set to true should
+// be ignored if a secondary user session is being started.
+TEST_F(UserSessionManagerTest,
+       PasswordConsumerService_NoSave_SecondarySession) {
+  InitLoginPassword();
+  user_session_manager_->set_start_session_type_for_testing(
+      UserSessionManager::StartSessionType::kSecondary);
+
+  // First service votes yes: Should send password and remove from user context.
+  user_session_manager_->VoteForSavingLoginPassword(
+      UserSessionManager::PasswordConsumingService::kNetwork, true);
+  EXPECT_TRUE(FakeSessionManagerClient::Get()->login_password().empty());
 }
 
 TEST_F(UserSessionManagerTest, RespectLocale_WithProfileLocale) {

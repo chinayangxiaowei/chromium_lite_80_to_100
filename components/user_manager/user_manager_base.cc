@@ -200,6 +200,7 @@ void UserManagerBase::UserLoggedIn(const AccountId& account_id,
             user ? user : User::CreatePublicAccountUser(account_id));
         break;
 
+        // TODO(crbug/1155729): Remove this case.
       case USER_TYPE_SUPERVISED_DEPRECATED:
         NOTREACHED() << "Supervised users are not supported anymore";
         break;
@@ -1045,8 +1046,10 @@ void UserManagerBase::NotifyActiveUserHashChanged(const std::string& hash) {
 
 void UserManagerBase::Initialize() {
   UserManager::Initialize();
-  if (!HasBrowserRestarted())
+  if (!HasBrowserRestarted()) {
     known_user::CleanEphemeralUsers();
+    known_user::CleanObsoletePrefs();
+  }
   CallUpdateLoginState();
 }
 

@@ -59,8 +59,8 @@ media::VideoFrameMetadata GetFullVideoFrameMetadata() {
   // gfx::Rects
   metadata.capture_update_rect = gfx::Rect(12, 34, 360, 480);
 
-  // media::VideoRotations
-  metadata.rotation = media::VideoRotation::VIDEO_ROTATION_90;
+  // media::VideoTransformation
+  metadata.transformation = media::VIDEO_ROTATION_90;
 
   // media::VideoFrameMetadata::CopyMode
   metadata.copy_mode = media::VideoFrameMetadata::CopyMode::kCopyToNewTexture;
@@ -119,7 +119,7 @@ void VerifyVideoFrameMetadataEquality(const media::VideoFrameMetadata& a,
   EXPECT_EQ(a.interactive_content, b.interactive_content);
   EXPECT_EQ(a.reference_time, b.reference_time);
   EXPECT_EQ(a.read_lock_fences_enabled, b.read_lock_fences_enabled);
-  EXPECT_EQ(a.rotation, b.rotation);
+  EXPECT_EQ(a.transformation, b.transformation);
   EXPECT_EQ(a.texture_owner, b.texture_owner);
   EXPECT_EQ(a.wants_promotion_hint, b.wants_promotion_hint);
   EXPECT_EQ(a.protected_video, b.protected_video);
@@ -210,8 +210,8 @@ void ExpectFrameColor(media::VideoFrame* yv12_frame,
 }
 
 // Fill each plane to its reported extents and verify accessors report non
-// zero values.  Additionally, for the first plane verify the rows and
-// row_bytes values are correct.
+// zero values.  Additionally, for the first plane verify the rows, row_bytes,
+// and columns values are correct.
 void ExpectFrameExtents(VideoPixelFormat format, const char* expected_hash) {
   const unsigned char kFillByte = 0x80;
   const int kWidth = 61;
@@ -230,6 +230,7 @@ void ExpectFrameExtents(VideoPixelFormat format, const char* expected_hash) {
     EXPECT_TRUE(frame->stride(plane));
     EXPECT_TRUE(frame->rows(plane));
     EXPECT_TRUE(frame->row_bytes(plane));
+    EXPECT_TRUE(frame->columns(plane));
 
     memset(frame->data(plane), kFillByte,
            frame->stride(plane) * frame->rows(plane));
@@ -723,6 +724,10 @@ TEST(VideoFrame, AllocationSize_OddSize) {
         break;
       case PIXEL_FORMAT_Y16:
         EXPECT_EQ(30u, VideoFrame::AllocationSize(format, size))
+            << VideoPixelFormatToString(format);
+        break;
+      case PIXEL_FORMAT_RGBAF16:
+        EXPECT_EQ(120u, VideoFrame::AllocationSize(format, size))
             << VideoPixelFormatToString(format);
         break;
       case PIXEL_FORMAT_MJPEG:

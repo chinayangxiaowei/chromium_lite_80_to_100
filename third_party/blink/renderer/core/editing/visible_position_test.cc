@@ -12,6 +12,23 @@ namespace blink {
 
 class VisiblePositionTest : public EditingTestBase {};
 
+// Helper class to run the same test code with and without LayoutNG
+class ParameterizedVisiblePositionTest
+    : public testing::WithParamInterface<bool>,
+      private ScopedLayoutNGForTest,
+      public VisiblePositionTest {
+ protected:
+  ParameterizedVisiblePositionTest() : ScopedLayoutNGForTest(GetParam()) {}
+
+  bool LayoutNGEnabled() const {
+    return RuntimeEnabledFeatures::LayoutNGEnabled();
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ParameterizedVisiblePositionTest,
+                         testing::Bool());
+
 TEST_F(VisiblePositionTest, EmptyEditable) {
   SetBodyContent("<div id=target contenteditable></div>");
   const Element& target = *GetElementById("target");
@@ -199,5 +216,115 @@ TEST_F(VisiblePositionTest, NonNullInvalidatedAfterStyleChange) {
 }
 
 #endif
+
+TEST_F(VisiblePositionTest, NormalizationAroundLineBreak) {
+  LoadAhem();
+  InsertStyleElement(
+      "div {"
+      "width: 5.5ch;"
+      "font: 10px/10px Ahem;"
+      "word-wrap: break-word;"
+      "}");
+  SetBodyContent(
+      "<div>line1line2</div>"
+      "<div>line1<br>line2</div>"
+      "<div>line1<wbr>line2</div>"
+      "<div>line1<span></span>line2</div>"
+      "<div>line1<span></span><span></span>line2</div>");
+
+  StaticElementList* tests = GetDocument().QuerySelectorAll("div");
+  for (unsigned i = 0; i < tests->length(); ++i) {
+    Element* test = tests->item(i);
+    Node* node1 = test->firstChild();
+    Node* node2 = test->lastChild();
+    PositionWithAffinity line1_end(Position(node1, 5), TextAffinity::kUpstream);
+    PositionWithAffinity line2_start(Position(node2, node1 == node2 ? 5 : 0),
+                                     TextAffinity::kDownstream);
+    PositionWithAffinity line1_end_normalized =
+        CreateVisiblePosition(line1_end).ToPositionWithAffinity();
+    PositionWithAffinity line2_start_normalized =
+        CreateVisiblePosition(line2_start).ToPositionWithAffinity();
+
+    EXPECT_FALSE(InSameLine(line1_end, line2_start));
+    EXPECT_FALSE(InSameLine(line1_end_normalized, line2_start_normalized));
+    EXPECT_TRUE(InSameLine(line1_end, line1_end_normalized));
+    EXPECT_TRUE(InSameLine(line2_start, line2_start_normalized));
+  }
+}
+
+TEST_P(ParameterizedVisiblePositionTest, SpacesAroundLineBreak) {
+  // Narrow <body> forces "a" and "b" to be in different lines.
+  InsertStyleElement("body { width: 1px }");
+  {
+    SetBodyContent("a b");
+    Node* ab = GetDocument().body()->firstChild();
+    EXPECT_EQ(Position(ab, 0),
+              CreateVisiblePosition(Position(ab, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(ab, 1),
+              CreateVisiblePosition(Position(ab, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(ab, 2),
+              CreateVisiblePosition(Position(ab, 2)).DeepEquivalent());
+  }
+  {
+    SetBodyContent("a<span> b</span>");
+    Node* a = GetDocument().body()->firstChild();
+    Node* b = a->nextSibling()->firstChild();
+    EXPECT_EQ(Position(a, 0),
+              CreateVisiblePosition(Position(a, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(a, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(b, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(LayoutNGEnabled() ? b : a, 1),
+              CreateVisiblePosition(Position(b, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(b, 2),
+              CreateVisiblePosition(Position(b, 2)).DeepEquivalent());
+  }
+  {
+    SetBodyContent("<span>a</span> b");
+    Node* b = GetDocument().body()->lastChild();
+    Node* a = b->previousSibling()->firstChild();
+    EXPECT_EQ(Position(a, 0),
+              CreateVisiblePosition(Position(a, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(a, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(b, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(LayoutNGEnabled() ? b : a, 1),
+              CreateVisiblePosition(Position(b, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(b, 2),
+              CreateVisiblePosition(Position(b, 2)).DeepEquivalent());
+  }
+  {
+    SetBodyContent("a <span>b</span>");
+    Node* a = GetDocument().body()->firstChild();
+    Node* b = a->nextSibling()->firstChild();
+    EXPECT_EQ(Position(a, 0),
+              CreateVisiblePosition(Position(a, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(a, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(a, LayoutNGEnabled() ? 2 : 1),
+              CreateVisiblePosition(Position(a, 2)).DeepEquivalent());
+    EXPECT_EQ(Position(a, LayoutNGEnabled() ? 2 : 1),
+              CreateVisiblePosition(Position(b, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(b, 1),
+              CreateVisiblePosition(Position(b, 1)).DeepEquivalent());
+  }
+  {
+    SetBodyContent("<span>a </span>b");
+    Node* b = GetDocument().body()->lastChild();
+    Node* a = b->previousSibling()->firstChild();
+    EXPECT_EQ(Position(a, 0),
+              CreateVisiblePosition(Position(a, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(a, 1),
+              CreateVisiblePosition(Position(a, 1)).DeepEquivalent());
+    EXPECT_EQ(Position(a, LayoutNGEnabled() ? 2 : 1),
+              CreateVisiblePosition(Position(a, 2)).DeepEquivalent());
+    EXPECT_EQ(Position(a, LayoutNGEnabled() ? 2 : 1),
+              CreateVisiblePosition(Position(b, 0)).DeepEquivalent());
+    EXPECT_EQ(Position(b, 1),
+              CreateVisiblePosition(Position(b, 1)).DeepEquivalent());
+  }
+}
 
 }  // namespace blink

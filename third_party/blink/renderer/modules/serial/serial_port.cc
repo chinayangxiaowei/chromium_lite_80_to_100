@@ -508,7 +508,8 @@ void SerialPort::Trace(Visitor* visitor) const {
   visitor->Trace(open_resolver_);
   visitor->Trace(signal_resolvers_);
   visitor->Trace(close_resolver_);
-  ScriptWrappable::Trace(visitor);
+  EventTargetWithInlineData::Trace(visitor);
+  ActiveScriptWrappable<SerialPort>::Trace(visitor);
 }
 
 bool SerialPort::HasPendingActivity() const {
@@ -576,7 +577,7 @@ bool SerialPort::CreateDataPipe(mojo::ScopedDataPipeProducerHandle* producer,
   options.element_num_bytes = 1;
   options.capacity_num_bytes = buffer_size_;
 
-  MojoResult result = mojo::CreateDataPipe(&options, producer, consumer);
+  MojoResult result = mojo::CreateDataPipe(&options, *producer, *consumer);
   if (result == MOJO_RESULT_OK)
     return true;
 

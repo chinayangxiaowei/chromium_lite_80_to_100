@@ -91,6 +91,10 @@ struct URLResponseHead {
   // Remote address of the socket which fetched this resource.
   IPEndPoint remote_endpoint;
 
+  // True if the response was fetched from the cache and validated over the
+  // network.
+  bool is_validated = false;
+
   // True if the response came from cache.
   bool was_fetched_via_cache = false;
 
@@ -133,6 +137,12 @@ struct URLResponseHead {
 
   // https://fetch.spec.whatwg.org/#concept-response-type
   FetchResponseType response_type = FetchResponseType.kDefault;
+
+  // Pre-computed padding.  This should only be non-zero when |response_type|
+  // is set to kOpaque.  Note, this is not set by network service, but will be
+  // populated if the response was provided by a service worker FetchEvent
+  // handler.
+  int64 padding = 0;
 
   // The cache name of the CacheStorage from where the response is served via
   // the ServiceWorker. Empty if the response isn't from the CacheStorage.

@@ -221,10 +221,11 @@ void USER_MANAGER_EXPORT SetLastOnlineSignin(const AccountId& account_id,
 
 base::Time USER_MANAGER_EXPORT GetLastOnlineSignin(const AccountId& account_id);
 
-void USER_MANAGER_EXPORT SetOfflineSigninLimit(const AccountId& account_id,
-                                               base::TimeDelta time_limit);
+void USER_MANAGER_EXPORT
+SetOfflineSigninLimit(const AccountId& account_id,
+                      base::Optional<base::TimeDelta> time_limit);
 
-base::TimeDelta USER_MANAGER_EXPORT
+base::Optional<base::TimeDelta> USER_MANAGER_EXPORT
 GetOfflineSigninLimit(const AccountId& account_id);
 
 void USER_MANAGER_EXPORT SetIsEnterpriseManaged(const AccountId& account_id,
@@ -274,6 +275,9 @@ void RemovePrefs(const AccountId& account_id);
 
 // Removes all ephemeral users.
 void CleanEphemeralUsers();
+
+// Removes all obsolete prefs from all users.
+void CleanObsoletePrefs();
 
 // Register known user prefs.
 void USER_MANAGER_EXPORT RegisterPrefs(PrefRegistrySimple* registry);

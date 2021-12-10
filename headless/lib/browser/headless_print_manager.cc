@@ -16,7 +16,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/printing/browser/print_manager_utils.h"
 #include "components/printing/common/print.mojom.h"
-#include "components/printing/common/print_messages.h"
 #include "content/public/browser/render_view_host.h"
 #include "printing/mojom/print.mojom.h"
 #include "printing/print_job_constants.h"
@@ -154,6 +153,7 @@ void HeadlessPrintManager::GetPDFContents(content::RenderFrameHost* rfh,
   print_params_ = GetPrintParamsFromSettings(settings);
   page_ranges_text_ = settings.page_ranges;
   ignore_invalid_page_ranges_ = settings.ignore_invalid_page_ranges;
+  cookie_ = print_params_->params->document_cookie;
   GetPrintRenderFrame(rfh)->PrintRequestedPages();
 }
 

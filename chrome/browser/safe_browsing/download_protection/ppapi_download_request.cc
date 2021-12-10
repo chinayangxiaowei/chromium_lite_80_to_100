@@ -64,6 +64,13 @@ PPAPIDownloadRequest::PPAPIDownloadRequest(
   is_extended_reporting_ = IsExtendedReportingEnabled(*profile->GetPrefs());
   is_enhanced_protection_ = IsEnhancedProtectionEnabled(*profile->GetPrefs());
 
+  // web_contents can be null in tests.
+  if (!web_contents) {
+    return;
+  }
+
+  Observe(web_contents);
+
   if (service->navigation_observer_manager()) {
     has_user_gesture_ =
         service->navigation_observer_manager()->HasUserGesture(web_contents);
@@ -116,7 +123,7 @@ void PPAPIDownloadRequest::Start() {
 
   content::GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE,
-      base::BindOnce(&PPAPIDownloadRequest::CheckWhitelistsOnIOThread,
+      base::BindOnce(&PPAPIDownloadRequest::CheckAllowlistsOnIOThread,
                      requestor_url_, database_manager_,
                      weakptr_factory_.GetWeakPtr()));
 }
@@ -131,33 +138,37 @@ GURL PPAPIDownloadRequest::GetDownloadRequestUrl() {
   return url;
 }
 
-// Whitelist checking needs to the done on the IO thread.
-void PPAPIDownloadRequest::CheckWhitelistsOnIOThread(
+void PPAPIDownloadRequest::WebContentsDestroyed() {
+  Finish(RequestOutcome::REQUEST_DESTROYED, DownloadCheckResult::UNKNOWN);
+}
+
+// Allowlist checking needs to the done on the IO thread.
+void PPAPIDownloadRequest::CheckAllowlistsOnIOThread(
     const GURL& requestor_url,
     scoped_refptr<SafeBrowsingDatabaseManager> database_manager,
     base::WeakPtr<PPAPIDownloadRequest> download_request) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DVLOG(2) << " checking whitelists for requestor URL:" << requestor_url;
+  DVLOG(2) << " checking allowlists for requestor URL:" << requestor_url;
 
-  bool url_was_whitelisted =
+  bool url_was_allowlisted =
       requestor_url.is_valid() && database_manager &&
-      database_manager->MatchDownloadWhitelistUrl(requestor_url);
+      database_manager->MatchDownloadAllowlistUrl(requestor_url);
   content::GetUIThreadTaskRunner({})->PostTask(
-      FROM_HERE, base::BindOnce(&PPAPIDownloadRequest::WhitelistCheckComplete,
-                                download_request, url_was_whitelisted));
+      FROM_HERE, base::BindOnce(&PPAPIDownloadRequest::AllowlistCheckComplete,
+                                download_request, url_was_allowlisted));
 }
 
-void PPAPIDownloadRequest::WhitelistCheckComplete(bool was_on_whitelist) {
-  DVLOG(2) << __func__ << " was_on_whitelist:" << was_on_whitelist;
-  if (was_on_whitelist) {
-    RecordCountOfWhitelistedDownload(URL_WHITELIST);
-    // TODO(asanka): Should sample whitelisted downloads based on
-    // service_->whitelist_sample_rate(). http://crbug.com/610924
-    Finish(RequestOutcome::WHITELIST_HIT, DownloadCheckResult::SAFE);
+void PPAPIDownloadRequest::AllowlistCheckComplete(bool was_on_allowlist) {
+  DVLOG(2) << __func__ << " was_on_allowlist:" << was_on_allowlist;
+  if (was_on_allowlist) {
+    RecordCountOfAllowlistedDownload(URL_ALLOWLIST);
+    // TODO(asanka): Should sample allowlisted downloads based on
+    // service_->allowlist_sample_rate(). http://crbug.com/610924
+    Finish(RequestOutcome::ALLOWLIST_HIT, DownloadCheckResult::SAFE);
     return;
   }
 
-  // Not on whitelist, so we are going to check with the SafeBrowsing
+  // Not on allowlist, so we are going to check with the SafeBrowsing
   // backend.
   SendRequest();
 }
@@ -222,7 +233,7 @@ void PPAPIDownloadRequest::SendRequest() {
           "download is safe or the danger type of this download (e.g. "
           "dangerous content, uncommon content, potentially harmful, etc)."
         trigger:
-          "When user triggers a non-whitelisted PPAPI download, and the "
+          "When user triggers a non-allowlisted PPAPI download, and the "
           "file extension is supported by download protection service. "
           "Please refer to https://cs.chromium.org/chromium/src/chrome/"
           "browser/resources/safe_browsing/download_file_types.asciipb for "

@@ -19,11 +19,19 @@
         },
         "name": "context_lost_validating_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -53,11 +61,19 @@
         },
         "name": "depth_capture_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -87,11 +103,19 @@
         },
         "name": "gpu_process_launch_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -121,11 +145,19 @@
         },
         "name": "hardware_accelerated_feature_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -164,11 +196,19 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -207,11 +247,19 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -242,11 +290,19 @@
         },
         "name": "screenshot_sync_validating_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -276,11 +332,19 @@
         },
         "name": "trace_test",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -311,11 +375,19 @@
         },
         "name": "webgl_conformance_gles_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -347,11 +419,19 @@
         },
         "name": "webgl_conformance_validating_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
           "can_use_on_swarming_builders": true,
+          "cipd_packages": [
+            {
+              "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
+              "location": "bin",
+              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+            }
+          ],
           "dimension_sets": [
             {
               "device_os": "MMB29Q",
@@ -393,7 +473,8 @@
         },
         "name": "context_lost_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -426,7 +507,8 @@
         },
         "name": "depth_capture_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -459,7 +541,8 @@
         },
         "name": "gpu_process_launch_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -492,7 +575,8 @@
         },
         "name": "hardware_accelerated_feature_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -534,7 +618,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -576,7 +661,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -610,7 +696,8 @@
         },
         "name": "screenshot_sync_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -643,7 +730,8 @@
         },
         "name": "trace_test",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -678,7 +766,8 @@
         },
         "name": "webgl2_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -713,7 +802,8 @@
         },
         "name": "webgl_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -751,7 +841,8 @@
         },
         "name": "context_lost_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -784,7 +875,8 @@
         },
         "name": "depth_capture_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -817,7 +909,8 @@
         },
         "name": "gpu_process_launch_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -850,7 +943,8 @@
         },
         "name": "hardware_accelerated_feature_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -892,7 +986,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -934,7 +1029,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -968,7 +1064,8 @@
         },
         "name": "screenshot_sync_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1001,7 +1098,8 @@
         },
         "name": "trace_test",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1036,7 +1134,8 @@
         },
         "name": "webgl2_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1071,7 +1170,8 @@
         },
         "name": "webgl_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1109,7 +1209,8 @@
         },
         "name": "context_lost_validating_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1117,7 +1218,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1141,7 +1242,8 @@
         },
         "name": "depth_capture_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1149,7 +1251,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1173,7 +1275,8 @@
         },
         "name": "gpu_process_launch_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1181,7 +1284,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1205,7 +1308,8 @@
         },
         "name": "hardware_accelerated_feature_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1213,7 +1317,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1246,7 +1350,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1254,7 +1359,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1287,7 +1392,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1295,7 +1401,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1320,7 +1426,8 @@
         },
         "name": "screenshot_sync_validating_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1328,7 +1435,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1352,7 +1459,8 @@
         },
         "name": "trace_test",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1360,7 +1468,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1386,7 +1494,8 @@
         },
         "name": "webgl2_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1394,7 +1503,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1420,7 +1529,8 @@
         },
         "name": "webgl_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1428,7 +1538,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "idempotent": false,
@@ -1846,7 +1956,8 @@
         },
         "name": "context_lost_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1879,7 +1990,8 @@
         },
         "name": "depth_capture_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1912,7 +2024,8 @@
         },
         "name": "gpu_process_launch_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1945,7 +2058,8 @@
         },
         "name": "hardware_accelerated_feature_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -1987,7 +2101,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -2029,7 +2144,8 @@
           "--buildbucket-id=${buildbucket_build_id}"
         ],
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -2063,7 +2179,8 @@
         },
         "name": "screenshot_sync_passthrough_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -2096,7 +2213,8 @@
         },
         "name": "trace_test",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -2131,7 +2249,8 @@
         },
         "name": "webgl2_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {
@@ -2166,7 +2285,8 @@
         },
         "name": "webgl_conformance_tests",
         "resultdb": {
-          "enable": true
+          "enable": true,
+          "has_native_resultdb_integration": true
         },
         "should_retry_with_patch": false,
         "swarming": {

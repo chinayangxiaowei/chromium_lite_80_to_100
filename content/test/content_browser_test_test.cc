@@ -213,6 +213,9 @@ IN_PROC_BROWSER_TEST_F(MockContentBrowserTest, DISABLED_CrashTest) {
 // This is disabled due to flakiness: https://crbug.com/1086372
 #if defined(OS_WIN)
 #define MAYBE_RunMockTests DISABLED_RunMockTests
+#elif defined(OS_LINUX) && defined(THREAD_SANITIZER)
+// This is disabled because it fails on bionic: https://crbug.com/1202220
+#define MAYBE_RunMockTests DISABLED_RunMockTests
 #else
 #define MAYBE_RunMockTests RunMockTests
 #endif
@@ -353,9 +356,12 @@ IN_PROC_BROWSER_TEST_F(ContentBrowserTest, RunTimeoutInstalled) {
   EXPECT_TRUE(run_timeout);
   EXPECT_LT(run_timeout->timeout, TestTimeouts::test_launcher_timeout());
 
-  static const base::RepeatingClosure& static_on_timeout =
-      run_timeout->on_timeout;
-  EXPECT_FATAL_FAILURE(static_on_timeout.Run(), "RunLoop::Run() timed out");
+  static auto& static_on_timeout_cb = run_timeout->on_timeout;
+  EXPECT_FATAL_FAILURE(static_on_timeout_cb.Run(FROM_HERE),
+                       "RunLoop::Run() timed out. Timeout set at "
+                       // We don't test the line number but it would be present.
+                       "ProxyRunTestOnMainThreadLoop@../../content/public/test/"
+                       "browser_test_base.cc:");
 }
 
 }  // namespace content

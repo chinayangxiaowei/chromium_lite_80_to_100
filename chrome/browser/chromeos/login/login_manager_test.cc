@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "ash/constants/ash_switches.h"
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
@@ -16,7 +17,6 @@
 #include "chrome/browser/chromeos/login/test/fake_gaia_mixin.h"
 #include "chrome/browser/chromeos/login/test/session_manager_state_waiter.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_webui.h"
-#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/login/auth/key.h"
 #include "chromeos/login/auth/user_context.h"
 #include "components/account_id/account_id.h"
@@ -75,6 +75,7 @@ UserContext LoginManagerTest::CreateUserContext(const AccountId& account_id,
   UserContext user_context(user_manager::UserType::USER_TYPE_REGULAR,
                            account_id);
   user_context.SetKey(Key(password));
+  user_context.SetPasswordKey(Key(password));
   if (account_id.GetUserEmail() == FakeGaiaMixin::kEnterpriseUser1) {
     user_context.SetRefreshToken(FakeGaiaMixin::kTestRefreshToken1);
   } else if (account_id.GetUserEmail() == FakeGaiaMixin::kEnterpriseUser2) {

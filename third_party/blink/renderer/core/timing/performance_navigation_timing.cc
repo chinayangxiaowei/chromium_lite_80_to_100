@@ -55,6 +55,7 @@ PerformanceNavigationTiming::PerformanceNavigationTiming(
                      info->FinalResponse().CurrentRequestUrl().GetString())
                : g_empty_atom,
           time_origin,
+          // TODO(crbug.com/1153336) Use network::IsUrlPotentiallyTrustworthy().
           SecurityOrigin::IsSecure(window->Url()),
           std::move(server_timing),
           window),
@@ -108,7 +109,8 @@ bool PerformanceNavigationTiming::DidReuseConnection() const {
 }
 
 uint64_t PerformanceNavigationTiming::GetTransferSize() const {
-  return resource_timing_info_->TransferSize();
+  return PerformanceResourceTiming::GetTransferSize(
+      resource_timing_info_->FinalResponse().EncodedBodyLength(), CacheState());
 }
 
 uint64_t PerformanceNavigationTiming::GetEncodedBodySize() const {
@@ -166,7 +168,7 @@ DOMHighResTimeStamp PerformanceNavigationTiming::unloadEventStart() const {
   DocumentLoadTiming* timing = GetDocumentLoadTiming();
 
   if (!allow_redirect_details || !timing ||
-      !timing->HasSameOriginAsPreviousDocument())
+      !timing->CanRequestFromPreviousDocument())
     return 0;
   return Performance::MonotonicTimeToDOMHighResTimeStamp(
       TimeOrigin(), timing->UnloadEventStart(),
@@ -178,7 +180,7 @@ DOMHighResTimeStamp PerformanceNavigationTiming::unloadEventEnd() const {
   DocumentLoadTiming* timing = GetDocumentLoadTiming();
 
   if (!allow_redirect_details || !timing ||
-      !timing->HasSameOriginAsPreviousDocument())
+      !timing->CanRequestFromPreviousDocument())
     return 0;
   return Performance::MonotonicTimeToDOMHighResTimeStamp(
       TimeOrigin(), timing->UnloadEventEnd(), false /* allow_negative_value */);

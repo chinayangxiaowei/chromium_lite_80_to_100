@@ -29,7 +29,6 @@
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager.h"
 #include "chrome/browser/chromeos/login/signin/token_handle_util.h"
 #include "chrome/browser/chromeos/release_notes/release_notes_notification.h"
-#include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/chromeos/u2f_notification.h"
 #include "chromeos/dbus/session_manager/session_manager_client.h"
 #include "chromeos/dbus/tpm_manager/tpm_manager.pb.h"
@@ -104,19 +103,22 @@ class UserSessionManager
       public user_manager::UserManager::Observer {
  public:
   // Context of StartSession calls.
-  typedef enum {
+  enum class StartSessionType {
+    // No StartSession call happened yet.
+    kNone,
+
     // Starting primary user session, through login UI.
-    PRIMARY_USER_SESSION,
+    kPrimary,
 
     // Starting secondary user session, through multi-profiles login UI.
-    SECONDARY_USER_SESSION,
+    kSecondary,
 
     // Starting primary user session after browser crash.
-    PRIMARY_USER_SESSION_AFTER_CRASH,
+    kPrimaryAfterCrash,
 
     // Starting secondary user session after browser crash.
-    SECONDARY_USER_SESSION_AFTER_CRASH,
-  } StartSessionType;
+    kSecondaryAfterCrash,
+  };
 
   // Types of command-line switches for a user session. The command-line
   // switches of all types are combined.
@@ -272,9 +274,6 @@ class UserSessionManager
 
   void ActiveUserChanged(user_manager::User* active_user) override;
 
-  // This method will be called when user have obtained oauth2 tokens.
-  void OnOAuth2TokensFetched(UserContext context);
-
   // Returns default IME state for user session.
   scoped_refptr<input_method::InputMethodManager::State> GetDefaultIMEState(
       Profile* profile);
@@ -317,6 +316,9 @@ class UserSessionManager
                           CommandLineSwitchesType switches_type,
                           const std::vector<std::string>& switches);
 
+  // This should only be called when the primary user session is being
+  // initialized. Calls outside of the primary user session initialization will
+  // be ignored.
   // Notify whether `service` wants session manager to save the user's login
   // password. If `save_password` is true, the login password is sent over D-Bus
   // to the session manager to save in a keyring. Once this method has been
@@ -331,6 +333,9 @@ class UserSessionManager
                                   bool save_password);
 
   UserContext* mutable_user_context_for_testing() { return &user_context_; }
+  void set_start_session_type_for_testing(StartSessionType start_session_type) {
+    start_session_type_ = start_session_type;
+  }
 
   bool token_handle_backfill_tried_for_testing() {
     return token_handle_backfill_tried_for_testing_;
@@ -348,6 +353,8 @@ class UserSessionManager
   ~UserSessionManager() override;
 
  private:
+  // Observes the Device Account's LST and informs UserSessionManager about it.
+  class DeviceAccountGaiaTokenObserver;
   friend class test::UserSessionManagerTestApi;
   friend struct base::DefaultSingletonTraits<UserSessionManager>;
 
@@ -499,9 +506,16 @@ class UserSessionManager
 
   void CreateTokenUtilIfMissing();
 
+  // Update token handle if the existing token handle is missing/invalid.
+  void UpdateTokenHandleIfRequired(Profile* const profile,
+                                   const AccountId& account_id);
+
+  // Force update token handle.
+  void UpdateTokenHandle(Profile* const profile, const AccountId& account_id);
+
   // Test API methods.
   void InjectAuthenticatorBuilder(
-      std::unique_ptr<StubAuthenticatorBuilder> builer);
+      std::unique_ptr<StubAuthenticatorBuilder> builder);
 
   // Controls whether browser instance should be launched after sign in
   // (used in tests).
@@ -520,6 +534,10 @@ class UserSessionManager
 
   bool IsFullRestoreEnabled(Profile* profile);
 
+  // Triggers loading of the shill profile for |account_id|. This should only be
+  // called for the primary user session.
+  void LoadShillProfile(const AccountId& account_id);
+
   UserSessionManagerDelegate* delegate_;
 
   // Used to listen to network changes.
@@ -528,7 +546,7 @@ class UserSessionManager
   // Authentication/user context.
   UserContext user_context_;
   scoped_refptr<Authenticator> authenticator_;
-  StartSessionType start_session_type_;
+  StartSessionType start_session_type_ = StartSessionType::kNone;
 
   std::unique_ptr<StubAuthenticatorBuilder> injected_authenticator_builder_;
 
@@ -601,6 +619,8 @@ class UserSessionManager
 
   std::unique_ptr<TokenHandleUtil> token_handle_util_;
   std::unique_ptr<TokenHandleFetcher> token_handle_fetcher_;
+  std::map<Profile*, std::unique_ptr<DeviceAccountGaiaTokenObserver>>
+      token_observers_;
 
   // Whether should launch browser, tests may override this value.
   bool should_launch_browser_;
@@ -638,5 +658,12 @@ class UserSessionManager
 };
 
 }  // namespace chromeos
+
+// TODO(https://crbug.com/1164001): remove after //chrome/browser/chromeos
+// source migration is finished.
+namespace ash {
+using ::chromeos::UserSessionManager;
+using ::chromeos::UserSessionManagerDelegate;
+}  // namespace ash
 
 #endif  // CHROME_BROWSER_CHROMEOS_LOGIN_SESSION_USER_SESSION_MANAGER_H_

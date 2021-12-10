@@ -265,8 +265,7 @@ void SanitizeFormData(FormData* form) {
     field.label.clear();
     field.value.clear();
     field.autocomplete_attribute.clear();
-    field.option_values.clear();
-    field.option_contents.clear();
+    field.options.clear();
     field.placeholder.clear();
     field.css_classes.clear();
     field.id_attribute.clear();
@@ -2797,11 +2796,11 @@ TEST_P(PasswordManagerTest, MetricForSchemeOfSuccessfulLogins) {
     std::vector<FormData> observed = {form_data};
     EXPECT_CALL(*store_, GetLogins(_, _))
         .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
+    EXPECT_CALL(client_, IsSavingAndFillingEnabled(form_data.url))
+        .WillRepeatedly(Return(true));
     manager()->OnPasswordFormsParsed(&driver_, observed);
     manager()->OnPasswordFormsRendered(&driver_, observed, true);
 
-    EXPECT_CALL(client_, IsSavingAndFillingEnabled(form_data.url))
-        .WillRepeatedly(Return(true));
     OnPasswordFormSubmitted(form_data);
 
     std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
@@ -3726,7 +3725,6 @@ TEST_P(PasswordManagerTest, GenerationOnChangedForm) {
   }
 }
 
-#if !defined(OS_IOS)
 TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedForm) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kDetectFormSubmissionOnFormClear);
@@ -3815,6 +3813,7 @@ TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedNamelessForm) {
   manager()->OnPasswordFormCleared(&driver_, form_data);
 }
 
+#if !defined(OS_IOS)
 TEST_P(PasswordManagerTest, SubmissionDetectedOnClearedFormlessFields) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(features::kDetectFormSubmissionOnFormClear);

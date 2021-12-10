@@ -346,6 +346,12 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
                              size_t plane,
                              const gfx::Size& coded_size);
 
+  // Returns the plane gfx::Size (in samples) for a plane of the given coded
+  // size and format.
+  static gfx::Size PlaneSizeInSamples(VideoPixelFormat format,
+                                      size_t plane,
+                                      const gfx::Size& coded_size);
+
   // Returns horizontal bits per pixel for given |plane| and |format|.
   static int PlaneHorizontalBitsPerPixel(VideoPixelFormat format, size_t plane);
 
@@ -478,6 +484,9 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // frame data scanlines (coded_size.width() pixels, without stride padding).
   int row_bytes(size_t plane) const;
   int rows(size_t plane) const;
+
+  // Returns the number of columns for a given plane.
+  int columns(size_t plane) const;
 
   // Returns pointer to the buffer for a given plane, if this is an
   // IsMappable() frame type. The memory is owned by VideoFrame object and must

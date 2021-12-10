@@ -27,6 +27,7 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_rtc_session_description_init.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream_constraints_util.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/web_rtc_cross_thread_copier.h"
 #include "third_party/blink/renderer/modules/peerconnection/peer_connection_dependency_factory.h"
@@ -1454,8 +1455,7 @@ void RTCPeerConnectionHandler::SetLocalDescription(
                   rtc::scoped_refptr<
                       webrtc::SetLocalDescriptionObserverInterface>)>(
                   &webrtc::PeerConnectionInterface::SetLocalDescription),
-              native_peer_connection_, WTF::Passed(parsed_sdp.release()),
-              webrtc_observer),
+              native_peer_connection_, parsed_sdp.release(), webrtc_observer),
           CrossThreadUnretained("SetLocalDescription")));
 }
 
@@ -1534,8 +1534,7 @@ void RTCPeerConnectionHandler::SetRemoteDescription(
                   rtc::scoped_refptr<
                       webrtc::SetRemoteDescriptionObserverInterface>)>(
                   &webrtc::PeerConnectionInterface::SetRemoteDescription),
-              native_peer_connection_, WTF::Passed(parsed_sdp.release()),
-              webrtc_observer),
+              native_peer_connection_, parsed_sdp.release(), webrtc_observer),
           CrossThreadUnretained("SetRemoteDescription")));
 }
 
@@ -1624,7 +1623,8 @@ void RTCPeerConnectionHandler::AddICECandidate(
       std::move(native_candidate),
       [pc = native_peer_connection_, task_runner = task_runner_,
        handler_weak_ptr = weak_factory_.GetWeakPtr(),
-       tracker_weak_ptr = peer_connection_tracker_, candidate,
+       tracker_weak_ptr = peer_connection_tracker_,
+       persistent_candidate = WrapCrossThreadPersistent(candidate),
        persistent_request = WrapCrossThreadPersistent(request),
        callback_on_task_runner =
            std::move(callback_on_task_runner)](webrtc::RTCError result) {
@@ -1653,7 +1653,7 @@ void RTCPeerConnectionHandler::AddICECandidate(
                 std::move(current_local_description),
                 std::move(pending_remote_description),
                 std::move(current_remote_description),
-                WrapCrossThreadPersistent(candidate), std::move(result),
+                std::move(persistent_candidate), std::move(result),
                 std::move(persistent_request)));
       });
 }

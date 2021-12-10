@@ -14,6 +14,8 @@
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
+#include "chrome/browser/profiles/profile_keep_alive_types.h"
+#include "chrome/browser/profiles/scoped_profile_keep_alive.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/sessions/tab_loader_tester.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
@@ -711,7 +713,7 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreWindow) {
 // Mac10.13 Tests (dbg) and PASS/FAIL flakiness on Linux Chromium OS ASan LSan
 // Tests (1) bot.
 #if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
-    defined(OS_WIN) || (defined(OS_MAC) && !defined(NDEBUG))
+    !defined(NDEBUG)
 #define MAYBE_RestoreTabWithSpecialURL DISABLED_RestoreTabWithSpecialURL
 #else
 #define MAYBE_RestoreTabWithSpecialURL RestoreTabWithSpecialURL
@@ -744,8 +746,9 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, MAYBE_RestoreTabWithSpecialURL) {
 // https://crbug.com/667932: Flakiness on linux_chromium_asan_rel_ng bot.
 // https://crbug.com/825305: Timeout flakiness on Win7 Tests (dbg)(1) and
 // Mac10.13 Tests (dbg) bots.
+// Also fails on Linux Tests (dbg).
 #if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
-    ((defined(OS_WIN) || defined(OS_MAC)) && !defined(NDEBUG))
+    !defined(NDEBUG)
 #define MAYBE_RestoreTabWithSpecialURLOnBack DISABLED_RestoreTabWithSpecialURLOnBack
 #else
 #define MAYBE_RestoreTabWithSpecialURLOnBack RestoreTabWithSpecialURLOnBack
@@ -803,9 +806,11 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreOnStartup) {
 // same thing.
 IN_PROC_BROWSER_TEST_F(TabRestoreTest,
                        RestoreFirstBrowserWhenSessionServiceEnabled) {
-  // Do not exit from test when last browser is closed.
+  // Do not exit from test or delete the Profile* when last browser is closed.
   ScopedKeepAlive keep_alive(KeepAliveOrigin::SESSION_RESTORE,
                              KeepAliveRestartOption::DISABLED);
+  ScopedProfileKeepAlive profile_keep_alive(
+      browser()->profile(), ProfileKeepAliveOrigin::kSessionRestore);
 
   // Enable session service.
   SessionStartupPref pref(SessionStartupPref::LAST);
@@ -1141,20 +1146,23 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreWindowWithGroupedTabs) {
   TabGroupModel* restored_group_model =
       restored_window->tab_strip_model()->group_model();
   ASSERT_EQ(tab_count, restored_window->tab_strip_model()->count());
+  auto restored_group1 =
+      restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 3);
+  ASSERT_TRUE(restored_group1);
   EXPECT_EQ(
-      base::make_optional(group1),
-      restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 3));
-  EXPECT_EQ(
-      base::make_optional(group1),
+      restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 3),
       restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 2));
-  EXPECT_EQ(
-      base::make_optional(group2),
-      restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 1));
+  auto restored_group2 =
+      restored_window->tab_strip_model()->GetTabGroupForTab(tab_count - 1);
+  ASSERT_TRUE(restored_group2);
+  EXPECT_NE(restored_group2, restored_group1);
 
-  EXPECT_EQ(group1_data,
-            *restored_group_model->GetTabGroup(group1)->visual_data());
-  EXPECT_EQ(group2_data,
-            *restored_group_model->GetTabGroup(group2)->visual_data());
+  EXPECT_EQ(
+      group1_data,
+      *restored_group_model->GetTabGroup(*restored_group1)->visual_data());
+  EXPECT_EQ(
+      group2_data,
+      *restored_group_model->GetTabGroup(*restored_group2)->visual_data());
 }
 
 // Ensure a tab is not restored between tabs of another group.
@@ -1501,8 +1509,50 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, BackToAboutBlank) {
   GoBack(browser());
   EXPECT_EQ(GURL(url::kAboutBlankURL),
             new_popup->GetMainFrame()->GetLastCommittedURL());
-  // TODO(lukasza): https://crbug.com/888079: The browser process should tell
-  // the renderer which (initiator-based) origin to commit.  Right now, Blink
-  // just falls back to an opaque origin.
-  EXPECT_TRUE(new_popup->GetMainFrame()->GetLastCommittedOrigin().opaque());
+  EXPECT_EQ(initial_origin,
+            new_popup->GetMainFrame()->GetLastCommittedOrigin());
+}
+
+// Ensures group IDs are regenerated for restored windows so that we don't split
+// the same group between multiple windows. See https://crbug.com/1202102. This
+// test is temporary until a more comprehensive fix is implemented.
+IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoredWindowHasNewGroupIds) {
+  sessions::TabRestoreService* service =
+      TabRestoreServiceFactory::GetForProfile(browser()->profile());
+
+  AddSomeTabs(browser(), 2);
+  ASSERT_EQ(3, browser()->tab_strip_model()->count());
+
+  // Create a new browser from which to restore the first.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL),
+      WindowOpenDisposition::NEW_WINDOW,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_BROWSER);
+  ASSERT_EQ(2u, active_browser_list_->size());
+  Browser* second_browser = GetBrowser(1);
+  ASSERT_NE(browser(), second_browser);
+
+  auto original_group = browser()->tab_strip_model()->AddToNewGroup({1, 2});
+  CloseBrowserSynchronously(browser());
+  ASSERT_EQ(1u, active_browser_list_->size());
+
+  // We should have a restore entry for the window.
+  const sessions::TabRestoreService::Entries& entries = service->entries();
+  ASSERT_GE(entries.size(), 1u);
+  ASSERT_EQ(entries.front()->type, sessions::TabRestoreService::WINDOW);
+
+  // Restore the window.
+  std::vector<sessions::LiveTab*> restored_window_tabs =
+      service->RestoreEntryById(second_browser->live_tab_context(),
+                                entries.front()->id,
+                                WindowOpenDisposition::NEW_FOREGROUND_TAB);
+  ASSERT_EQ(2u, active_browser_list_->size());
+  ASSERT_EQ(3u, restored_window_tabs.size());
+  Browser* third_browser = GetBrowser(1);
+  ASSERT_NE(second_browser, third_browser);
+  ASSERT_EQ(3, third_browser->tab_strip_model()->count());
+
+  // The group ID should be new.
+  EXPECT_NE(original_group,
+            third_browser->tab_strip_model()->GetTabGroupForTab(1));
 }

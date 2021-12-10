@@ -46,6 +46,7 @@
 #include "net/ssl/ssl_info.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
+#include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/gtest_mac.h"
@@ -351,7 +352,7 @@ TEST_F(ChromeWebClientTest, PrepareErrorPageForSafeBrowsingError) {
   security_interstitials::UnsafeResource resource;
   resource.threat_type = safe_browsing::SB_THREAT_TYPE_URL_PHISHING;
   resource.url = GURL("http://www.chromium.test");
-  resource.resource_type = safe_browsing::ResourceType::kMainFrame;
+  resource.request_destination = network::mojom::RequestDestination::kDocument;
   resource.web_state_getter = web_state.CreateDefaultGetter();
   SafeBrowsingUrlAllowList::FromWebState(&web_state)
       ->AddPendingUnsafeNavigationDecision(resource.url, resource.threat_type);
@@ -499,6 +500,37 @@ TEST_F(ChromeWebClientTest, PrepareErrorPageForLegacyTLSError) {
       l10n_util::GetNSString(IDS_LEGACY_TLS_PRIMARY_PARAGRAPH);
   EXPECT_TRUE([page containsString:error_string])
       << base::SysNSStringToUTF8(page);
+}
+
+// Tests PrepareErrorPage for a legacy TLS error in a WebState that doesn't
+// have an IOSBlockingPageTabHelper, ensuring that there is no crash.
+TEST_F(ChromeWebClientTest,
+       PrepareErrorPageForLegacyTLSErrorNotInWebStateList) {
+  web::FakeWebState web_state;
+  web_state.SetBrowserState(browser_state());
+  auto navigation_manager = std::make_unique<web::FakeNavigationManager>();
+  web_state.SetNavigationManager(std::move(navigation_manager));
+
+  NSError* error = [NSError errorWithDomain:net::kNSErrorDomain
+                                       code:net::ERR_SSL_OBSOLETE_VERSION
+                                   userInfo:nil];
+  __block bool callback_called = false;
+  __block NSString* page = nil;
+  base::OnceCallback<void(NSString*)> callback =
+      base::BindOnce(^(NSString* error_html) {
+        callback_called = true;
+        page = error_html;
+      });
+
+  ChromeWebClient web_client;
+  web_client.PrepareErrorPage(&web_state, GURL(kTestUrl), error,
+                              /*is_post=*/false,
+                              /*is_off_the_record=*/false,
+                              /*info=*/base::Optional<net::SSLInfo>(),
+                              /*navigation_id=*/0, std::move(callback));
+
+  EXPECT_TRUE(callback_called);
+  EXPECT_EQ(page.length, 0u);
 }
 
 // Tests the default user agent for different views.

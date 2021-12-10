@@ -19,7 +19,7 @@ to set the default value. Can also be accessed through `try_.defaults`.
 
 load("./args.star", "args")
 load("./branches.star", "branches")
-load("./builders.star", "builders")
+load("./builders.star", "builders", "os")
 
 DEFAULT_EXCLUDE_REGEXPS = [
     # Contains documentation that doesn't affect the outputs
@@ -107,8 +107,8 @@ def try_builder(
         specifying additional parameters for exporting test results to BigQuery.
         Will always upload to the following tables in addition to any tables
         specified by the list's elements:
-          luci-resultdb.chromium.try_test_results
-          luci-resultdb.chromium.gpu_try_test_results
+          chrome-luci-data.chromium.try_test_results
+          chrome-luci-data.gpu_try_test_results
     """
     if not branches.matches(branch_selector):
         return
@@ -118,16 +118,22 @@ def try_builder(
     experiments.setdefault("chromium.resultdb.result_sink", 100)
     experiments.setdefault("chromium.resultdb.result_sink.junit_tests", 100)
 
+    # TODO(crbug.com/1135718): Promote out of experiment for all builders.
+    experiments.setdefault("chromium.chromium_tests.use_rdb_results", 100)
+
     merged_resultdb_bigquery_exports = [
         resultdb.export_test_results(
-            bq_table = "luci-resultdb.chromium.try_test_results",
+            bq_table = "chrome-luci-data.chromium.try_test_results",
         ),
         resultdb.export_test_results(
-            bq_table = "luci-resultdb.chromium.gpu_try_test_results",
+            bq_table = "chrome-luci-data.chromium.gpu_try_test_results",
             predicate = resultdb.test_result_predicate(
                 # Only match the telemetry_gpu_integration_test and
                 # fuchsia_telemetry_gpu_integration_test targets.
-                test_id_regexp = "ninja://(chrome/test:|content/test:fuchsia_)telemetry_gpu_integration_test/.+",
+                # Android Telemetry targets also have a suffix added to the end
+                # denoting the binary that's included, so also catch those with
+                # [^/]*.
+                test_id_regexp = "ninja://(chrome/test:|content/test:fuchsia_)telemetry_gpu_integration_test[^/]*/.+",
             ),
         ),
     ]
@@ -159,6 +165,7 @@ def try_builder(
         list_view = list_view,
         resultdb_bigquery_exports = merged_resultdb_bigquery_exports,
         experiments = experiments,
+        resultdb_index_by_timestamp = True,
         **kwargs
     )
 
@@ -208,6 +215,7 @@ def blink_mac_builder(
     )
 
 def chromium_builder(*, name, **kwargs):
+    kwargs.setdefault("os", builders.os.LINUX_BIONIC_REMOVE)
     return try_builder(
         name = name,
         builder_group = "tryserver.chromium",
@@ -217,6 +225,7 @@ def chromium_builder(*, name, **kwargs):
     )
 
 def chromium_android_builder(*, name, **kwargs):
+    kwargs.setdefault("os", os.LINUX_BIONIC_REMOVE)
     return try_builder(
         name = name,
         builder_group = "tryserver.chromium.android",
@@ -263,6 +272,7 @@ def chromium_angle_ios_builder(*, name, **kwargs):
     )
 
 def chromium_chromiumos_builder(*, name, **kwargs):
+    kwargs.setdefault("os", os.LINUX_BIONIC_REMOVE)
     return try_builder(
         name = name,
         builder_group = "tryserver.chromium.chromiumos",
@@ -313,8 +323,8 @@ def chromium_mac_ios_builder(
         name,
         executable = "recipe:chromium_trybot",
         goma_backend = builders.goma.backend.RBE_PROD,
-        os = builders.os.MAC_10_15,
-        xcode = builders.xcode.x12a7209,
+        os = builders.os.MAC_10_15_OR_11,
+        xcode = builders.xcode.x12d4e,
         **kwargs):
     return try_builder(
         name = name,
@@ -343,7 +353,7 @@ def chromium_swangle_linux_builder(*, name, **kwargs):
     return chromium_swangle_builder(
         name = name,
         goma_backend = builders.goma.backend.RBE_PROD,
-        os = builders.os.LINUX_DEFAULT,
+        os = builders.os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         **kwargs
     )
 
@@ -445,6 +455,7 @@ def gpu_chromium_android_builder(*, name, **kwargs):
         name = name,
         builder_group = "tryserver.chromium.android",
         goma_backend = builders.goma.backend.RBE_PROD,
+        os = builders.os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         **kwargs
     )
 
@@ -453,6 +464,7 @@ def gpu_chromium_linux_builder(*, name, **kwargs):
         name = name,
         builder_group = "tryserver.chromium.linux",
         goma_backend = builders.goma.backend.RBE_PROD,
+        os = builders.os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         **kwargs
     )
 

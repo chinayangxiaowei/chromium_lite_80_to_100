@@ -7,7 +7,6 @@ load("//lib/builders.star", "cpu", "goma", "os", "xcode")
 load("//lib/consoles.star", "consoles")
 load("//lib/try.star", "try_")
 load("//project.star", "settings")
-load("./packager_vars.star", "CHROMIUM_3PP_PROPERTIES")
 
 try_.defaults.set(
     bucket = "try",
@@ -27,6 +26,7 @@ try_.defaults.set(
     # Max. pending time for builds. CQ considers builds pending >2h as timed
     # out: http://shortn/_8PaHsdYmlq. Keep this in sync.
     expiration_timeout = 2 * time.hour,
+    grace_period = 2 * time.minute,
     os = os.LINUX_DEFAULT,
     pool = "luci.chromium.try",
     service_account = "chromium-try-builder@chops-service-accounts.iam.gserviceaccount.com",
@@ -54,13 +54,13 @@ luci.bucket(
                 "service-account-chromeperf",
                 "service-account-cq",
             ],
-            projects = branches.value(for_main = [
+            projects = [
                 "angle",
                 "dawn",
                 "skia",
                 "swiftshader",
                 "v8",
-            ]),
+            ] if settings.is_main else None,
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
@@ -72,17 +72,13 @@ luci.bucket(
 luci.cq_group(
     name = "cq",
     retry_config = cq.RETRY_ALL_FAILURES,
-    tree_status_host = branches.value(for_main = "chromium-status.appspot.com"),
+    tree_status_host = "chromium-status.appspot.com" if settings.is_main else None,
     watch = cq.refset(
         repo = "https://chromium.googlesource.com/chromium/src",
-        refs = [branches.value(
-            # The chromium project's CQ covers all of the refs under refs/heads,
-            # which includes refs/heads/master
-            for_main = "refs/heads/.+",
-            # For projects running out of a branch, the CQ only runs for that
-            # ref
-            for_branches = settings.ref,
-        )],
+        # The chromium project's CQ covers all of the refs under refs/heads,
+        # which includes refs/heads/main, for projects running out of a branch
+        # the CQ only runs for that ref
+        refs = ["refs/heads/.+" if settings.is_main else settings.ref],
     ),
     acls = [
         acl.entry(
@@ -130,7 +126,7 @@ consoles.list_view(
 
 consoles.list_view(
     name = "tryserver.chromium.chromiumos",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
 )
 
 consoles.list_view(
@@ -140,7 +136,7 @@ consoles.list_view(
 
 consoles.list_view(
     name = "tryserver.chromium.linux",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
 )
 
 consoles.list_view(
@@ -253,6 +249,7 @@ try_.chromium_builder(
     branch_selector = branches.STANDARD_MILESTONE,
     os = os.WINDOWS_DEFAULT,
     cores = 32,
+    execution_timeout = 6 * time.hour,
 )
 
 try_.chromium_builder(
@@ -260,6 +257,7 @@ try_.chromium_builder(
     branch_selector = branches.STANDARD_MILESTONE,
     os = os.WINDOWS_DEFAULT,
     cores = 32,
+    execution_timeout = 6 * time.hour,
 )
 
 try_.chromium_android_builder(
@@ -345,7 +343,7 @@ try_.chromium_android_builder(
     name = "android-lollipop-arm-rel",
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
-    cores = branches.value(for_main = 16, for_branches = 8),
+    cores = 16 if settings.is_main else 8,
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -355,7 +353,7 @@ try_.chromium_android_builder(
     name = "android-marshmallow-arm64-rel",
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
-    cores = branches.value(for_main = 32, for_branches = 16),
+    cores = 32 if settings.is_main else 16,
     goma_jobs = goma.jobs.J300,
     main_list_view = "try",
     ssd = True,
@@ -445,6 +443,10 @@ try_.chromium_android_builder(
 
 try_.chromium_android_builder(
     name = "android-pie-arm64-wpt-rel-non-cq",
+)
+
+try_.chromium_android_builder(
+    name = "android-weblayer-pie-x86-wpt-fyi-rel",
 )
 
 try_.chromium_android_builder(
@@ -573,48 +575,78 @@ try_.chromium_android_builder(
 
 try_.chromium_angle_builder(
     name = "android_angle_deqp_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "android_angle_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "android_angle_vk32_deqp_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "android_angle_vk32_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "android_angle_vk64_deqp_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "android_angle_vk64_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "fuchsia-angle-rel",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "linux-angle-rel",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "linux_angle_deqp_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_angle_builder(
     name = "linux_angle_ozone_rel_ng",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
+)
+
+try_.chromium_angle_builder(
+    name = "mac-angle-chromium-try",
+    cores = None,
+    os = os.MAC_ANY,
+    executable = "recipe:angle_chromium_trybot",
 )
 
 try_.chromium_angle_builder(
     name = "mac-angle-rel",
     cores = None,
     os = os.MAC_ANY,
+)
+
+try_.chromium_angle_builder(
+    name = "mac-angle-try",
+    cores = None,
+    os = os.MAC_ANY,
+    executable = "recipe:angle_chromium_trybot",
+)
+
+try_.chromium_angle_builder(
+    name = "win-angle-chromium-x64-try",
+    os = os.WINDOWS_ANY,
+    executable = "recipe:angle_chromium_trybot",
 )
 
 try_.chromium_angle_builder(
@@ -637,6 +669,12 @@ try_.chromium_angle_builder(
     os = os.WINDOWS_ANY,
 )
 
+try_.chromium_angle_builder(
+    name = "win-angle-x64-try",
+    os = os.WINDOWS_ANY,
+    executable = "recipe:angle_chromium_trybot",
+)
+
 try_.chromium_chromiumos_builder(
     name = "chromeos-amd64-generic-cfi-thin-lto-rel",
 )
@@ -655,7 +693,7 @@ try_.chromium_chromiumos_builder(
 
 try_.chromium_chromiumos_builder(
     name = "chromeos-amd64-generic-rel",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -667,7 +705,14 @@ try_.chromium_chromiumos_builder(
 
 try_.chromium_chromiumos_builder(
     name = "chromeos-arm-generic-rel",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
+    builderless = not settings.is_main,
+    main_list_view = "try",
+    tryjob = try_.job(),
+)
+
+try_.chromium_chromiumos_builder(
+    name = "lacros-amd64-generic-rel",
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -687,7 +732,7 @@ try_.chromium_chromiumos_builder(
 
 try_.chromium_chromiumos_builder(
     name = "chromeos-kevin-rel",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
     main_list_view = "try",
     tryjob = try_.job(
         location_regexp = [
@@ -704,12 +749,18 @@ try_.chromium_chromiumos_builder(
 
 try_.chromium_chromiumos_builder(
     name = "linux-chromeos-rel",
-    branch_selector = branches.ALL_BRANCHES,
+    branch_selector = branches.LTS_MILESTONE,
     builderless = not settings.is_main,
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
     use_clang_coverage = True,
+)
+
+try_.chromium_chromiumos_builder(
+    name = "linux-chromeos-js-code-coverage",
+    use_clang_coverage = True,
+    use_javascript_coverage = True,
 )
 
 try_.chromium_chromiumos_builder(
@@ -726,10 +777,23 @@ try_.chromium_chromiumos_builder(
     name = "linux-chromeos-dbg",
 )
 
+try_.chromium_chromiumos_builder(
+    name = "linux-cfm-rel",
+    tryjob = try_.job(
+        location_regexp = [
+            ".+/[+]/chromeos/components/chromebox_for_meetings/.+",
+            ".+/[+]/chromeos/dbus/chromebox_for_meetings/.+",
+            ".+/[+]/chromeos/services/chromebox_for_meetings/.+",
+            ".+/[+]/chrome/browser/chromeos/chromebox_for_meetings/.+",
+        ],
+    ),
+)
+
 try_.chromium_dawn_builder(
     name = "dawn-linux-x64-deps-rel",
     branch_selector = branches.STANDARD_MILESTONE,
     main_list_view = "try",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
     tryjob = try_.job(
         location_regexp = [
             ".+/[+]/gpu/.+",
@@ -807,6 +871,7 @@ try_.chromium_dawn_builder(
 
 try_.chromium_dawn_builder(
     name = "linux-dawn-rel",
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_dawn_builder(
@@ -839,6 +904,22 @@ try_.chromium_linux_builder(
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
+)
+
+try_.chromium_linux_builder(
+    name = "cast-binary-size",
+    builderless = True,
+    executable = "recipe:binary_size_cast_trybot",
+    properties = {
+        "$build/binary_size": {
+            "analyze_targets": [
+                "//chromecast:cast_shell",
+            ],
+            "compile_targets": [
+                "cast_shell",
+            ],
+        },
+    },
 )
 
 try_.chromium_linux_builder(
@@ -961,6 +1042,10 @@ try_.chromium_linux_builder(
 )
 
 try_.chromium_linux_builder(
+    name = "linux-blink-v8-oilpan",
+)
+
+try_.chromium_linux_builder(
     name = "linux-blink-web-tests-force-accessibility-rel",
 )
 
@@ -982,6 +1067,10 @@ try_.chromium_linux_builder(
 
 try_.chromium_linux_builder(
     name = "linux-example-builder",
+)
+
+try_.chromium_linux_builder(
+    name = "linux-extended-tracing-rel",
 )
 
 try_.chromium_linux_builder(
@@ -1048,13 +1137,13 @@ try_.chromium_linux_builder(
     main_list_view = "try",
     tryjob = try_.job(),
     use_clang_coverage = True,
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.chromium_linux_builder(
-    name = "linux-rel-builderful",
+    name = "linux-rel-rts",
     builderless = False,
     goma_jobs = goma.jobs.J150,
-    tryjob = try_.job(experiment_percentage = 5),
     use_clang_coverage = True,
 )
 
@@ -1099,6 +1188,7 @@ try_.chromium_linux_builder(
     ssd = True,
     main_list_view = "try",
     tryjob = try_.job(),
+    os = os.LINUX_BIONIC,
 )
 
 try_.chromium_linux_builder(
@@ -1178,6 +1268,7 @@ try_.chromium_linux_builder(
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
+    os = os.LINUX_BIONIC_REMOVE,
 )
 
 try_.chromium_linux_builder(
@@ -1335,7 +1426,7 @@ try_.chromium_mac_builder(
     goma_jobs = goma.jobs.J150,
     os = os.MAC_DEFAULT,
     main_list_view = "try",
-    tryjob = try_.job(cancel_stale = False),
+    tryjob = try_.job(),
 )
 
 try_.chromium_mac_builder(
@@ -1425,7 +1516,7 @@ try_.chromium_mac_ios_builder(
 
 try_.chromium_mac_ios_builder(
     name = "ios14-sdk-simulator",
-    xcode = xcode.x12c33,
+    xcode = xcode.x12d4e,
 )
 
 try_.chromium_updater_mac_builder(
@@ -1495,7 +1586,7 @@ try_.chromium_win_builder(
     executable = "recipe:chromium_libfuzzer_trybot",
     main_list_view = "try",
     os = os.WINDOWS_ANY,
-    tryjob = try_.job(cancel_stale = False),
+    tryjob = try_.job(),
 )
 
 try_.chromium_win_builder(
@@ -1507,7 +1598,7 @@ try_.chromium_win_builder(
     branch_selector = branches.STANDARD_MILESTONE,
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
-    tryjob = try_.job(cancel_stale = False),
+    tryjob = try_.job(),
 )
 
 try_.chromium_win_builder(
@@ -1564,10 +1655,7 @@ try_.chromium_win_builder(
     ssd = True,
     use_clang_coverage = True,
     main_list_view = "try",
-    # TODO(https://crbug/1127113): Recipe Engine doesn't handle cancellations
-    # of stale tryjobs gracefully, resulting in longer average build times.
-    # Windows is particularly susceptible to this.
-    tryjob = try_.job(cancel_stale = False),
+    tryjob = try_.job(),
 )
 
 try_.chromium_win_builder(
@@ -1594,7 +1682,18 @@ try_.chromium_win_builder(
 try_.cipd_3pp_builder(
     name = "3pp-linux-amd64-packager",
     os = os.LINUX_DEFAULT,
-    properties = CHROMIUM_3PP_PROPERTIES["3pp-linux-amd64-packager"],
+    builderless = False,
+    properties = {
+        "platform": "linux-amd64",
+        "package_prefix": "chromium_3pp",
+    },
+    tryjob = try_.job(
+        location_regexp = [
+            # Enable for CLs touching files under "3pp" directories which are
+            # two level deep or more from the repo root.
+            ".+/[+]/.+/3pp/.+",
+        ],
+    ),
 )
 
 try_.gpu_chromium_android_builder(
@@ -1709,7 +1808,7 @@ def chrome_internal_verifier(
         builder,
         **kwargs):
     branches.cq_tryjob_verifier(
-        builder = "chrome:try/" + builder,
+        builder = "{}:try/{}".format(settings.chrome_project, builder),
         cq_group = "cq",
         includable_only = True,
         owner_whitelist = [
@@ -1752,21 +1851,16 @@ chrome_internal_verifier(
 )
 
 chrome_internal_verifier(
-    builder = "lacros-chrome",
+    builder = "lacros-amd64-generic-chrome",
 )
 
 chrome_internal_verifier(
     builder = "linux-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "linux-chrome-beta",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "linux-chrome-stable",
-    branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
@@ -1775,85 +1869,27 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "mac-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "mac-chrome-beta",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "mac-chrome-stable",
-    branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "win-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "win-chrome-beta",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "win-chrome-stable",
-    branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "win64-chrome",
-)
-
-chrome_internal_verifier(
-    builder = "win64-chrome-beta",
     branch_selector = branches.STANDARD_MILESTONE,
 )
 
 chrome_internal_verifier(
     builder = "win64-chrome-stable",
-    branch_selector = branches.STANDARD_MILESTONE,
-)
-
-# The PGO autorollers are not quite right at the moment, so the beta autoroller
-# (currently for M90 is running against M89 and M90), so we need for them to be
-# able to trigger the chrome-m90 builders
-def chrome_m90_internal_verifier(
-        *,
-        builder,
-        **kwargs):
-    branches.cq_tryjob_verifier(
-        builder = "chrome-m90:try/" + builder,
-        cq_group = "cq",
-        includable_only = True,
-        owner_whitelist = [
-            "googlers",
-            "project-chromium-robot-committers",
-        ],
-        **kwargs
-    )
-
-chrome_m90_internal_verifier(
-    builder = "linux-chrome",
-    branch_selector = branches.STANDARD_MILESTONE,
-)
-
-chrome_m90_internal_verifier(
-    builder = "linux-chromeos-chrome",
-    branch_selector = branches.STANDARD_MILESTONE,
-)
-
-chrome_m90_internal_verifier(
-    builder = "mac-chrome",
-    branch_selector = branches.STANDARD_MILESTONE,
-)
-
-chrome_m90_internal_verifier(
-    builder = "win-chrome",
-    branch_selector = branches.STANDARD_MILESTONE,
-)
-
-chrome_m90_internal_verifier(
-    builder = "win64-chrome",
-    branch_selector = branches.STANDARD_MILESTONE,
 )

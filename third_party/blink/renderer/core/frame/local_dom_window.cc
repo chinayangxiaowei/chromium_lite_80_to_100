@@ -30,6 +30,7 @@
 #include <utility>
 
 #include "base/metrics/histogram_macros.h"
+#include "build/build_config.h"
 #include "cc/input/snap_selection_strategy.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -127,6 +128,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/network/network_state_notifier.h"
 #include "third_party/blink/renderer/platform/scheduler/public/dummy_schedulers.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/timer.h"
@@ -162,6 +164,38 @@ bool ShouldRecordPostMessageIncomingFrameUkmEvent(
 
 }  // namespace
 
+class LocalDOMWindow::NetworkStateObserver final
+    : public GarbageCollected<LocalDOMWindow::NetworkStateObserver>,
+      public NetworkStateNotifier::NetworkStateObserver,
+      public ExecutionContextLifecycleObserver {
+ public:
+  explicit NetworkStateObserver(ExecutionContext* context)
+      : ExecutionContextLifecycleObserver(context) {}
+
+  void Initialize() {
+    online_observer_handle_ = GetNetworkStateNotifier().AddOnLineObserver(
+        this, GetExecutionContext()->GetTaskRunner(TaskType::kNetworking));
+  }
+
+  void OnLineStateChange(bool on_line) override {
+    AtomicString event_name =
+        on_line ? event_type_names::kOnline : event_type_names::kOffline;
+    auto* window = To<LocalDOMWindow>(GetExecutionContext());
+    window->DispatchEvent(*Event::Create(event_name));
+    probe::NetworkStateChanged(window->GetFrame(), on_line);
+  }
+
+  void ContextDestroyed() override { online_observer_handle_ = nullptr; }
+
+  void Trace(Visitor* visitor) const override {
+    ExecutionContextLifecycleObserver::Trace(visitor);
+  }
+
+ private:
+  std::unique_ptr<NetworkStateNotifier::NetworkStateObserverHandle>
+      online_observer_handle_;
+};
+
 LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
     : DOMWindow(frame),
       ExecutionContext(V8PerIsolateData::MainThreadIsolate(), agent),
@@ -179,7 +213,9 @@ LocalDOMWindow::LocalDOMWindow(LocalFrame& frame, WindowAgent* agent)
       isolated_world_csp_map_(
           MakeGarbageCollected<
               HeapHashMap<int, Member<ContentSecurityPolicy>>>()),
-      token_(LocalFrameToken(frame.GetFrameToken())) {}
+      token_(frame.GetLocalFrameToken()),
+      network_state_observer_(
+          MakeGarbageCollected<NetworkStateObserver>(this)) {}
 
 void LocalDOMWindow::BindContentSecurityPolicy() {
   DCHECK(!GetContentSecurityPolicy()->IsBound());
@@ -189,6 +225,7 @@ void LocalDOMWindow::BindContentSecurityPolicy() {
 
 void LocalDOMWindow::Initialize() {
   GetAgent()->AttachContext(this);
+  network_state_observer_->Initialize();
 }
 
 void LocalDOMWindow::ResetWindowAgent(WindowAgent* agent) {
@@ -657,6 +694,13 @@ Document* LocalDOMWindow::InstallNewDocument(const DocumentInit& init) {
       GetFrame()->IsCrossOriginToMainFrame());
 
   GetFrame()->GetPage()->GetChromeClient().InstallSupplements(*GetFrame());
+
+#if !defined(OS_ANDROID)
+  // Enable SharedArrayBuffer for the reverse Origin Trial.
+  if (RuntimeEnabledFeatures::UnrestrictedSharedArrayBufferEnabled(this)) {
+    v8::V8::SetIsCrossOriginIsolated();
+  }
+#endif
 
   return document_;
 }
@@ -1421,7 +1465,7 @@ HeapVector<Member<DOMRect>> LocalDOMWindow::getWindowSegments() const {
   if (!page)
     return window_segments;
 
-  WebVector<WebRect> web_segments =
+  WebVector<gfx::Rect> web_segments =
       frame->GetWidgetForLocalRoot()->WindowSegments();
 
   // The rect passed to us from content is in DIP, relative to the main
@@ -1437,7 +1481,7 @@ HeapVector<Member<DOMRect>> LocalDOMWindow::getWindowSegments() const {
   const float page_zoom_factor = frame->PageZoomFactor();
   const float scale_factor = window_to_viewport_factor / page_zoom_factor;
   for (auto const& web_segment : web_segments) {
-    blink::FloatQuad quad = blink::FloatQuad(web_segment);
+    blink::FloatQuad quad = blink::FloatQuad(IntRect(web_segment));
     quad.Scale(scale_factor, scale_factor);
     window_segments.push_back(DOMRect::FromFloatRect(quad.BoundingBox()));
   }
@@ -2119,6 +2163,7 @@ void LocalDOMWindow::Trace(Visitor* visitor) const {
   visitor->Trace(spell_checker_);
   visitor->Trace(text_suggestion_controller_);
   visitor->Trace(isolated_world_csp_map_);
+  visitor->Trace(network_state_observer_);
   DOMWindow::Trace(visitor);
   ExecutionContext::Trace(visitor);
   Supplementable<LocalDOMWindow>::Trace(visitor);

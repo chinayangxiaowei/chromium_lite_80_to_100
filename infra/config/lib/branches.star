@@ -22,9 +22,9 @@ the category of the branch:
 
 The `branch_selector` argument can also be one of the following constants
 composing multiple categories:
-* STANDARD_MILESTONES - The resource is defined for a branch as it moves through
+* STANDARD_MILESTONE - The resource is defined for a branch as it moves through
     the standad release channels: trunk -> beta -> stable.
-* LTS_MILESTONES - The resource is defined for a branch as it move through the
+* LTS_MILESTONE - The resource is defined for a branch as it move through the
     long-term suport release channels: trunk -> beta -> stable -> LTC -> LTR.
 * ALL_BRANCHES - The resource is defined for all branches and main/master/trunk.
 * NOT_MAIN - The resource is defined for all branches, but not for
@@ -73,14 +73,21 @@ def _matches(branch_selector):
                 .format(_BRANCH_SELECTORS, b))
     return False
 
-def _value(*, for_main = None, for_branches = None):
-    """Provide a value that varies between main/master/trunk and branches.
+def _value(values, *, default = None):
+    """Provide a value that varies depending on the project settings.
 
-    If the current project settings indicate that this is main/master/trunk,
-    then `for_main` will be returned. Otherwise, `for_branches` will be
-    returned.
+    Args:
+      values - A mapping from branch selectors to the value to be used for the
+        matching branches. The keys can be either a single selector or a tuple
+        of selectors. The selectors will be matched in the order declared in the
+        mapping.
+      default - The value to be returned if the project settings don't match any
+        of the branch selectors in the keys of `values`.
     """
-    return for_main if settings.is_main else for_branches
+    for selector, value in values.items():
+        if _matches(selector):
+            return value
+    return default
 
 def _exec(module, *, branch_selector = MAIN):
     """Execute `module` if `branch_selector` matches the project settings."""
@@ -91,8 +98,8 @@ def _exec(module, *, branch_selector = MAIN):
 def _make_branch_conditional(fn):
     def conditional_fn(*args, branch_selector = MAIN, **kwargs):
         if not _matches(branch_selector):
-            return
-        fn(*args, **kwargs)
+            return None
+        return fn(*args, **kwargs)
 
     return conditional_fn
 
@@ -103,12 +110,12 @@ branches = struct(
     LTS_BRANCHES = LTS_BRANCHES,
 
     # Branch selectors for tracking milestones through release channels
-    STANDARD_MILESTONE = [MAIN, STANDARD_BRANCHES],
-    LTS_MILESTONE = [MAIN, STANDARD_BRANCHES, LTS_BRANCHES],
+    STANDARD_MILESTONE = (MAIN, STANDARD_BRANCHES),
+    LTS_MILESTONE = (MAIN, STANDARD_BRANCHES, LTS_BRANCHES),
 
     # Branch selectors to apply widely to branches
     ALL_BRANCHES = _BRANCH_SELECTORS,
-    NOT_MAIN = [b for b in _BRANCH_SELECTORS if b != MAIN],
+    NOT_MAIN = tuple([b for b in _BRANCH_SELECTORS if b != MAIN]),
 
     # Branch functions
     matches = _matches,

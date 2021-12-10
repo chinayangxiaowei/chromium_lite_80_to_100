@@ -28,6 +28,9 @@ through `builders.cpu`, `builders.os` and `builders.goma` respectively.
 load("//project.star", "settings")
 load("./args.star", "args")
 load("./branches.star", "branches")
+load("./bootstrap.star", "register_bootstrap")
+load("./builder_config.star", "builder_config", "register_builder_config")
+load("./listify.star", "listify")
 
 ################################################################################
 # Constants for use with the builder function                                  #
@@ -59,12 +62,43 @@ os = struct(
     ANDROID = os_enum("Android", os_category.ANDROID),
     LINUX_TRUSTY = os_enum("Ubuntu-14.04", os_category.LINUX),
     LINUX_XENIAL = os_enum("Ubuntu-16.04", os_category.LINUX),
+    LINUX_BIONIC = os_enum("Ubuntu-18.04", os_category.LINUX),
+    # xenial -> bionic migration
+    # * If a builder does not already explicitly set an os value, use
+    #   LINUX_BIONIC_REMOVE or LINUX_XENIAL_OR_BIONIC_REMOVE
+    # * If a builder explicitly sets LINUX_DEFAULT, use
+    #   LINUX_BIONIC_SWITCH_TO_DEFAULT or
+    #   LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT
+    #
+    # When the migration is complete, LINUX_DEFAULT can be switched to
+    # Ubunutu-18.04, all instances of LINUX_BIONIC_REMOVE can be removed and all
+    # instances of LINUX_BIONIC_SWITCH_TO_DEFAULT can be replaced with
+    # LINUX_DEFAULT, the only changes to the generated files should be
+    # Ubuntu-16.04|Ubuntu-18.04 -> Ubuntu-18.04
     LINUX_DEFAULT = os_enum("Ubuntu-16.04", os_category.LINUX),
+    # 100% switch to bionic
+    LINUX_BIONIC_REMOVE = os_enum("Ubuntu-18.04", os_category.LINUX),
+    LINUX_BIONIC_SWITCH_TO_DEFAULT = os_enum("Ubuntu-18.04", os_category.LINUX),
+    # Staged switch to bionic: we can gradually shift the matching capacity
+    # towards bionic and the builder will continue to run on whatever is
+    # available
+    LINUX_XENIAL_OR_BIONIC_REMOVE = os_enum(
+        "Ubuntu-16.04|Ubuntu-18.04",
+        os_category.LINUX,
+    ),
+    LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT = os_enum(
+        "Ubuntu-16.04|Ubuntu-18.04",
+        os_category.LINUX,
+    ),
     MAC_10_12 = os_enum("Mac-10.12", os_category.MAC),
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
-    MAC_11_0 = os_enum("Mac-11.0|Mac-10.16", os_category.MAC),
+    # Staged switch to Mac 11: we can gradually shift the matching capacity
+    # towards Mac 11 and the builder will continue to run on whatever is
+    # available
+    MAC_10_15_OR_11 = os_enum("Mac-10.15|Mac-11", os_category.MAC),
+    MAC_11 = os_enum("Mac-11|Mac-10.16", os_category.MAC),
     MAC_DEFAULT = os_enum("Mac-10.15", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
@@ -123,6 +157,19 @@ goma = struct(
     ),
 )
 
+def _rotation(name):
+    return branches.value({branches.MAIN: [name]})
+
+# Sheriff rotations that a builder can be added to (only takes effect on trunk)
+# Arbitrary elements can't be added, new rotations must be added in SoM code
+sheriff_rotations = struct(
+    ANDROID = _rotation("android"),
+    CHROMIUM = _rotation("chromium"),
+    CHROMIUM_CLANG = _rotation("chromium.clang"),
+    CHROMIUM_GPU = _rotation("chromium.gpu"),
+    IOS = _rotation("ios"),
+)
+
 def xcode_enum(version):
     return struct(
         version = version,
@@ -138,10 +185,10 @@ xcode = struct(
     x11e146 = xcode_enum("11e146"),
     # in use by ios-webkit-tot
     x11e608cwk = xcode_enum("11e608cwk"),
-    # (current default) xc12 gm seed
+    # (current default for other projects) xc12.0 gm seed
     x12a7209 = xcode_enum("12a7209"),
-    # latest Xcode 12 beta version.
-    x12c33 = xcode_enum("12c33"),
+    # (current default for iOS) xc12.4 gm seed
+    x12d4e = xcode_enum("12d4e"),
 )
 
 ################################################################################
@@ -246,6 +293,27 @@ def _isolated_property(*, isolated_server):
 
     return isolated or None
 
+def _reclient_property(*, instance, service, jobs, rewrapper_env):
+    reclient = {}
+    instance = defaults.get_value("reclient_instance", instance)
+    if instance:
+        reclient["instance"] = instance
+        reclient["metrics_project"] = "chromium-reclient-metrics"
+    service = defaults.get_value("reclient_service", service)
+    if service:
+        reclient["service"] = service
+    jobs = defaults.get_value("reclient_jobs", jobs)
+    if jobs:
+        reclient["jobs"] = jobs
+    rewrapper_env = defaults.get_value("reclient_rewrapper_env", rewrapper_env)
+    if rewrapper_env:
+        for k in rewrapper_env:
+            if not k.startswith("RBE_"):
+                fail("Environment variables in rewrapper_env must start with " +
+                     "'RBE_', got '%s'" % k)
+        reclient["rewrapper_env"] = rewrapper_env
+    return reclient or None
+
 ################################################################################
 # Builder defaults and function                                                #
 ################################################################################
@@ -259,6 +327,7 @@ defaults = args.defaults(
     builder_group = None,
     builderless = args.COMPUTE,
     configure_kitchen = False,
+    kitchen_emulate_gce = False,
     cores = None,
     cpu = None,
     fully_qualified_builder_dimension = False,
@@ -270,6 +339,7 @@ defaults = args.defaults(
     os = None,
     project_trigger_overrides = None,
     pool = None,
+    sheriff_rotations = None,
     xcode = None,
     ssd = args.COMPUTE,
     use_clang_coverage = False,
@@ -278,7 +348,12 @@ defaults = args.defaults(
     coverage_exclude_sources = None,
     coverage_test_types = None,
     resultdb_bigquery_exports = [],
+    resultdb_index_by_timestamp = False,
     isolated_server = "https://isolateserver.appspot.com",
+    reclient_instance = None,
+    reclient_service = None,
+    reclient_jobs = None,
+    reclient_rewrapper_env = None,
 
     # Provide vars for bucket and executable so users don't have to
     # unnecessarily make wrapper functions
@@ -299,15 +374,20 @@ def builder(
         auto_builder_dimension = args.DEFAULT,
         fully_qualified_builder_dimension = args.DEFAULT,
         cores = args.DEFAULT,
+        bootstrap = False,
         cpu = args.DEFAULT,
         builder_group = args.DEFAULT,
+        builder_spec = None,
+        mirrors = None,
         pool = args.DEFAULT,
         ssd = args.DEFAULT,
+        sheriff_rotations = None,
         xcode = args.DEFAULT,
         console_view_entry = None,
         list_view = args.DEFAULT,
         project_trigger_overrides = args.DEFAULT,
         configure_kitchen = args.DEFAULT,
+        kitchen_emulate_gce = args.DEFAULT,
         goma_backend = args.DEFAULT,
         goma_debug = args.DEFAULT,
         goma_enable_ats = args.DEFAULT,
@@ -318,7 +398,12 @@ def builder(
         coverage_exclude_sources = args.DEFAULT,
         coverage_test_types = args.DEFAULT,
         resultdb_bigquery_exports = args.DEFAULT,
+        resultdb_index_by_timestamp = args.DEFAULT,
         isolated_server = args.DEFAULT,
+        reclient_instance = args.DEFAULT,
+        reclient_service = args.DEFAULT,
+        reclient_jobs = args.DEFAULT,
+        reclient_rewrapper_env = args.DEFAULT,
         **kwargs):
     """Define a builder.
 
@@ -342,6 +427,13 @@ def builder(
         (may be specified by module-level default).
       * executable - an executable to run, e.g. a luci.recipe(...). Required (may
         be specified by module-level default).
+      * bootstrap: a boolean indicating whether the builder should have its
+        properties bootstrapped. If True, the builder's properties will be
+        written to a separate file and its definition will be updated with
+        new properties and executable that cause a bootstrapping binary to
+        be used. The build's default values for properties will be taken
+        from the properties file at the version that the build will check
+        out.
       * os - a member of the `os` enum indicating the OS the builder requires for
         the machines that run it. Emits a dimension of the form 'os:os'. By
         default considered None.
@@ -360,6 +452,10 @@ def builder(
         False.
       * builder_group - a string with the group of the builder. Emits a property
         of the form 'builder_group:<builder_group>'. By default, considered None.
+      * builder_spec: The spec describing the configuration for the builder.
+        Cannot be set if `mirrors` is set.
+      * mirrors: References to the builders that the builder should mirror.
+        Cannot be set if `builder_spec` is set.
       * cores - an int indicating the number of cores the builder requires for the
         machines that run it. Emits a dimension of the form 'cores:<cores>' will
         be emitted. By default, considered None.
@@ -374,6 +470,9 @@ def builder(
         If True, emits a 'ssd:1' dimension. If False, emits a 'ssd:0' parameter.
         By default, considered False if builderless is considered True and
         otherwise None.
+      * sheriff_rotations - A string or list of strings identifying the sheriff
+        rotations that the builder should be included in. Will be merged with
+        the module-level default.
       * xcode - a member of the `xcode` enum indicating the xcode version the
         builder requires. Emits a cache declaration of the form
         ```{
@@ -395,6 +494,9 @@ def builder(
       * configure_kitchen - a boolean indicating whether to configure kitchen. If
         True, emits a property to set the 'git_auth' and 'devshell' fields of the
         '$kitchen' property. By default, considered False.
+      * kitchen_emulate_gce - a boolean indicating whether to set 'emulate_gce'
+        of the '$kitchen' property. This is effective only when
+        configure_kitchen is True. By default, considered False.
       * goma_backend - a member of the `goma.backend` enum indicating the goma
         backend the builder should use. Will be incorporated into the
         '$build/goma' property. By default, considered None.
@@ -426,9 +528,22 @@ def builder(
       * resultdb_bigquery_exports - a list of resultdb.export_test_results(...)
         specifying parameters for exporting test results to BigQuery. By default,
         do not export.
+      * resultdb_index_by_timestamp - a boolean specifying whether ResultDB should
+        index the results of the tests run on this builder by timestamp, i.e.
+        for purposes of retrieving a test's history. If false, the results will not
+        be searchable by timestamp on ResultDB's test history api.
       * isolated_server - a string indicating the host of the isolated server.
         Will be incorporated into the '$recipe_engine/isolated' property. By
         default, this is "https://isolateserver.appspot.com".
+      * reclient_instance - a string indicating the GCP project hosting the RBE
+        instance for re-client to use.
+      * reclient_service - a string indicating the RBE service to dial via gRPC.
+        By default, this is "remotebuildexecution.googleapis.com:443" (set in
+        the reclient recipe module).
+      * reclient_jobs - an integer indicating the number of concurrent
+        compilations to run when using re-client as the compiler.
+      * reclient_rewrapper_env - a map that sets the rewrapper flags via the
+        environment variables. All such vars must start with the "RBE_" prefix.
       * kwargs - Additional keyword arguments to forward on to `luci.builder`.
     """
 
@@ -438,9 +553,15 @@ def builder(
         fail("Explicit dimensions are not supported: " +
              "use builderless, cores, cpu, os or ssd instead")
 
+    if builder_spec and mirrors:
+        fail("Only one of builder_spec or mirrors can be set")
+
     dimensions = {}
 
     properties = kwargs.pop("properties", {})
+    if "sheriff_rotations" in properties:
+        fail('Setting "sheriff_rotations" property is not supported: ' +
+             "use sheriff_rotations instead")
     if "$kitchen" in properties:
         fail('Setting "$kitchen" property is not supported: ' +
              "use configure_kitchen instead")
@@ -454,6 +575,9 @@ def builder(
     if "$recipe_engine/isolated" in properties:
         fail('Setting "$recipe_engine/isolated" property is not supported: ' +
              "use isolated_server instead")
+    if "$build/reclient" in properties:
+        fail('Setting "$build/reclient" property is not supported: ' +
+             "use reclient_instance and reclient_rewrapper_env instead")
     properties = dict(properties)
 
     os = defaults.get_value("os", os)
@@ -501,6 +625,10 @@ def builder(
     if pool:
         dimensions["pool"] = pool
 
+    sheriff_rotations = listify(defaults.sheriff_rotations.get(), sheriff_rotations)
+    if sheriff_rotations:
+        properties["sheriff_rotations"] = sheriff_rotations
+
     ssd = defaults.get_value("ssd", ssd)
     if ssd == args.COMPUTE:
         ssd = None
@@ -516,6 +644,8 @@ def builder(
             "devshell": True,
             "git_auth": True,
         }
+        if defaults.get_value("kitchen_emulate_gce", kitchen_emulate_gce):
+            properties["$kitchen"]["emulate_gce"] = True
 
     chromium_tests = _chromium_tests_property(
         project_trigger_overrides = project_trigger_overrides,
@@ -549,15 +679,21 @@ def builder(
     if isolated != None:
         properties["$recipe_engine/isolated"] = isolated
 
+    reclient = _reclient_property(
+        instance = reclient_instance,
+        service = reclient_service,
+        jobs = reclient_jobs,
+        rewrapper_env = reclient_rewrapper_env,
+    )
+    if reclient != None:
+        properties["$build/reclient"] = reclient
+
     kwargs = dict(kwargs)
     if bucket != args.COMPUTE:
         kwargs["bucket"] = bucket
     executable = defaults.get_value("executable", executable)
     if executable != args.COMPUTE:
         kwargs["executable"] = executable
-    triggered_by = defaults.get_value("triggered_by", triggered_by)
-    if triggered_by != args.COMPUTE:
-        kwargs["triggered_by"] = triggered_by
     xcode = defaults.get_value("xcode", xcode)
     if xcode:
         kwargs["caches"] = (kwargs.get("caches") or []) + [swarming.cache(
@@ -565,6 +701,25 @@ def builder(
             path = xcode.cache_path,
         )]
         properties.setdefault("xcode_build_version", xcode.version)
+
+    history_options = None
+    resultdb_index_by_timestamp = defaults.get_value(
+        "resultdb_index_by_timestamp",
+        resultdb_index_by_timestamp,
+    )
+    if resultdb_index_by_timestamp:
+        history_options = resultdb.history_options(
+            by_timestamp = resultdb_index_by_timestamp,
+        )
+
+    if builder_spec and builder_spec.execution_mode == builder_config.execution_mode.TEST:
+        if triggered_by != args.DEFAULT:
+            fail("triggered testers cannot specify triggered_by")
+        triggered_by = [builder_spec.parent]
+
+    triggered_by = defaults.get_value("triggered_by", triggered_by)
+    if triggered_by != args.COMPUTE:
+        kwargs["triggered_by"] = triggered_by
 
     builder = branches.builder(
         name = name,
@@ -577,9 +732,19 @@ def builder(
                 "resultdb_bigquery_exports",
                 resultdb_bigquery_exports,
             ),
+            history_options = history_options,
         ),
         **kwargs
     )
+
+    # builder will be None if the builder isn't being defined due to the project
+    # settings and the branch selector
+    if builder == None:
+        return None
+
+    register_builder_config(bucket, name, builder_group, builder_spec, mirrors)
+
+    register_bootstrap(bucket, name, bootstrap, executable)
 
     builder_name = "{}/{}".format(bucket, name)
 
@@ -638,5 +803,6 @@ builders = struct(
     defaults = defaults,
     goma = goma,
     os = os,
+    sheriff_rotations = sheriff_rotations,
     xcode = xcode,
 )

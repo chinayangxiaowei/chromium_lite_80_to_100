@@ -68,22 +68,17 @@ GPUBuffer* GPUBuffer::Create(GPUDevice* device,
     dawn_desc.size = std::min(dawn_desc.size, kGuaranteedBufferOOMSize);
   }
 
-  return MakeGarbageCollected<GPUBuffer>(
+  GPUBuffer* buffer = MakeGarbageCollected<GPUBuffer>(
       device, dawn_desc.size,
       device->GetProcs().deviceCreateBuffer(device->GetHandle(), &dawn_desc));
+  buffer->setLabel(webgpu_desc->label());
+  return buffer;
 }
 
 GPUBuffer::GPUBuffer(GPUDevice* device,
                      uint64_t size,
                      WGPUBuffer buffer)
     : DawnObject<WGPUBuffer>(device, buffer), size_(size) {
-}
-
-GPUBuffer::~GPUBuffer() {
-  if (IsDawnControlClientDestroyed()) {
-    return;
-  }
-  GetProcs().bufferRelease(GetHandle());
 }
 
 void GPUBuffer::Trace(Visitor* visitor) const {
@@ -157,8 +152,8 @@ ScriptPromise GPUBuffer::MapAsyncImpl(ScriptState* script_state,
 
   // And send the command, leaving remaining validation to Dawn.
   auto* callback =
-      BindDawnCallback(&GPUBuffer::OnMapAsyncCallback, WrapPersistent(this),
-                       WrapPersistent(resolver));
+      BindDawnOnceCallback(&GPUBuffer::OnMapAsyncCallback, WrapPersistent(this),
+                           WrapPersistent(resolver));
 
   GetProcs().bufferMapAsync(GetHandle(), mode, map_offset, map_size,
                             callback->UnboundCallback(),

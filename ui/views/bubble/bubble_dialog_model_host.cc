@@ -21,6 +21,7 @@
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/layout_provider.h"
+#include "ui/views/metadata/metadata_header_macros.h"
 #include "ui/views/metadata/metadata_impl_macros.h"
 #include "ui/views/view_class_properties.h"
 
@@ -50,13 +51,13 @@ DialogContentType FieldTypeToContentType(ui::DialogModelField::Type type) {
 // StyledLabel.
 class CheckboxControl : public Checkbox {
  public:
+  METADATA_HEADER(CheckboxControl);
   CheckboxControl(std::unique_ptr<View> label, int label_line_height)
       : label_line_height_(label_line_height) {
     auto* layout = SetLayoutManager(std::make_unique<BoxLayout>());
     layout->set_between_child_spacing(LayoutProvider::Get()->GetDistanceMetric(
-        views::DISTANCE_RELATED_LABEL_HORIZONTAL));
-    layout->set_cross_axis_alignment(
-        views::BoxLayout::CrossAxisAlignment::kStart);
+        DISTANCE_RELATED_LABEL_HORIZONTAL));
+    layout->set_cross_axis_alignment(BoxLayout::CrossAxisAlignment::kStart);
 
     SetAssociatedLabel(label.get());
 
@@ -90,10 +91,14 @@ class CheckboxControl : public Checkbox {
   const int label_line_height_;
 };
 
+BEGIN_METADATA(CheckboxControl, Checkbox)
+END_METADATA
+
 }  // namespace
 
 class BubbleDialogModelHost::LayoutConsensusView : public View {
  public:
+  METADATA_HEADER(LayoutConsensusView);
   LayoutConsensusView(LayoutConsensusGroup* group, std::unique_ptr<View> view)
       : group_(group) {
     group->AddView(this);
@@ -125,6 +130,9 @@ class BubbleDialogModelHost::LayoutConsensusView : public View {
  private:
   LayoutConsensusGroup* const group_;
 };
+
+BEGIN_METADATA(BubbleDialogModelHost, LayoutConsensusView, View)
+END_METADATA
 
 BubbleDialogModelHost::LayoutConsensusGroup::LayoutConsensusGroup() = default;
 BubbleDialogModelHost::LayoutConsensusGroup::~LayoutConsensusGroup() {
@@ -245,8 +253,8 @@ BubbleDialogModelHost::BubbleDialogModelHost(
   set_close_on_deactivate(model_->close_on_deactivate(GetPassKey()));
 
   set_fixed_width(LayoutProvider::Get()->GetDistanceMetric(
-      anchor_view ? views::DISTANCE_BUBBLE_PREFERRED_WIDTH
-                  : views::DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));
+      anchor_view ? DISTANCE_BUBBLE_PREFERRED_WIDTH
+                  : DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH));
 
   AddInitialFields();
 }
@@ -455,17 +463,19 @@ void BubbleDialogModelHost::AddOrUpdateCombobox(
   combobox->SetCallback(base::BindRepeating(
       [](ui::DialogModelCombobox* model_field,
          base::PassKey<DialogModelHost> pass_key, Combobox* combobox) {
-        // TODO(pbos): This should be a subscription through the Combobox
-        // directly, but Combobox right now doesn't support listening to
-        // selected-index changes.
-        model_field->OnSelectedIndexChanged(pass_key,
-                                            combobox->GetSelectedIndex());
         model_field->OnPerformAction(pass_key);
       },
       model_field, GetPassKey(), combobox.get()));
 
-  // TODO(pbos): Add subscription to combobox selected-index changes.
   combobox->SetSelectedIndex(model_field->selected_index());
+  property_changed_subscriptions_.push_back(
+      combobox->AddSelectedIndexChangedCallback(base::BindRepeating(
+          [](ui::DialogModelCombobox* model_field,
+             base::PassKey<DialogModelHost> pass_key, Combobox* combobox) {
+            model_field->OnSelectedIndexChanged(pass_key,
+                                                combobox->GetSelectedIndex());
+          },
+          model_field, GetPassKey(), combobox.get())));
   const gfx::FontList& font_list = combobox->GetFontList();
   AddViewForLabelAndField(model_field, model_field->label(GetPassKey()),
                           std::move(combobox), font_list);

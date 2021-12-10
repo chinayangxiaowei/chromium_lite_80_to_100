@@ -7,7 +7,6 @@
 
 #include <vector>
 
-#include "base/macros.h"
 #include "base/optional.h"
 #include "base/scoped_observation.h"
 #include "base/timer/elapsed_timer.h"
@@ -19,13 +18,10 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/checkbox.h"
+#include "ui/views/metadata/metadata_header_macros.h"
 #include "ui/views/view.h"
 
 class Profile;
-
-namespace content {
-class PageNavigator;
-}
 
 // Modal dialog that shows when the user attempts to install an extension. Also
 // shown if the extension is already installed but needs additional permissions.
@@ -34,14 +30,18 @@ class ExtensionInstallDialogView
     : public views::BubbleDialogDelegateView,
       public extensions::ExtensionRegistryObserver {
  public:
+  METADATA_HEADER(ExtensionInstallDialogView);
+
   // The views::View::id of the ratings section in the dialog.
   static const int kRatingsViewId = 1;
 
   ExtensionInstallDialogView(
-      Profile* profile,
-      content::PageNavigator* navigator,
+      std::unique_ptr<ExtensionInstallPromptShowParams> show_params,
       ExtensionInstallPrompt::DoneCallback done_callback,
       std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt);
+  ExtensionInstallDialogView(const ExtensionInstallDialogView&) = delete;
+  ExtensionInstallDialogView& operator=(const ExtensionInstallDialogView&) =
+      delete;
   ~ExtensionInstallDialogView() override;
 
   // Returns the interior ScrollView of the dialog. This allows us to inspect
@@ -58,6 +58,9 @@ class ExtensionInstallDialogView
   void AddedToWidget() override;
   bool IsDialogButtonEnabled(ui::DialogButton button) const override;
   base::string16 GetAccessibleWindowTitle() const override;
+
+  ExtensionInstallPromptShowParams* GetShowParamsForTesting();
+  void ClickLinkForTesting();
 
  private:
   void CloseDialog();
@@ -79,15 +82,11 @@ class ExtensionInstallDialogView
   // Enables the install button and updates the dialog buttons.
   void EnableInstallButton();
 
-  bool is_external_install() const {
-    return prompt_->type() == ExtensionInstallPrompt::EXTERNAL_INSTALL_PROMPT;
-  }
-
   // Updates the histogram that holds installation accepted/aborted data.
   void UpdateInstallResultHistogram(bool accepted) const;
 
   Profile* profile_;
-  content::PageNavigator* navigator_;
+  std::unique_ptr<ExtensionInstallPromptShowParams> show_params_;
   ExtensionInstallPrompt::DoneCallback done_callback_;
   std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt_;
   base::string16 title_;
@@ -111,8 +110,6 @@ class ExtensionInstallDialogView
 
   // Checkbox used to indicate if permissions should be withheld on install.
   views::Checkbox* withhold_permissions_checkbox_;
-
-  DISALLOW_COPY_AND_ASSIGN(ExtensionInstallDialogView);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_EXTENSIONS_EXTENSION_INSTALL_DIALOG_VIEW_H_

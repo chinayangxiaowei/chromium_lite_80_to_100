@@ -14,6 +14,7 @@
 #include "base/strings/sys_string_conversions.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/google/core/common/google_util.h"
+#include "components/password_manager/core/common/password_manager_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/version_info/version_info.h"
 #include "ios/chrome/browser/application_context.h"
@@ -23,6 +24,7 @@
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/ios_chrome_main_parts.h"
 #import "ios/chrome/browser/reading_list/offline_page_tab_helper.h"
+#import "ios/chrome/browser/safe_browsing/password_protection_java_script_feature.h"
 #import "ios/chrome/browser/safe_browsing/safe_browsing_blocking_page.h"
 #import "ios/chrome/browser/safe_browsing/safe_browsing_error.h"
 #import "ios/chrome/browser/safe_browsing/safe_browsing_unsafe_resource_container.h"
@@ -32,6 +34,8 @@
 #include "ios/chrome/browser/web/error_page_controller_bridge.h"
 #import "ios/chrome/browser/web/error_page_util.h"
 #include "ios/chrome/browser/web/features.h"
+#import "ios/chrome/browser/web/java_script_console/java_script_console_feature.h"
+#import "ios/chrome/browser/web/java_script_console/java_script_console_feature_factory.h"
 #import "ios/components/security_interstitials/ios_blocking_page_tab_helper.h"
 #import "ios/components/security_interstitials/legacy_tls/legacy_tls_blocking_page.h"
 #import "ios/components/security_interstitials/legacy_tls/legacy_tls_controller_client.h"
@@ -135,16 +139,27 @@ NSString* GetLookalikeUrlErrorPageHtml(web::WebState* web_state,
 // Returns the legacy TLS error page HTML.
 NSString* GetLegacyTLSErrorPageHTML(web::WebState* web_state,
                                     int64_t navigation_id) {
-  // Construct the blocking page and associate it with the WebState.
-  std::unique_ptr<security_interstitials::IOSSecurityInterstitialPage> page =
-      std::make_unique<LegacyTLSBlockingPage>(
-          web_state, web_state->GetVisibleURL() /*request_url*/,
-          std::make_unique<LegacyTLSControllerClient>(
-              web_state, web_state->GetVisibleURL(),
-              GetApplicationContext()->GetApplicationLocale()));
-  std::string error_page_content = page->GetHtmlContents();
-  security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state)
-      ->AssociateBlockingPage(navigation_id, std::move(page));
+  std::string error_page_content;
+  security_interstitials::IOSBlockingPageTabHelper* blocking_page_tab_helper =
+      security_interstitials::IOSBlockingPageTabHelper::FromWebState(web_state);
+
+  // WebStates that are not in the WebStateList (e.g., WebStates used for
+  // reading list sync) do not have an IOSBlockingPageTabHelper. Since such
+  // WebStates are not used for displaying web contents to a user, it is not
+  // necessary to produce an actual error page, and instead an empty string is
+  // used.
+  if (blocking_page_tab_helper) {
+    // Construct the blocking page and associate it with the WebState.
+    std::unique_ptr<security_interstitials::IOSSecurityInterstitialPage> page =
+        std::make_unique<LegacyTLSBlockingPage>(
+            web_state, web_state->GetVisibleURL() /*request_url*/,
+            std::make_unique<LegacyTLSControllerClient>(
+                web_state, web_state->GetVisibleURL(),
+                GetApplicationContext()->GetApplicationLocale()));
+    error_page_content = page->GetHtmlContents();
+    blocking_page_tab_helper->AssociateBlockingPage(navigation_id,
+                                                    std::move(page));
+  }
 
   return base::SysUTF8ToNSString(error_page_content);
 }
@@ -280,6 +295,23 @@ void ChromeWebClient::PostBrowserURLRewriterCreation(
     provider->AddProviderRewriters(rewriter);
 }
 
+std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
+    web::BrowserState* browser_state) const {
+  std::vector<web::JavaScriptFeature*> features;
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kPasswordReuseDetectionEnabled) &&
+      base::ios::IsRunningOnIOS14OrLater()) {
+    features.push_back(PasswordProtectionJavaScriptFeature::GetInstance());
+  }
+
+  JavaScriptConsoleFeature* java_script_console_feature =
+      JavaScriptConsoleFeatureFactory::GetInstance()->GetForBrowserState(
+          browser_state);
+  features.push_back(java_script_console_feature);
+
+  return features;
+}
+
 NSString* ChromeWebClient::GetDocumentStartScriptForAllFrames(
     web::BrowserState* browser_state) const {
   return GetPageScript(@"chrome_bundle_all_frames");
@@ -333,7 +365,7 @@ void ChromeWebClient::PrepareErrorPage(
   // WebState that are not attached to a tab may not have an
   // OfflinePageTabHelper.
   if (offline_page_tab_helper &&
-      offline_page_tab_helper->HasDistilledVersionForOnlineUrl(url)) {
+      (offline_page_tab_helper->CanHandleErrorLoadingURL(url))) {
     // An offline version of the page will be displayed to replace this error
     // page. Loading an error page here can cause a race between the
     // navigation to load the error page and the navigation to display the

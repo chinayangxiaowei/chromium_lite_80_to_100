@@ -42,7 +42,6 @@ class PrintManager : public content::WebContentsObserver,
 
   // printing::mojom::PrintManagerHost:
   void DidGetPrintedPagesCount(int32_t cookie, uint32_t number_pages) override;
-  void DidGetDocumentCookie(int32_t cookie) override;
   void DidPrintDocument(mojom::DidPrintDocumentParamsPtr params,
                         DidPrintDocumentCallback callback) override;
 #if BUILDFLAG(ENABLE_TAGGED_PDF)
@@ -57,6 +56,8 @@ class PrintManager : public content::WebContentsObserver,
   void ShowInvalidPrinterSettingsError() override;
   void PrintingFailed(int32_t cookie) override;
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+  void SetupScriptedPrintPreview(
+      SetupScriptedPrintPreviewCallback callback) override;
   void ShowScriptedPrintPreview(bool source_is_modifiable) override;
   void RequestPrintPreview(mojom::RequestPrintPreviewParamsPtr params) override;
   void CheckForCancel(int32_t preview_ui_id,
@@ -78,6 +79,8 @@ class PrintManager : public content::WebContentsObserver,
 
   // Terminates or cancels the print job if one was pending.
   void PrintingRenderFrameDeleted();
+
+  bool IsValidCookie(int cookie) const;
 
   // content::WebContentsObserver
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;

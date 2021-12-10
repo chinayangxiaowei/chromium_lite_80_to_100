@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_dialog.h"
+#include "chrome/browser/ui/webui/signin/signin_ui_error.h"
 #include "chrome/common/url_constants.h"
 
 namespace {
@@ -62,11 +63,16 @@ void OnEmailConfirmation(DiceTurnSyncOnHelper::SigninChoiceCallback callback,
 
 void OnProfileCheckComplete(const std::string& email,
                             DiceTurnSyncOnHelper::SigninChoiceCallback callback,
-                            Browser* browser,
+                            base::WeakPtr<Browser> browser,
                             bool prompt_for_new_profile) {
+  if (!browser) {
+    std::move(callback).Run(DiceTurnSyncOnHelper::SIGNIN_CHOICE_CANCEL);
+    return;
+  }
+
   DiceTurnSyncOnHelper::Delegate::ShowEnterpriseAccountConfirmationForBrowser(
       email, /*prompt_for_new_profile=*/prompt_for_new_profile,
-      std::move(callback), browser);
+      std::move(callback), browser.get());
 }
 
 }  // namespace
@@ -84,10 +90,10 @@ DiceTurnSyncOnHelperDelegateImpl::~DiceTurnSyncOnHelperDelegateImpl() {
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowLoginError(
-    const std::string& email,
-    const std::string& error_message) {
-  DiceTurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(email, error_message,
-                                                           browser_);
+    const SigninUIError& error) {
+  DCHECK(!error.IsOk());
+  DiceTurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(
+      error.email(), error.message(), browser_);
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowEnterpriseAccountConfirmation(
@@ -98,7 +104,7 @@ void DiceTurnSyncOnHelperDelegateImpl::ShowEnterpriseAccountConfirmation(
   // asynchronous.
   ui::CheckShouldPromptForNewProfile(
       profile_, base::BindOnce(&OnProfileCheckComplete, email,
-                               std::move(callback), browser_));
+                               std::move(callback), browser_->AsWeakPtr()));
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowSyncConfirmation(
@@ -113,6 +119,7 @@ void DiceTurnSyncOnHelperDelegateImpl::ShowSyncConfirmation(
 }
 
 void DiceTurnSyncOnHelperDelegateImpl::ShowSyncDisabledConfirmation(
+    bool is_managed_account,
     base::OnceCallback<void(LoginUIService::SyncConfirmationUIClosedResult)>
         callback) {
   // This is handled by the same UI element as the normal sync confirmation.

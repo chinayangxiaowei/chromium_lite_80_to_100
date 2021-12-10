@@ -115,9 +115,7 @@ RTCRtpReceiver::getSynchronizationSources(ScriptState* script_state,
     RTCRtpSynchronizationSource* synchronization_source =
         MakeGarbageCollected<RTCRtpSynchronizationSource>();
     synchronization_source->setTimestamp(
-        time_converter
-            .MonotonicTimeToPseudoWallTime(
-                pc_->WebRtcTimestampToBlinkTimestamp(web_source->Timestamp()))
+        time_converter.MonotonicTimeToPseudoWallTime(web_source->Timestamp())
             .InMilliseconds());
     synchronization_source->setSource(web_source->Source());
     if (web_source->AudioLevel())
@@ -154,9 +152,7 @@ RTCRtpReceiver::getContributingSources(ScriptState* script_state,
     RTCRtpContributingSource* contributing_source =
         MakeGarbageCollected<RTCRtpContributingSource>();
     contributing_source->setTimestamp(
-        time_converter
-            .MonotonicTimeToPseudoWallTime(
-                pc_->WebRtcTimestampToBlinkTimestamp(web_source->Timestamp()))
+        time_converter.MonotonicTimeToPseudoWallTime(web_source->Timestamp())
             .InMilliseconds());
     contributing_source->setSource(web_source->Source());
     if (web_source->AudioLevel())
@@ -507,7 +503,8 @@ void RTCRtpReceiver::InitializeEncodedVideoStreams(ScriptState* script_state) {
                                       ->GetEncodedVideoStreamTransformer()
                                 : nullptr;
               },
-              WrapWeakPersistent(this)));
+              WrapWeakPersistent(this)),
+          webrtc::TransformableFrameInterface::Direction::kReceiver);
   // The high water mark for the stream is set to 1 so that the stream seems
   // ready to write, but without queuing frames.
   WritableStream* writable_stream =

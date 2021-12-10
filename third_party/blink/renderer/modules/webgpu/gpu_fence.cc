@@ -17,13 +17,6 @@ namespace blink {
 GPUFence::GPUFence(GPUDevice* device, WGPUFence fence)
     : DawnObject<WGPUFence>(device, fence) {}
 
-GPUFence::~GPUFence() {
-  if (IsDawnControlClientDestroyed()) {
-    return;
-  }
-  GetProcs().fenceRelease(GetHandle());
-}
-
 uint64_t GPUFence::getCompletedValue() const {
   return GetProcs().fenceGetCompletedValue(GetHandle());
 }
@@ -51,8 +44,8 @@ ScriptPromise GPUFence::onCompletion(ScriptState* script_state,
   ScriptPromise promise = resolver->Promise();
 
   auto* callback =
-      BindDawnCallback(&GPUFence::OnCompletionCallback, WrapPersistent(this),
-                       WrapPersistent(resolver));
+      BindDawnOnceCallback(&GPUFence::OnCompletionCallback,
+                           WrapPersistent(this), WrapPersistent(resolver));
 
   GetProcs().fenceOnCompletion(GetHandle(), value, callback->UnboundCallback(),
                                callback->AsUserdata());

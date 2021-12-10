@@ -43,6 +43,10 @@ bool TestTabStripModelDelegate::CanDuplicateContentsAt(int index) {
   return false;
 }
 
+bool TestTabStripModelDelegate::CanHighlightTabs() {
+  return true;
+}
+
 void TestTabStripModelDelegate::DuplicateContentsAt(int index) {
 }
 
@@ -51,7 +55,7 @@ void TestTabStripModelDelegate::MoveToExistingWindow(
     int browser_index) {}
 
 std::vector<base::string16>
-TestTabStripModelDelegate::GetExistingWindowsForMoveMenu() const {
+TestTabStripModelDelegate::GetExistingWindowsForMoveMenu() {
   std::vector<base::string16> existing_windows;
   return existing_windows;
 }

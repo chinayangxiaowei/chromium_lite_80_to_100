@@ -828,6 +828,7 @@ bool TabStripModel::IsGroupCollapsed(
 }
 
 bool TabStripModel::IsTabBlocked(int index) const {
+  DCHECK(ContainsIndex(index)) << index;
   return contents_data_[index]->blocked();
 }
 
@@ -871,14 +872,16 @@ void TabStripModel::ExtendSelectionTo(int index) {
                /*triggered_by_other_operation=*/false);
 }
 
-void TabStripModel::ToggleSelectionAt(int index) {
+bool TabStripModel::ToggleSelectionAt(int index) {
+  if (!delegate()->CanHighlightTabs())
+    return false;
   DCHECK(ContainsIndex(index));
   ui::ListSelectionModel new_model = selection_model();
   if (selection_model_.IsSelected(index)) {
     if (selection_model_.size() == 1) {
       // One tab must be selected and this tab is currently selected so we can't
       // unselect it.
-      return;
+      return false;
     }
     new_model.RemoveIndexFromSelection(index);
     new_model.set_anchor(index);
@@ -892,6 +895,7 @@ void TabStripModel::ToggleSelectionAt(int index) {
   }
   SetSelection(std::move(new_model), TabStripModelObserver::CHANGE_REASON_NONE,
                /*triggered_by_other_operation=*/false);
+  return true;
 }
 
 void TabStripModel::AddSelectionFromAnchorTo(int index) {
@@ -965,6 +969,11 @@ void TabStripModel::AddWebContents(
     }
   } else if (GetTabGroupForTab(index - 1) == GetTabGroupForTab(index)) {
     group = GetTabGroupForTab(index);
+  }
+
+  // Pinned tabs cannot be added to a group.
+  if (add_types & ADD_PINNED) {
+    group = base::nullopt;
   }
 
   if (ui::PageTransitionTypeIncludingQualifiersIs(transition,
@@ -1289,6 +1298,10 @@ bool TabStripModel::IsContextMenuCommandEnabled(
 void TabStripModel::ExecuteContextMenuCommand(int context_index,
                                               ContextMenuCommand command_id) {
   DCHECK(command_id > CommandFirst && command_id < CommandLast);
+  // The tab strip may have been modified while the context menu was open,
+  // including closing the tab originally at |context_index|.
+  if (!ContainsIndex(context_index))
+    return;
   switch (command_id) {
     case CommandNewTabToRight: {
       base::RecordAction(UserMetricsAction("TabContextMenu_NewTab"));
@@ -1932,13 +1945,18 @@ void TabStripModel::SelectRelativeTab(bool next, UserGestureDetails detail) {
 
 void TabStripModel::MoveTabRelative(bool forward) {
   const int offset = forward ? 1 : -1;
-
-  // TODO: this needs to be updated for multi-selection.
   const int current_index = active_index();
   base::Optional<tab_groups::TabGroupId> current_group =
       GetTabGroupForTab(current_index);
 
-  int target_index = std::max(std::min(current_index + offset, count() - 1), 0);
+  const int first_non_pinned_tab_index = IndexOfFirstNonPinnedTab();
+  int first_valid_index =
+      IsTabPinned(current_index) ? 0 : first_non_pinned_tab_index;
+  int last_valid_index =
+      IsTabPinned(current_index) ? first_non_pinned_tab_index - 1 : count() - 1;
+  int target_index = std::max(
+      std::min(current_index + offset, last_valid_index), first_valid_index);
+
   base::Optional<tab_groups::TabGroupId> target_group =
       GetTabGroupForTab(target_index);
 
@@ -1963,6 +1981,7 @@ void TabStripModel::MoveTabRelative(bool forward) {
       }
     }
   }
+  // TODO: this needs to be updated for multi-selection.
   MoveWebContentsAt(current_index, target_index, true);
 }
 
@@ -1973,6 +1992,7 @@ void TabStripModel::MoveWebContentsAtImpl(int index,
 
   TabStripSelectionChange selection(GetActiveWebContents(), selection_model_);
 
+  CHECK_LT(index, static_cast<int>(contents_data_.size()));
   std::unique_ptr<WebContentsData> moved_data =
       std::move(contents_data_[index]);
   WebContents* web_contents = moved_data->web_contents();

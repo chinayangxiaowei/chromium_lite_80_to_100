@@ -193,7 +193,7 @@ void ElementRuleCollector::CollectMatchingRulesForList(
     context.is_inside_visited_link =
         rule_data->LinkMatchType() == CSSSelector::kMatchVisited;
     DCHECK(!context.is_inside_visited_link ||
-           inside_link_ == EInsideLink::kInsideVisitedLink);
+           inside_link_ != EInsideLink::kNotInsideLink);
     if (!checker.Match(context, result)) {
       rejected++;
       continue;
@@ -204,12 +204,11 @@ void ElementRuleCollector::CollectMatchingRulesForList(
       continue;
     }
     if (auto* container_query = rule_data->GetContainerQuery()) {
-      // TODO(crbug.com/1145970): Propagate actual ContainerQueryEvaluator
-      // instance from the container.
-      // For now a fixed container size of 500x500 is used.
-      auto* eval = MakeGarbageCollected<ContainerQueryEvaluator>(500.0, 500.0);
+      result_.SetDependsOnContainerQueries();
 
-      if (!eval->Eval(*container_query)) {
+      auto* evaluator = style_recalc_context_.cq_evaluator;
+
+      if (!evaluator || !evaluator->EvalAndAdd(*container_query)) {
         rejected++;
         continue;
       }
@@ -279,13 +278,21 @@ void ElementRuleCollector::CollectMatchingRules(
     CollectMatchingRulesForList(match_request.rule_set->LinkPseudoClassRules(),
                                 match_request);
   }
-  if (inside_link_ == EInsideLink::kInsideVisitedLink) {
+  if (inside_link_ != EInsideLink::kNotInsideLink) {
+    // Collect rules for visited links regardless of whether they affect
+    // rendering to prevent sniffing of visited links via CSS transitions.
+    // If the visited or unvisited style changes and an affected property has a
+    // transition rule, we create a transition even if it has no visible effect.
     CollectMatchingRulesForList(match_request.rule_set->VisitedDependentRules(),
                                 match_request);
   }
   if (SelectorChecker::MatchesFocusPseudoClass(element)) {
     CollectMatchingRulesForList(match_request.rule_set->FocusPseudoClassRules(),
                                 match_request);
+  }
+  if (SelectorChecker::MatchesFocusVisiblePseudoClass(element)) {
+    CollectMatchingRulesForList(
+        match_request.rule_set->FocusVisiblePseudoClassRules(), match_request);
   }
   if (SelectorChecker::MatchesSpatialNavigationInterestPseudoClass(element)) {
     CollectMatchingRulesForList(

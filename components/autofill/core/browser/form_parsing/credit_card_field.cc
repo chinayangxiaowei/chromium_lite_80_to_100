@@ -24,6 +24,7 @@
 #include "components/autofill/core/browser/form_parsing/autofill_scanner.h"
 #include "components/autofill/core/browser/form_parsing/form_field.h"
 #include "components/autofill/core/common/autofill_clock.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -35,17 +36,28 @@ namespace {
 // [Ref: http://en.wikipedia.org/wiki/Bank_card_number]
 const size_t kMaxValidCardNumberSize = 19;
 
-// Look for the vector |regex_needles| in |haystack|. Returns true if a
-// consecutive section of |haystack| matches |regex_needles|.
+// Look for the vector |regex_needles| in the values and in the options of
+// |haystack|. Returns true if a consecutive section of |haystack| matches
+// |regex_needles|.
 bool FindConsecutiveStrings(const std::vector<base::string16>& regex_needles,
-                            const std::vector<base::string16>& haystack) {
+                            const std::vector<SelectOption>& haystack) {
   if (regex_needles.empty() || haystack.empty() ||
       (haystack.size() < regex_needles.size()))
     return false;
 
   for (size_t i = 0; i < haystack.size() - regex_needles.size() + 1; ++i) {
     for (size_t j = 0; j < regex_needles.size(); ++j) {
-      if (!MatchesPattern(haystack[i + j], regex_needles[j]))
+      if (!MatchesPattern(haystack[i + j].value, regex_needles[j]))
+        break;
+
+      if (j == regex_needles.size() - 1)
+        return true;
+    }
+  }
+
+  for (size_t i = 0; i < haystack.size() - regex_needles.size() + 1; ++i) {
+    for (size_t j = 0; j < regex_needles.size(); ++j) {
+      if (!MatchesPattern(haystack[i + j].content, regex_needles[j]))
         break;
 
       if (j == regex_needles.size() - 1)
@@ -91,6 +103,7 @@ std::unique_ptr<FormField> CreditCardField::Parse(
   auto credit_card_field = std::make_unique<CreditCardField>(log_manager);
   size_t saved_cursor = scanner->SaveCursor();
   int nb_unknown_fields = 0;
+  bool cardholder_name_match_has_low_confidence = false;
 
   const std::vector<MatchingPattern>& name_on_card_patterns =
       PatternProvider::GetInstance().GetMatchPatterns("NAME_ON_CARD",
@@ -135,6 +148,7 @@ std::unique_ptr<FormField> CreditCardField::Parse(
                      name_on_card_contextual_patterns,
                      &credit_card_field->cardholder_,
                      {log_manager, "kNameOnCardContextualRe"})) {
+        cardholder_name_match_has_low_confidence = true;
         continue;
       }
     } else if (!credit_card_field->cardholder_last_) {
@@ -277,8 +291,18 @@ std::unique_ptr<FormField> CreditCardField::Parse(
   // Some pages have a billing address field after the cardholder name field.
   // For that case, allow only just the cardholder name field.  The remaining
   // CC fields will be picked up in a following CreditCardField.
-  if (credit_card_field->cardholder_)
-    return std::move(credit_card_field);
+  if (credit_card_field->cardholder_) {
+    // If we got the cardholder name with a dangerous check, require at least a
+    // card number and one of expiration or verification fields.
+    if (!base::FeatureList::IsEnabled(
+            features::kAutofillStrictContextualCardNameConditions) ||
+        !cardholder_name_match_has_low_confidence ||
+        (!credit_card_field->numbers_.empty() &&
+         (credit_card_field->verification_ ||
+          credit_card_field->HasExpiration()))) {
+      return std::move(credit_card_field);
+    }
+  }
 
   // On some pages, the user selects a card type using radio buttons
   // (e.g. test page Apple Store Billing.html).  We can't handle that yet,
@@ -307,25 +331,25 @@ bool CreditCardField::LikelyCardMonthSelectField(AutofillScanner* scanner) {
                               MATCH_SELECT | MATCH_SEARCH))
     return false;
 
-  if (field->option_values.size() < 12 || field->option_values.size() > 13)
+  if (field->options.size() < 12 || field->options.size() > 13)
     return false;
 
   // Filter out years.
   const base::string16 kNumericalYearRe =
       base::ASCIIToUTF16("[1-9][0-9][0-9][0-9]");
-  for (const auto& value : field->option_values) {
-    if (MatchesPattern(value, kNumericalYearRe))
+  for (const auto& option : field->options) {
+    if (MatchesPattern(option.value, kNumericalYearRe))
       return false;
   }
-  for (const auto& value : field->option_contents) {
-    if (MatchesPattern(value, kNumericalYearRe))
+  for (const auto& option : field->options) {
+    if (MatchesPattern(option.content, kNumericalYearRe))
       return false;
   }
 
   // Look for numerical months.
   const base::string16 kNumericalMonthRe = base::ASCIIToUTF16("12");
-  if (MatchesPattern(field->option_values.back(), kNumericalMonthRe) ||
-      MatchesPattern(field->option_contents.back(), kNumericalMonthRe)) {
+  if (MatchesPattern(field->options.back().value, kNumericalMonthRe) ||
+      MatchesPattern(field->options.back().content, kNumericalMonthRe)) {
     return true;
   }
 
@@ -351,8 +375,8 @@ bool CreditCardField::LikelyCardYearSelectField(
   // Filter out days - elements for date entries would have
   // numbers 1 to 9 as well in them, which we can filter on.
   const base::string16 kSingleDigitDateRe = base::ASCIIToUTF16("\\b[1-9]\\b");
-  for (const auto& value : field->option_contents) {
-    if (MatchesPattern(value, kSingleDigitDateRe)) {
+  for (const auto& option : field->options) {
+    if (MatchesPattern(option.content, kSingleDigitDateRe)) {
       return false;
     }
   }
@@ -369,8 +393,8 @@ bool CreditCardField::LikelyCardYearSelectField(
   // Filter out birth years - a website would not offer 1999 as a credit card
   // expiration year, but show it in the context of a birth year selector.
   const base::string16 kBirthYearRe = base::ASCIIToUTF16("(1999|99)");
-  for (const auto& value : field->option_contents) {
-    if (MatchesPattern(value, kBirthYearRe)) {
+  for (const auto& option : field->options) {
+    if (MatchesPattern(option.content, kBirthYearRe)) {
       return false;
     }
   }
@@ -387,11 +411,8 @@ bool CreditCardField::LikelyCardYearSelectField(
     years_to_check_4_digit.push_back(base::NumberToString16(year));
     years_to_check_2_digit.push_back(base::NumberToString16(year).substr(2));
   }
-  return (
-      FindConsecutiveStrings(years_to_check_4_digit, field->option_values) ||
-      FindConsecutiveStrings(years_to_check_4_digit, field->option_contents) ||
-      FindConsecutiveStrings(years_to_check_2_digit, field->option_values) ||
-      FindConsecutiveStrings(years_to_check_2_digit, field->option_contents));
+  return FindConsecutiveStrings(years_to_check_4_digit, field->options) ||
+         FindConsecutiveStrings(years_to_check_2_digit, field->options);
 }
 
 // static

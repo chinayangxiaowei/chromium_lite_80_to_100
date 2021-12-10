@@ -74,8 +74,8 @@ class FakeBBGen(generate_buildbot_json.BBJSONGenerator):
         (pyl_files_dir, 'gn_isolate_map2.pyl'): GPU_TELEMETRY_GN_ISOLATE_MAP,
         (pyl_files_dir, 'variants.pyl'): variants,
         (infra_config_dir, 'generated/project.pyl'): project_pyl,
-        (infra_config_dir, 'generated/luci-milo.cfg'): luci_milo_cfg,
-        (infra_config_dir, 'generated/luci-milo-dev.cfg'): '',
+        (infra_config_dir, 'generated/luci/luci-milo.cfg'): luci_milo_cfg,
+        (infra_config_dir, 'generated/luci/luci-milo-dev.cfg'): '',
     }
     for (d, filename), content in files.iteritems():
       if content is None:
@@ -248,6 +248,7 @@ FOO_ISOLATED_SCRIPTS_WATERFALL_ANDROID = """\
     'name': 'chromium.test',
     'machines': {
       'Fake Tester': {
+        'os_type': 'android',
         'test_suites': {
           'isolated_scripts': 'composition_tests',
         },
@@ -1417,7 +1418,8 @@ ISOLATED_SCRIPT_OUTPUT_ANDROID = """\
             "--test-name",
             "foo_test"
           ],
-          "script": "//build/android/pylib/results/presentation/test_results_presentation.py"
+          "script": \
+"//build/android/pylib/results/presentation/test_results_presentation.py"
         },
         "name": "foo_test",
         "swarming": {
@@ -1426,7 +1428,8 @@ ISOLATED_SCRIPT_OUTPUT_ANDROID = """\
             {
               "cipd_package": "infra/tools/luci/logdog/butler/${platform}",
               "location": "bin",
-              "revision": "git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
+              "revision": \
+"git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c"
             }
           ],
           "output_links": [

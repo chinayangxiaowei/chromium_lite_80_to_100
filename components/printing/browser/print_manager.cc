@@ -29,10 +29,6 @@ void PrintManager::DidGetPrintedPagesCount(int32_t cookie,
   number_pages_ = number_pages;
 }
 
-void PrintManager::DidGetDocumentCookie(int32_t cookie) {
-  cookie_ = cookie;
-}
-
 #if BUILDFLAG(ENABLE_TAGGED_PDF)
 void PrintManager::SetAccessibilityTree(
     int32_t cookie,
@@ -57,16 +53,22 @@ void PrintManager::DidPrintDocument(mojom::DidPrintDocumentParamsPtr params,
 void PrintManager::ShowInvalidPrinterSettingsError() {}
 
 void PrintManager::PrintingFailed(int32_t cookie) {
-  if (cookie != cookie_) {
-    NOTREACHED();
+  // Note: Not redundant with cookie checks in the same method in other parts of
+  // the class hierarchy.
+  if (!IsValidCookie(cookie))
     return;
-  }
+
 #if defined(OS_ANDROID)
   PdfWritingDone(0);
 #endif
 }
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+void PrintManager::SetupScriptedPrintPreview(
+    SetupScriptedPrintPreviewCallback callback) {
+  std::move(callback).Run();
+}
+
 void PrintManager::ShowScriptedPrintPreview(bool source_is_modifiable) {}
 
 void PrintManager::RequestPrintPreview(
@@ -106,6 +108,10 @@ void PrintManager::PrintingRenderFrameDeleted() {
 #if defined(OS_ANDROID)
   PdfWritingDone(0);
 #endif
+}
+
+bool PrintManager::IsValidCookie(int cookie) const {
+  return cookie > 0 && cookie == cookie_;
 }
 
 }  // namespace printing

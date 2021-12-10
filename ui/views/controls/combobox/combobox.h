@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "base/macros.h"
-#include "base/scoped_observer.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "ui/base/models/combobox_model.h"
@@ -71,6 +71,8 @@ class VIEWS_EXPORT Combobox : public View,
   // Gets/Sets the selected index.
   int GetSelectedIndex() const { return selected_index_; }
   void SetSelectedIndex(int index);
+  base::CallbackListSubscription AddSelectedIndexChangedCallback(
+      views::PropertyChangedCallback callback) WARN_UNUSED_RESULT;
 
   // Looks for the first occurrence of |value| in |model()|. If found, selects
   // the found index and returns true. Otherwise simply noops and returns false.
@@ -224,7 +226,8 @@ class VIEWS_EXPORT Combobox : public View,
   // The focus ring for this Combobox.
   FocusRing* focus_ring_ = nullptr;
 
-  ScopedObserver<ui::ComboboxModel, ui::ComboboxModelObserver> observer_{this};
+  base::ScopedObservation<ui::ComboboxModel, ui::ComboboxModelObserver>
+      observation_{this};
 
   DISALLOW_COPY_AND_ASSIGN(Combobox);
 };

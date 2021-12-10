@@ -124,6 +124,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsBookmarkBarVisible() const override;
   bool IsBookmarkBarAnimating() const override;
   bool IsTabStripEditable() const override;
+  void SetIsTabStripEditable(bool is_editable);
   bool IsToolbarVisible() const override;
   bool IsToolbarShowing() const override;
   SharingDialog* ShowSharingDialog(content::WebContents* contents,
@@ -177,7 +178,7 @@ class TestBrowserWindow : public BrowserWindow {
 
 #if defined(OS_CHROMEOS) || defined(OS_MAC) || defined(OS_WIN) || \
     defined(OS_LINUX)
-  void ShowHatsBubble(const std::string& site_id,
+  void ShowHatsDialog(const std::string& site_id,
                       base::OnceClosure success_callback,
                       base::OnceClosure failure_callback) override {}
 #endif
@@ -248,6 +249,7 @@ class TestBrowserWindow : public BrowserWindow {
 
   std::string workspace_;
   bool visible_on_all_workspaces_ = false;
+  bool is_tab_strip_editable_ = true;
 
   std::unique_ptr<FeaturePromoController> feature_promo_controller_;
 

@@ -35,10 +35,11 @@ class BrowserTabStripModelDelegate : public TabStripModelDelegate {
   void WillAddWebContents(content::WebContents* contents) override;
   int GetDragActions() const override;
   bool CanDuplicateContentsAt(int index) override;
+  bool CanHighlightTabs() override;
   void DuplicateContentsAt(int index) override;
   void MoveToExistingWindow(const std::vector<int>& indices,
                             int browser_index) override;
-  std::vector<base::string16> GetExistingWindowsForMoveMenu() const override;
+  std::vector<base::string16> GetExistingWindowsForMoveMenu() override;
   bool CanMoveTabsToWindow(const std::vector<int>& indices) override;
   void MoveTabsToNewWindow(const std::vector<int>& indices) override;
   void MoveGroupToNewWindow(const tab_groups::TabGroupId& group) override;
@@ -52,6 +53,8 @@ class BrowserTabStripModelDelegate : public TabStripModelDelegate {
   void CloseFrame();
 
   Browser* const browser_;
+
+  std::vector<base::WeakPtr<Browser>> existing_browsers_for_menu_list_;
 
   // The following factory is used to close the frame at a later time.
   base::WeakPtrFactory<BrowserTabStripModelDelegate> weak_factory_{this};

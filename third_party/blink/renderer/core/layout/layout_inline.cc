@@ -149,14 +149,12 @@ void LayoutInline::DeleteLineBoxes() {
 void LayoutInline::ClearFirstInlineFragmentItemIndex() {
   NOT_DESTROYED();
   CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
-  DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
   first_fragment_item_index_ = 0u;
 }
 
 void LayoutInline::SetFirstInlineFragmentItemIndex(wtf_size_t index) {
   NOT_DESTROYED();
   CHECK(IsInLayoutNGInlineFormattingContext()) << *this;
-  DCHECK(RuntimeEnabledFeatures::LayoutNGFragmentItemEnabled());
   DCHECK_NE(index, 0u);
   first_fragment_item_index_ = index;
 }
@@ -577,15 +575,13 @@ void LayoutInline::SplitInlines(LayoutBlockFlow* from_block,
   // nest to a much greater depth (see bugzilla bug 13430) but for now we have a
   // limit. This *will* result in incorrect rendering, but the alternative is to
   // hang forever.
-  const unsigned kCMaxSplitDepth = 200;
   Vector<LayoutInline*> inlines_to_clone;
   LayoutInline* top_most_inline = this;
   for (LayoutObject* o = this; o != from_block; o = o->Parent()) {
     if (o->IsLayoutNGInsideListMarker())
       continue;
     top_most_inline = To<LayoutInline>(o);
-    if (inlines_to_clone.size() < kCMaxSplitDepth)
-      inlines_to_clone.push_back(top_most_inline);
+    inlines_to_clone.push_back(top_most_inline);
     // Keep walking up the chain to ensure |topMostInline| is a child of
     // |fromBlock|, to avoid assertion failure when |fromBlock|'s children are
     // moved to |toBlock| below.
@@ -1102,12 +1098,6 @@ bool LayoutInline::NodeAtPoint(HitTestResult& result,
       if (NGBoxFragmentPainter(cursor, item, *box_fragment)
               .NodeAtPoint(result, hit_test_location, child_offset,
                            accumulated_offset, hit_test_action)) {
-        // TODO(layout-dev): Make this work with block fragmentation. We should
-        // ideally store the containing box fragment in the hit-test result
-        // here, but doing that might prevent us from finding the right fragment
-        // item later on in PositionForPoint(), if the inline has been offset
-        // from its static position. So clear it.
-        result.SetBoxFragment(nullptr);
         return true;
       }
     }

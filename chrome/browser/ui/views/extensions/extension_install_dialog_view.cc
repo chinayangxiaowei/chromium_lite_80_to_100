@@ -9,7 +9,6 @@
 
 #include "base/bind.h"
 #include "base/i18n/message_formatter.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -28,7 +27,6 @@
 #include "components/constrained_window/constrained_window_views.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/page_navigator.h"
-#include "content/public/browser/web_contents.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_urls.h"
@@ -46,6 +44,8 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/grid_layout.h"
+#include "ui/views/metadata/metadata_header_macros.h"
+#include "ui/views/metadata/metadata_impl_macros.h"
 #include "ui/views/widget/widget.h"
 
 using content::OpenURLParams;
@@ -61,13 +61,16 @@ int g_install_delay_in_ms = 500;
 // (i.e., "Rated 4.2 stars by 379 reviews" rather than "image image...379").
 class RatingsView : public views::View {
  public:
+  METADATA_HEADER(RatingsView);
   RatingsView(double rating, int rating_count)
       : rating_(rating), rating_count_(rating_count) {
     SetID(ExtensionInstallDialogView::kRatingsViewId);
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kHorizontal));
   }
-  ~RatingsView() override {}
+  RatingsView(const RatingsView&) = delete;
+  RatingsView& operator=(const RatingsView&) = delete;
+  ~RatingsView() override = default;
 
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
     node_data->role = ax::mojom::Role::kStaticText;
@@ -87,42 +90,49 @@ class RatingsView : public views::View {
  private:
   double rating_;
   int rating_count_;
-
-  DISALLOW_COPY_AND_ASSIGN(RatingsView);
 };
+
+BEGIN_METADATA(RatingsView, views::View)
+END_METADATA
 
 // A custom view for the ratings star image that will be ignored by screen
 // readers (since the RatingsView handles the context).
 class RatingStar : public views::ImageView {
  public:
+  METADATA_HEADER(RatingStar);
   explicit RatingStar(const gfx::ImageSkia& image) { SetImage(image); }
-  ~RatingStar() override {}
+  RatingStar(const RatingStar&) = delete;
+  RatingStar& operator=(const RatingStar&) = delete;
+  ~RatingStar() override = default;
 
   // views::ImageView:
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
     node_data->role = ax::mojom::Role::kIgnored;
   }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(RatingStar);
 };
+
+BEGIN_METADATA(RatingStar, views::ImageView)
+END_METADATA
 
 // A custom view for the ratings label that will be ignored by screen readers
 // (since the RatingsView handles the context).
 class RatingLabel : public views::Label {
  public:
+  METADATA_HEADER(RatingLabel);
   RatingLabel(const base::string16& text, int text_context)
       : views::Label(text, text_context, views::style::STYLE_PRIMARY) {}
-  ~RatingLabel() override {}
+  RatingLabel(const RatingLabel&) = delete;
+  RatingLabel& operator=(const RatingLabel&) = delete;
+  ~RatingLabel() override = default;
 
   // views::Label:
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override {
     node_data->role = ax::mojom::Role::kIgnored;
   }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(RatingLabel);
 };
+
+BEGIN_METADATA(RatingLabel, views::Label)
+END_METADATA
 
 void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
   views::View* parent = static_cast<views::View*>(data);
@@ -130,24 +140,26 @@ void AddResourceIcon(const gfx::ImageSkia* skia_image, void* data) {
 }
 
 void ShowExtensionInstallDialogImpl(
-    ExtensionInstallPromptShowParams* show_params,
+    std::unique_ptr<ExtensionInstallPromptShowParams> show_params,
     ExtensionInstallPrompt::DoneCallback done_callback,
     std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  gfx::NativeWindow parent_window = show_params->GetParentWindow();
   ExtensionInstallDialogView* dialog = new ExtensionInstallDialogView(
-      show_params->profile(), show_params->GetParentWebContents(),
-      std::move(done_callback), std::move(prompt));
-  constrained_window::CreateBrowserModalDialogViews(
-      dialog, show_params->GetParentWindow())
+      std::move(show_params), std::move(done_callback), std::move(prompt));
+  constrained_window::CreateBrowserModalDialogViews(dialog, parent_window)
       ->Show();
 }
 
 // A custom scrollable view implementation for the dialog.
 class CustomScrollableView : public views::View {
  public:
+  METADATA_HEADER(CustomScrollableView);
   explicit CustomScrollableView(ExtensionInstallDialogView* parent)
       : parent_(parent) {}
-  ~CustomScrollableView() override {}
+  CustomScrollableView(const CustomScrollableView&) = delete;
+  CustomScrollableView& operator=(const CustomScrollableView&) = delete;
+  ~CustomScrollableView() override = default;
 
   // views::View:
   void ChildPreferredSizeChanged(views::View* child) override {
@@ -159,9 +171,10 @@ class CustomScrollableView : public views::View {
   // This view is an child of the dialog view (via |scroll_view_|) and thus will
   // not outlive it.
   ExtensionInstallDialogView* parent_;
-
-  DISALLOW_COPY_AND_ASSIGN(CustomScrollableView);
 };
+
+BEGIN_METADATA(CustomScrollableView, views::View)
+END_METADATA
 
 // Represents one section in the scrollable info area, which could be a block of
 // permissions, a list of retained files, or a list of retained devices.
@@ -191,12 +204,11 @@ void AddPermissions(ExtensionInstallPrompt::Prompt* prompt,
 }  // namespace
 
 ExtensionInstallDialogView::ExtensionInstallDialogView(
-    Profile* profile,
-    content::PageNavigator* navigator,
+    std::unique_ptr<ExtensionInstallPromptShowParams> show_params,
     ExtensionInstallPrompt::DoneCallback done_callback,
     std::unique_ptr<ExtensionInstallPrompt::Prompt> prompt)
-    : profile_(profile),
-      navigator_(navigator),
+    : profile_(show_params->profile()),
+      show_params_(std::move(show_params)),
       done_callback_(std::move(done_callback)),
       prompt_(std::move(prompt)),
       title_(prompt_->GetDialogTitle()),
@@ -258,6 +270,15 @@ ExtensionInstallDialogView::ExtensionInstallDialogView(
 ExtensionInstallDialogView::~ExtensionInstallDialogView() {
   if (done_callback_)
     OnDialogCanceled();
+}
+
+ExtensionInstallPromptShowParams*
+ExtensionInstallDialogView::GetShowParamsForTesting() {
+  return show_params_.get();
+}
+
+void ExtensionInstallDialogView::ClickLinkForTesting() {
+  LinkClicked();
 }
 
 void ExtensionInstallDialogView::SetInstallButtonDelayForTesting(
@@ -430,8 +451,9 @@ void ExtensionInstallDialogView::LinkClicked() {
                        WindowOpenDisposition::NEW_FOREGROUND_TAB,
                        ui::PAGE_TRANSITION_LINK, false);
 
-  if (navigator_) {
-    navigator_->OpenURL(params);
+  DCHECK(show_params_);
+  if (show_params_->GetParentWebContents()) {
+    show_params_->GetParentWebContents()->OpenURL(params);
   } else {
     chrome::ScopedTabbedBrowserDisplayer displayer(profile_);
     displayer.browser()->OpenURL(params);
@@ -539,6 +561,9 @@ void ExtensionInstallDialogView::UpdateInstallResultHistogram(bool accepted)
     }
   }
 }
+
+BEGIN_METADATA(ExtensionInstallDialogView, views::BubbleDialogDelegateView)
+END_METADATA
 
 // static
 ExtensionInstallPrompt::ShowDialogCallback

@@ -194,6 +194,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -228,6 +229,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -449,6 +451,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -483,6 +486,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -704,6 +708,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -738,6 +743,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -959,6 +965,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -993,6 +1000,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--no-xvfb",
           "--additional-driver-flag=--enable-features=UseSkiaRenderer,Vulkan"
@@ -1216,6 +1224,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1250,6 +1259,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1297,7 +1307,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1322,7 +1332,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1347,7 +1357,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1372,7 +1382,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1395,7 +1405,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1416,7 +1426,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1445,7 +1455,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1457,6 +1467,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1476,7 +1487,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1489,6 +1500,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1508,7 +1520,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1708,6 +1720,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1742,6 +1755,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1789,7 +1803,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1814,7 +1828,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1839,7 +1853,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1864,7 +1878,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1887,7 +1901,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1908,7 +1922,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1937,7 +1951,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1949,6 +1963,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -1968,7 +1983,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1981,6 +1996,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--platform=mac-mac10.13"
         ],
@@ -2000,7 +2016,7 @@
           "dimension_sets": [
             {
               "gpu": "8086:0a2e",
-              "os": "Mac-10.15.5"
+              "os": "Mac-10.15.5|Mac-10.15.7"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -2198,6 +2214,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2288,7 +2305,7 @@
       },
       {
         "args": [
-          "--enable-backend-validation",
+          "--enable-backend-validation=partial",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
           "--exclusive-device-type-preference=discrete,integrated"
@@ -2419,6 +2436,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2452,6 +2470,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2666,6 +2685,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2699,6 +2719,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2782,7 +2803,7 @@
       },
       {
         "args": [
-          "--enable-backend-validation",
+          "--enable-backend-validation=partial",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
           "--exclusive-device-type-preference=discrete,integrated"
@@ -2913,6 +2934,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -2946,6 +2968,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -3160,6 +3183,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -3193,6 +3217,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests",
           "--target=Release_x64"
         ],
@@ -3278,7 +3303,7 @@
       },
       {
         "args": [
-          "--enable-backend-validation",
+          "--enable-backend-validation=partial",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
           "--exclusive-device-type-preference=discrete,integrated"
@@ -3409,6 +3434,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -3441,6 +3467,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -3654,6 +3681,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -3686,6 +3714,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -3768,7 +3797,7 @@
       },
       {
         "args": [
-          "--enable-backend-validation",
+          "--enable-backend-validation=partial",
           "--use-gpu-in-tests",
           "--test-launcher-retry-limit=0",
           "--exclusive-device-type-preference=discrete,integrated"
@@ -3899,6 +3928,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -3931,6 +3961,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -4144,6 +4175,7 @@
           "--driver-logging",
           "--jobs=1",
           "--order=natural",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",
@@ -4176,6 +4208,7 @@
           "--jobs=1",
           "--order=natural",
           "--additional-driver-flag=--enable-dawn-backend-validation",
+          "--additional-driver-flag=--disable-dawn-features=disallow_unsafe_apis",
           "--additional-driver-flag=--use-gpu-in-tests"
         ],
         "isolate_name": "webgpu_blink_web_tests",

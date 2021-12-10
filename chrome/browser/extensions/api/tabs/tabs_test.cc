@@ -904,12 +904,13 @@ IN_PROC_BROWSER_TEST_F(ExtensionWindowLastFocusedTest,
 
   EXPECT_TRUE(base::MatchPattern(
       utils::RunFunctionAndReturnError(
-          function.get(), base::StringPrintf(
+          function.get(),
+          base::StringPrintf(
               "[%d, {\"url\":\"http://example.com\"}]",
               ExtensionTabUtil::GetTabId(
                   DevToolsWindowTesting::Get(devtools)->main_web_contents())),
           DevToolsWindowTesting::Get(devtools)->browser()),
-      tabs_constants::kNoCurrentWindowError));
+      tabs_constants::kNotAllowedForDevToolsError));
 
   DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
 }
@@ -2397,16 +2398,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToAboutBlank) {
   EXPECT_EQ(about_blank_url, test_frame->GetLastCommittedURL());
   EXPECT_EQ(extension_contents->GetMainFrame()->GetProcess(),
             test_contents->GetMainFrame()->GetProcess());
-
-  // The expectations below preserve the behavior at r704251.  It is not clear
-  // whether these are the right expectations - maybe about:blank should commit
-  // with an extension origin?  OTOH, committing with the extension origin
-  // wouldn't be possible when targeting an incognito window (see also
-  // IncognitoApiTest.Incognito test).
-  EXPECT_TRUE(test_frame->GetLastCommittedOrigin().opaque());
-  EXPECT_EQ(
-      extension_origin.GetTupleOrPrecursorTupleIfOpaque(),
-      test_frame->GetLastCommittedOrigin().GetTupleOrPrecursorTupleIfOpaque());
+  // Note that committing with the extension origin wouldn't be possible when
+  // targeting an incognito window (see also IncognitoApiTest.Incognito test).
+  EXPECT_EQ(extension_origin, test_frame->GetLastCommittedOrigin());
 }
 
 // Tests updating a URL of a web tab to an about:newtab.  Verify that the new
@@ -2523,6 +2517,79 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToNonWAR) {
   EXPECT_EQ(extension_origin, test_frame->GetLastCommittedOrigin());
   EXPECT_EQ(extension_contents->GetMainFrame()->GetProcess(),
             test_contents->GetMainFrame()->GetProcess());
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest,
+                       ExtensionAPICannotCreateWindowForDevtools) {
+  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
+      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
+  scoped_refptr<WindowsCreateFunction> function = new WindowsCreateFunction();
+
+  EXPECT_TRUE(base::MatchPattern(
+      utils::RunFunctionAndReturnError(
+          function.get(),
+          base::StringPrintf(
+              R"([{"tabId": %d}])",
+              ExtensionTabUtil::GetTabId(
+                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
+          DevToolsWindowTesting::Get(devtools)->browser()),
+      tabs_constants::kNotAllowedForDevToolsError));
+
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotMoveDevtoolsTab) {
+  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
+      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
+  scoped_refptr<TabsMoveFunction> function = new TabsMoveFunction();
+
+  EXPECT_TRUE(base::MatchPattern(
+      utils::RunFunctionAndReturnError(
+          function.get(),
+          base::StringPrintf(
+              R"([%d, {"index": -1}])",
+              ExtensionTabUtil::GetTabId(
+                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
+          DevToolsWindowTesting::Get(devtools)->browser()),
+      tabs_constants::kNotAllowedForDevToolsError));
+
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotGroupDevtoolsTab) {
+  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
+      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
+  scoped_refptr<TabsGroupFunction> function = new TabsGroupFunction();
+
+  EXPECT_TRUE(base::MatchPattern(
+      utils::RunFunctionAndReturnError(
+          function.get(),
+          base::StringPrintf(
+              R"([{"tabIds": %d}])",
+              ExtensionTabUtil::GetTabId(
+                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
+          DevToolsWindowTesting::Get(devtools)->browser()),
+      tabs_constants::kNotAllowedForDevToolsError));
+
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
+}
+
+IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ExtensionAPICannotDiscardDevtoolsTab) {
+  DevToolsWindow* devtools = DevToolsWindowTesting::OpenDevToolsWindowSync(
+      browser()->tab_strip_model()->GetWebContentsAt(0), false /* is_docked */);
+  scoped_refptr<TabsDiscardFunction> function = new TabsDiscardFunction();
+
+  EXPECT_TRUE(base::MatchPattern(
+      utils::RunFunctionAndReturnError(
+          function.get(),
+          base::StringPrintf(
+              "[%d]",
+              ExtensionTabUtil::GetTabId(
+                  DevToolsWindowTesting::Get(devtools)->main_web_contents())),
+          DevToolsWindowTesting::Get(devtools)->browser()),
+      tabs_constants::kNotAllowedForDevToolsError));
+
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools);
 }
 
 }  // namespace extensions

@@ -20,6 +20,7 @@
 #include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/single_thread_task_runner.h"
+#include "base/strings/string_util_win.h"
 #include "base/task/current_thread.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -456,7 +457,7 @@ void HWNDMessageHandler::Init(HWND parent, const gfx::Rect& bounds) {
       hwnd(), ui::WindowEventTarget::kWin32InputEventTarget,
       static_cast<ui::WindowEventTarget*>(this));
   DCHECK(delegate_->GetHWNDMessageDelegateInputMethod());
-  observer_.Add(delegate_->GetHWNDMessageDelegateInputMethod());
+  observation_.Observe(delegate_->GetHWNDMessageDelegateInputMethod());
 
   // The usual way for UI Automation to obtain a fragment root is through
   // WM_GETOBJECT. However, if there's a relation such as "Controller For"
@@ -849,21 +850,22 @@ void HWNDMessageHandler::SetVisibilityChangedAnimationsEnabled(bool enabled) {
 }
 
 bool HWNDMessageHandler::SetTitle(const base::string16& title) {
-  base::string16 current_title;
+  std::wstring current_title;
   size_t len_with_null = GetWindowTextLength(hwnd()) + 1;
   if (len_with_null == 1 && title.length() == 0)
     return false;
   if (len_with_null - 1 == title.length() &&
       GetWindowText(hwnd(), base::WriteInto(&current_title, len_with_null),
                     len_with_null) &&
-      current_title == title)
+      current_title == base::AsWStringPiece(title))
     return false;
-  SetWindowText(hwnd(), title.c_str());
+  SetWindowText(hwnd(), base::as_wcstr(title));
   return true;
 }
 
 void HWNDMessageHandler::SetCursor(HCURSOR cursor) {
-  TRACE_EVENT1("ui,input", "HWNDMessageHandler::SetCursor", "cursor", cursor);
+  TRACE_EVENT1("ui,input", "HWNDMessageHandler::SetCursor", "cursor",
+               static_cast<const void*>(cursor));
   ::SetCursor(cursor);
   current_cursor_ = cursor;
 }
@@ -894,7 +896,10 @@ void HWNDMessageHandler::SetWindowIcons(const gfx::ImageSkia& window_icon,
 
 void HWNDMessageHandler::SetFullscreen(bool fullscreen) {
   background_fullscreen_hack_ = false;
+  auto ref = msg_handler_weak_factory_.GetWeakPtr();
   fullscreen_handler()->SetFullscreen(fullscreen);
+  if (!ref)
+    return;
 
   // Add the fullscreen window to the fullscreen window map which is used to
   // handle window activations.
@@ -1396,8 +1401,10 @@ void HWNDMessageHandler::ClientAreaSizeChanged() {
   // Ignore size changes due to fullscreen windows losing activation.
   if (background_fullscreen_hack_ && !sent_window_size_changing_)
     return;
-  gfx::Size s = GetClientAreaBounds().size();
-  delegate_->HandleClientSizeChanged(s);
+  auto ref = msg_handler_weak_factory_.GetWeakPtr();
+  delegate_->HandleClientSizeChanged(GetClientAreaBounds().size());
+  if (!ref)
+    return;
 
   current_window_size_message_++;
   sent_window_size_changing_ = false;
@@ -1665,7 +1672,13 @@ void HWNDMessageHandler::OnDisplayChange(UINT bits_per_pixel,
                                          const gfx::Size& screen_size) {
   TRACE_EVENT0("ui", "HWNDMessageHandler::OnDisplayChange");
 
+  base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   delegate_->HandleDisplayChange();
+
+  // HandleDisplayChange() may result in |this| being deleted.
+  if (!ref)
+    return;
+
   // Force a WM_NCCALCSIZE to occur to ensure that we handle auto hide
   // taskbars correctly.
   SendFrameChanged();
@@ -2925,8 +2938,11 @@ void HWNDMessageHandler::OnWindowPosChanging(WINDOWPOS* window_pos) {
 void HWNDMessageHandler::OnWindowPosChanged(WINDOWPOS* window_pos) {
   TRACE_EVENT0("ui", "HWNDMessageHandler::OnWindowPosChanged");
 
+  base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   if (DidClientAreaSizeChange(window_pos))
     ClientAreaSizeChanged();
+  if (!ref)
+    return;
   if (window_pos->flags & SWP_FRAMECHANGED)
     SetDwmFrameExtension(DwmFrameState::kOn);
   if (window_pos->flags & SWP_SHOWWINDOW) {

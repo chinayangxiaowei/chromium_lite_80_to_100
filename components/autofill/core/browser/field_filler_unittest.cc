@@ -72,16 +72,12 @@ const std::vector<const char*> NotNumericMonthsContentsWithPlaceholder() {
 }
 
 // Returns the index of |value| in |values|.
-void GetIndexOfValue(const std::vector<base::string16>& values,
-                     const base::string16& value,
-                     size_t* index) {
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (values[i] == value) {
-      *index = i;
-      return;
-    }
-  }
-  ASSERT_TRUE(false) << "Passing invalid arguments to GetIndexOfValue";
+size_t GetIndexOfValue(const std::vector<SelectOption>& values,
+                       const base::string16& value) {
+  size_t i =
+      base::ranges::find(values, value, &SelectOption::value) - values.begin();
+  CHECK_LT(i, values.size()) << "Passing invalid arguments to GetIndexOfValue";
+  return i;
 }
 
 // Creates the select field from the specified |values| and |contents| and tests
@@ -102,14 +98,14 @@ void TestFillingExpirationMonth(const std::vector<const char*>& values,
   CreditCard card = test::GetCreditCard();
   card.SetExpirationMonth(3);
   filler.FillFormField(field, &card, &field, /*cvc=*/base::string16());
-  GetIndexOfValue(field.option_values, field.value, &content_index);
-  EXPECT_EQ(ASCIIToUTF16("Mar"), field.option_contents[content_index]);
+  content_index = GetIndexOfValue(field.options, field.value);
+  EXPECT_EQ(ASCIIToUTF16("Mar"), field.options[content_index].content);
 
   // Try a two-digit month.
   card.SetExpirationMonth(11);
   filler.FillFormField(field, &card, &field, /*cvc=*/base::string16());
-  GetIndexOfValue(field.option_values, field.value, &content_index);
-  EXPECT_EQ(ASCIIToUTF16("Nov"), field.option_contents[content_index]);
+  content_index = GetIndexOfValue(field.options, field.value);
+  EXPECT_EQ(ASCIIToUTF16("Nov"), field.options[content_index].content);
 }
 
 void TestFillingInvalidFields(const base::string16& state,
@@ -178,37 +174,37 @@ TEST_F(AutofillFieldFillerTest, Type) {
   // Set the heuristic type and check it.
   field.set_heuristic_type(NAME_FIRST);
   EXPECT_EQ(NAME_FIRST, field.Type().GetStorableType());
-  EXPECT_EQ(NAME, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kName, field.Type().group());
 
   // Set the server type and check it.
   field.set_server_type(ADDRESS_BILLING_LINE1);
   EXPECT_EQ(ADDRESS_HOME_LINE1, field.Type().GetStorableType());
-  EXPECT_EQ(ADDRESS_BILLING, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kAddressBilling, field.Type().group());
 
   // Checks that overall_type trumps everything.
   field.SetTypeTo(AutofillType(ADDRESS_BILLING_ZIP));
   EXPECT_EQ(ADDRESS_HOME_ZIP, field.Type().GetStorableType());
-  EXPECT_EQ(ADDRESS_BILLING, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kAddressBilling, field.Type().group());
 
   // Checks that setting server type resets overall type.
   field.set_server_type(ADDRESS_BILLING_LINE1);
   EXPECT_EQ(ADDRESS_HOME_LINE1, field.Type().GetStorableType());
-  EXPECT_EQ(ADDRESS_BILLING, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kAddressBilling, field.Type().group());
 
   // Remove the server type to make sure the heuristic type is preserved.
   field.set_server_type(NO_SERVER_DATA);
   EXPECT_EQ(NAME_FIRST, field.Type().GetStorableType());
-  EXPECT_EQ(NAME, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kName, field.Type().group());
 
   // Checks that overall_type trumps everything.
   field.SetTypeTo(AutofillType(ADDRESS_BILLING_ZIP));
   EXPECT_EQ(ADDRESS_HOME_ZIP, field.Type().GetStorableType());
-  EXPECT_EQ(ADDRESS_BILLING, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kAddressBilling, field.Type().group());
 
   // Set the heuristic type and check it and reset overall Type.
   field.set_heuristic_type(NAME_FIRST);
   EXPECT_EQ(NAME_FIRST, field.Type().GetStorableType());
-  EXPECT_EQ(NAME, field.Type().group());
+  EXPECT_EQ(FieldTypeGroup::kName, field.Type().group());
 }
 
 // Tests that a credit card related prediction made by the heuristics overrides
@@ -755,8 +751,8 @@ TEST_F(AutofillFieldFillerTest, FillSelectControlByValue) {
 
   // Set semantically empty contents for each option, so that only the values
   // can be used for matching.
-  for (size_t i = 0; i < field.option_contents.size(); ++i)
-    field.option_contents[i] = base::NumberToString16(i);
+  for (size_t i = 0; i < field.options.size(); ++i)
+    field.options[i].content = base::NumberToString16(i);
 
   address()->SetRawInfo(NAME_FIRST, ASCIIToUTF16("Meenie"));
   FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
@@ -777,8 +773,8 @@ TEST_F(AutofillFieldFillerTest, FillSelectControlByContents) {
 
   // Set semantically empty values for each option, so that only the contents
   // can be used for matching.
-  for (size_t i = 0; i < field.option_values.size(); ++i)
-    field.option_values[i] = base::NumberToString16(i);
+  for (size_t i = 0; i < field.options.size(); ++i)
+    field.options[i].value = base::NumberToString16(i);
 
   address()->SetRawInfo(NAME_FIRST, ASCIIToUTF16("Miney"));
   FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
@@ -811,6 +807,17 @@ class AutofillSelectWithStatesTest
         std::unique_ptr<Source>(
             new TestdataSource(true, file_path.AsUTF8Unsafe())),
         std::unique_ptr<Storage>(new NullStorage), "en-US");
+
+    test::PopulateAlternativeStateNameMapForTesting(
+        "US", "California",
+        {{.canonical_name = "California",
+          .abbreviations = {"CA"},
+          .alternative_names = {}}});
+    test::PopulateAlternativeStateNameMapForTesting(
+        "US", "North Carolina",
+        {{.canonical_name = "North Carolina",
+          .abbreviations = {"NC"},
+          .alternative_names = {}}});
     // Make sure the normalizer is done initializing its member(s) in
     // background task(s).
     task_environment_.RunUntilIdle();
@@ -1697,7 +1704,7 @@ TEST_F(AutofillFieldFillerTest, FillStateAbbreviationInTextField) {
 }
 
 // Tests that the state names are selected correctly even though the state
-// value saved in the address is not recognized by the StateMappingCache.
+// value saved in the address is not recognized by the AlternativeStateNameMap.
 TEST_F(AutofillFieldFillerTest, FillStateFieldWithSavedValueInProfile) {
   base::test::ScopedFeatureList feature;
   feature.InitAndEnableFeature(features::kAutofillUseAlternativeStateNameMap);
@@ -1717,6 +1724,83 @@ TEST_F(AutofillFieldFillerTest, FillStateFieldWithSavedValueInProfile) {
   FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
   filler.FillFormField(field, &address, &field, /*cvc=*/base::string16());
   EXPECT_EQ(ASCIIToUTF16("Bavari"), field.value);
+}
+
+// Tests that Autofill does not wrongly fill the state when the appropriate
+// state is not in the list of selection options given that the abbreviation is
+// saved in the profile.
+TEST_F(AutofillFieldFillerTest, FillStateFieldWhenStateIsNotInOptions) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndEnableFeature(features::kAutofillUseAlternativeStateNameMap);
+
+  test::ClearAlternativeStateNameMapForTesting();
+  test::PopulateAlternativeStateNameMapForTesting(
+      "US", "Colorado",
+      {{.canonical_name = "Colorado",
+        .abbreviations = {"CO"},
+        .alternative_names = {}}});
+  std::vector<const char*> kState = {"Connecticut", "California"};
+
+  AutofillField field;
+  test::CreateTestSelectField(kState, &field);
+  field.set_heuristic_type(ADDRESS_HOME_STATE);
+
+  AutofillProfile address;
+  address.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("CO"));
+  address.SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("US"));
+
+  FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
+  filler.FillFormField(field, &address, &field, /*cvc=*/base::string16());
+  EXPECT_EQ(ASCIIToUTF16(""), field.value);
+}
+
+// Tests that Autofill uses the static states data of US as a fallback mechanism
+// for filling when |AlternativeStateNameMap| is not populated.
+TEST_F(AutofillFieldFillerTest,
+       FillStateFieldWhenAlternativeStateNameMapIsNotPopulated) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndEnableFeature(features::kAutofillUseAlternativeStateNameMap);
+
+  test::ClearAlternativeStateNameMapForTesting();
+  std::vector<const char*> kState = {"Colorado", "Connecticut", "California"};
+
+  AutofillField field;
+  test::CreateTestSelectField(kState, &field);
+  field.set_heuristic_type(ADDRESS_HOME_STATE);
+
+  AutofillProfile address;
+  address.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("CO"));
+  address.SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("US"));
+
+  FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
+  filler.FillFormField(field, &address, &field, /*cvc=*/base::string16());
+  EXPECT_EQ(ASCIIToUTF16("Colorado"), field.value);
+}
+
+// Tests that Autofill fills upper case abbreviation in the input field when
+// field length is limited.
+TEST_F(AutofillFieldFillerTest, FillUpperCaseAbbreviationInStateTextField) {
+  base::test::ScopedFeatureList feature;
+  feature.InitAndEnableFeature(features::kAutofillUseAlternativeStateNameMap);
+
+  test::ClearAlternativeStateNameMapForTesting();
+  test::PopulateAlternativeStateNameMapForTesting("DE", "Bavaria",
+                                                  {{.canonical_name = "Bavaria",
+                                                    .abbreviations = {"by"},
+                                                    .alternative_names = {}}});
+
+  AutofillField field;
+  test::CreateTestFormField("State", "state", "", "text", &field);
+  field.set_heuristic_type(ADDRESS_HOME_STATE);
+  field.max_length = 4;
+
+  AutofillProfile address;
+  address.SetRawInfo(ADDRESS_HOME_STATE, ASCIIToUTF16("Bavaria"));
+  address.SetRawInfo(ADDRESS_HOME_COUNTRY, ASCIIToUTF16("DE"));
+
+  FieldFiller filler(/*app_locale=*/"en-US", /*address_normalizer=*/nullptr);
+  filler.FillFormField(field, &address, &field, /*cvc=*/base::string16());
+  EXPECT_EQ(ASCIIToUTF16("BY"), field.value);
 }
 
 }  // namespace autofill

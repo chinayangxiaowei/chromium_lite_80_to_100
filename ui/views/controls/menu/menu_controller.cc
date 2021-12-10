@@ -18,7 +18,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
+#include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
@@ -1060,8 +1060,9 @@ int MenuController::OnDragUpdated(SubmenuView* source,
       query_menu_item = menu_item->GetParentMenuItem();
       drop_position = MenuDelegate::DropPosition::kOn;
     }
-    drop_operation = menu_item->GetDelegate()->GetDropOperation(
-        query_menu_item, event, &drop_position);
+    drop_operation =
+        static_cast<int>(menu_item->GetDelegate()->GetDropOperation(
+            query_menu_item, event, &drop_position));
 
     // If the menu has a submenu, schedule the submenu to open.
     SetSelection(menu_item, menu_item->HasSubmenu() ? SELECTION_OPEN_SUBMENU
@@ -1087,8 +1088,9 @@ void MenuController::OnDragExited(SubmenuView* source) {
   }
 }
 
-int MenuController::OnPerformDrop(SubmenuView* source,
-                                  const ui::DropTargetEvent& event) {
+ui::mojom::DragOperation MenuController::OnPerformDrop(
+    SubmenuView* source,
+    const ui::DropTargetEvent& event) {
   DCHECK(drop_target_);
   // NOTE: the delegate may delete us after invoking OnPerformDrop, as such
   // we don't call cancel here.
@@ -2569,7 +2571,7 @@ gfx::Rect MenuController::CalculateBubbleMenuBounds(MenuItemView* item,
     const bool create_on_right = prefer_leading != layout_is_rtl;
 
     const int width_with_right_inset =
-        menu_config.touchable_menu_width + border_and_shadow_insets.right();
+        menu_config.touchable_menu_min_width + border_and_shadow_insets.right();
     const int x_max = monitor_bounds.right() - width_with_right_inset;
     const int x_left = item_bounds.x() - width_with_right_inset;
     const int x_right = item_bounds.right() - border_and_shadow_insets.left();
@@ -3032,9 +3034,6 @@ void MenuController::ExitMenu() {
   bool nested = delegate_stack_.size() > 1;
   // ExitTopMostMenu unwinds nested delegates
   internal::MenuControllerDelegate* delegate = delegate_;
-  // MenuController may have been deleted when releasing ViewsDelegate ref.
-  // However as |delegate| can outlive this, it must still be notified of the
-  // menu closing so that it can perform teardown.
   int accept_event_flags = accept_event_flags_;
   base::WeakPtr<MenuController> this_ref = AsWeakPtr();
   MenuItemView* result = ExitTopMostMenu();
@@ -3046,15 +3045,12 @@ void MenuController::ExitMenu() {
 }
 
 MenuItemView* MenuController::ExitTopMostMenu() {
-  base::WeakPtr<MenuController> this_ref = AsWeakPtr();
-
   // Release the lock which prevents Chrome from shutting down while the menu is
   // showing.
-  ViewsDelegate::GetInstance()->ReleaseRef();
-
-  // Releasing the lock can result in Chrome shutting down, deleting this.
-  if (!this_ref)
-    return nullptr;
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&ViewsDelegate::ReleaseRef,
+                     base::Unretained(ViewsDelegate::GetInstance())));
 
   // Close any open menus.
   SetSelection(nullptr, SELECTION_UPDATE_IMMEDIATELY | SELECTION_EXIT);

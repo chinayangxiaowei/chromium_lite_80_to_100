@@ -83,7 +83,8 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
                        scoped_refptr<base::SingleThreadTaskRunner> task_runner,
                        bool enable_pixel_canvas,
                        bool use_external_begin_frame_control,
-                       bool force_software_compositor)
+                       bool force_software_compositor,
+                       bool enable_compositing_based_throttling)
     : context_factory_(context_factory),
       frame_sink_id_(frame_sink_id),
       task_runner_(task_runner),
@@ -221,6 +222,9 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
   if (base::FeatureList::IsEnabled(features::kPercentBasedScrolling)) {
     settings.percent_based_scrolling = true;
   }
+
+  settings.enable_compositing_based_throttling =
+      enable_compositing_based_throttling;
 
 #if DCHECK_IS_ON()
   if (command_line->HasSwitch(cc::switches::kLogOnUIDoubleBackgroundBlur))
@@ -646,8 +650,10 @@ void Compositor::BeginMainFrameNotExpectedUntil(base::TimeTicks time) {}
 
 static void SendDamagedRectsRecursive(ui::Layer* layer) {
   layer->SendDamagedRects();
-  for (auto* child : layer->children())
-    SendDamagedRectsRecursive(child);
+  // Iterate using the size for the case of mutation during sending damaged
+  // regions. https://crbug.com/1242257.
+  for (size_t i = 0; i < layer->children().size(); ++i)
+    SendDamagedRectsRecursive(layer->children()[i]);
 }
 
 void Compositor::UpdateLayerTreeHost() {
@@ -719,12 +725,20 @@ void Compositor::FrameIntervalUpdated(base::TimeDelta interval) {
   refresh_rate_ = interval.ToHz();
 }
 
+void Compositor::FrameSinksToThrottleUpdated(
+    const base::flat_set<viz::FrameSinkId>& ids) {
+  for (auto& observer : observer_list_) {
+    observer.OnFrameSinksToThrottleUpdated(ids);
+  }
+}
+
 void Compositor::OnFirstSurfaceActivation(
     const viz::SurfaceInfo& surface_info) {
   NOTREACHED();
 }
 
-void Compositor::OnFrameTokenChanged(uint32_t frame_token) {
+void Compositor::OnFrameTokenChanged(uint32_t frame_token,
+                                     base::TimeTicks activation_time) {
   // TODO(yiyix, fsamuel): Implement frame token propagation for Compositor.
   NOTREACHED();
 }
@@ -784,8 +798,11 @@ void Compositor::ReportMetricsForTracker(
   if (it == throughput_tracker_map_.end())
     return;
 
-  std::move(it->second).Run(data);
+  // Callback may modify `throughput_tracker_map_` so update the map first.
+  // See https://crbug.com/1193382.
+  auto callback = std::move(it->second);
   throughput_tracker_map_.erase(it);
+  std::move(callback).Run(data);
 }
 
 void Compositor::SetDelegatedInkPointRenderer(

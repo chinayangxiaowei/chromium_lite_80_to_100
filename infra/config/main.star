@@ -10,33 +10,28 @@ load("//lib/branches.star", "branches")
 load("//project.star", "settings")
 
 lucicfg.check_version(
-    min = "1.19.0",
+    min = "1.29.1",
     message = "Update depot_tools",
 )
-
-# Enable LUCI Realms support.
-lucicfg.enable_experiment("crbug.com/1085650")
-
-# Enable tree closing.
-lucicfg.enable_experiment("crbug.com/1054172")
 
 # Tell lucicfg what files it is allowed to touch
 lucicfg.config(
     config_dir = "generated",
     tracked_files = [
-        "commit-queue.cfg",
+        "builders/*/*/*",
         "cq-builders.md",
-        "cr-buildbucket.cfg",
-        "luci-logdog.cfg",
-        "luci-milo.cfg",
-        "luci-notify.cfg",
-        "luci-notify/email-templates/*.template",
-        "luci-scheduler.cfg",
+        "luci/commit-queue.cfg",
+        "luci/cr-buildbucket.cfg",
+        "luci/luci-logdog.cfg",
+        "luci/luci-milo.cfg",
+        "luci/luci-notify.cfg",
+        "luci/luci-notify/email-templates/*.template",
+        "luci/luci-scheduler.cfg",
+        "luci/project.cfg",
+        "luci/realms.cfg",
+        "luci/tricium-prod.cfg",
         "outages.pyl",
-        "project.cfg",
         "project.pyl",
-        "realms.cfg",
-        "tricium-prod.cfg",
     ],
     fail_on_warnings = True,
     lint_checks = [
@@ -52,12 +47,13 @@ lucicfg.config(
 
 # Just copy tricium-prod.cfg to the generated outputs
 lucicfg.emit(
-    dest = "tricium-prod.cfg",
+    dest = "luci/tricium-prod.cfg",
     data = io.read_file("tricium-prod.cfg"),
 )
 
 luci.project(
     name = settings.project,
+    config_dir = "luci",
     buildbucket = "cr-buildbucket.appspot.com",
     logdog = "luci-logdog.appspot.com",
     milo = "luci-milo.appspot.com",
@@ -80,6 +76,12 @@ luci.project(
         acl.entry(
             roles = acl.SCHEDULER_OWNER,
             groups = "project-chromium-admins",
+        ),
+    ],
+    bindings = [
+        luci.binding(
+            roles = "role/configs.validator",
+            groups = "project-chromium-try-task-accounts",
         ),
     ],
 )
@@ -115,6 +117,28 @@ luci.realm(
             groups = "project-chromium-tryjob-access",
         ),
         # Other roles are inherited from @root which grants them to group:all.
+    ],
+)
+
+luci.realm(
+    name = "ci",
+    bindings = [
+        # Allow CI builders to create invocations in their own builds.
+        luci.binding(
+            roles = "role/resultdb.invocationCreator",
+            groups = "project-chromium-ci-task-accounts",
+        ),
+    ],
+)
+
+luci.realm(
+    name = "try",
+    bindings = [
+        # Allow try builders to create invocations in their own builds.
+        luci.binding(
+            roles = "role/resultdb.invocationCreator",
+            groups = "project-chromium-try-task-accounts",
+        ),
     ],
 )
 

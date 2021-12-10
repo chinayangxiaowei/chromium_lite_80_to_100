@@ -48,6 +48,7 @@ ExistingTabGroupSubMenuModel::ExistingTabGroupSubMenuModel(
     ui::ImageModel image_model = ui::ImageModel::FromVectorIcon(
         kTabGroupIcon, tp.GetColor(color_id), kIconSize);
     menu_item_infos.emplace_back(MenuItemInfo{displayed_title, image_model});
+    menu_item_infos.back().may_have_mnemonics = false;
   }
   Build(IDS_TAB_CXMENU_SUBMENU_NEW_GROUP, menu_item_infos);
 }
@@ -85,10 +86,10 @@ void ExistingTabGroupSubMenuModel::ExecuteNewCommand(int event_flags) {
 }
 
 void ExistingTabGroupSubMenuModel::ExecuteExistingCommand(int command_index) {
-  DCHECK_LT(size_t{command_index},
-            model()->group_model()->ListTabGroups().size());
   base::RecordAction(base::UserMetricsAction("TabContextMenu_NewTabInGroup"));
 
+  if (size_t{command_index} >= model()->group_model()->ListTabGroups().size())
+    return;
   if (!model()->ContainsIndex(GetContextIndex()))
     return;
   model()->ExecuteAddToExistingGroupCommand(

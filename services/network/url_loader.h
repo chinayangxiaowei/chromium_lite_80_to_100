@@ -24,6 +24,7 @@
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
 #include "net/base/load_states.h"
+#include "net/base/network_delegate.h"
 #include "net/http/http_raw_request_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request.h"
@@ -36,6 +37,7 @@
 #include "services/network/public/mojom/cross_origin_embedder_policy.mojom-forward.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/ip_address_space.mojom-forward.h"
+#include "services/network/public/mojom/ip_address_space.mojom-shared.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/trust_tokens.mojom-shared.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
@@ -132,8 +134,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
       mojom::OriginPolicyManager* origin_policy_manager,
       std::unique_ptr<TrustTokenRequestHelperFactory>
           trust_token_helper_factory,
-      const cors::OriginAccessList* origin_access_list,
-      mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer);
+      const cors::OriginAccessList& origin_access_list,
+      mojo::PendingRemote<mojom::CookieAccessObserver> cookie_observer,
+      mojo::PendingRemote<mojom::AuthenticationAndCertificateObserver>
+          auth_cert_observer);
   ~URLLoader() override;
 
   // mojom::URLLoader implementation:
@@ -166,8 +170,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   // These methods are called by the network delegate to forward these events to
   // the |header_client_|.
-  int OnBeforeStartTransaction(net::CompletionOnceCallback callback,
-                               net::HttpRequestHeaders* headers);
+  int OnBeforeStartTransaction(
+      const net::HttpRequestHeaders& headers,
+      net::NetworkDelegate::OnBeforeStartTransactionCallback callback);
   int OnHeadersReceived(
       net::CompletionOnceCallback callback,
       const net::HttpResponseHeaders* original_response_headers,
@@ -326,8 +331,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   void RecordBodyReadFromNetBeforePausedIfNeeded();
   void ResumeStart();
   void OnBeforeSendHeadersComplete(
-      net::CompletionOnceCallback callback,
-      net::HttpRequestHeaders* out_headers,
+      net::NetworkDelegate::OnBeforeStartTransactionCallback callback,
       int result,
       const base::Optional<net::HttpRequestHeaders>& headers);
   void OnHeadersReceivedComplete(
@@ -520,10 +524,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   base::Optional<mojom::TrustTokenOperationStatus> trust_token_status_;
 
   // Outlives `this`.
-  const cors::OriginAccessList* const origin_access_list_;
+  const cors::OriginAccessList& origin_access_list_;
 
   // Observer listening to all cookie reads and writes made by this request.
   mojo::Remote<mojom::CookieAccessObserver> cookie_observer_;
+
+  mojo::Remote<mojom::AuthenticationAndCertificateObserver> auth_cert_observer_;
 
   // Client security state copied from the input ResourceRequest.
   //

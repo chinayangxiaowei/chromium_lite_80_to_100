@@ -92,6 +92,10 @@ class TabStripModelDelegate {
   // Returns whether some contents can be duplicated.
   virtual bool CanDuplicateContentsAt(int index) = 0;
 
+  // Returns whether tabs can be highlighted. This may return false due to tab
+  // dragging in process for instance
+  virtual bool CanHighlightTabs() = 0;
+
   // Duplicates the contents at the provided index and places it into a new tab.
   virtual void DuplicateContentsAt(int index) = 0;
 
@@ -100,7 +104,7 @@ class TabStripModelDelegate {
                                     int browser_index) = 0;
 
   // Get the list of existing windows that tabs can be moved to.
-  virtual std::vector<base::string16> GetExistingWindowsForMoveMenu() const = 0;
+  virtual std::vector<base::string16> GetExistingWindowsForMoveMenu() = 0;
 
   // Returns whether the contents at |indices| can be moved from the current
   // tabstrip to a different window.

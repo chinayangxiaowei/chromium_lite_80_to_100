@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/html_marquee_element.h"
+#include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_box.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_item.h"
@@ -297,7 +298,7 @@ void LayoutBlock::AddChildBeforeDescendant(LayoutObject* new_child,
     if (new_child->IsInline() ||
         (new_child->IsFloatingOrOutOfFlowPositioned() &&
          (StyleRef().IsDeprecatedFlexboxUsingFlexLayout() ||
-          (!IsFlexibleBoxIncludingNG() && !IsLayoutGrid()))) ||
+          (!IsFlexibleBoxIncludingNG() && !IsLayoutGridIncludingNG()))) ||
         before_descendant->Parent()->SlowFirstChild() != before_descendant) {
       before_descendant_container->AddChild(new_child, before_descendant);
     } else {
@@ -341,7 +342,7 @@ void LayoutBlock::AddChild(LayoutObject* new_child,
   if (new_child->IsInline() ||
       (new_child->IsFloatingOrOutOfFlowPositioned() &&
        (StyleRef().IsDeprecatedFlexboxUsingFlexLayout() ||
-        (!IsFlexibleBoxIncludingNG() && !IsLayoutGrid())))) {
+        (!IsFlexibleBoxIncludingNG() && !IsLayoutGridIncludingNG())))) {
     // If we're inserting an inline child but all of our children are blocks,
     // then we have to make sure it is put into an anomyous block box. We try to
     // use an existing anonymous box if possible, otherwise a new one is created
@@ -1064,9 +1065,7 @@ void LayoutBlock::RemovePositionedObject(LayoutBox* o) {
 
 bool LayoutBlock::IsAnonymousNGFieldsetContentWrapper() const {
   NOT_DESTROYED();
-  if (!RuntimeEnabledFeatures::LayoutNGFieldsetEnabled() || !Parent())
-    return false;
-  return Parent()->IsLayoutNGFieldset();
+  return Parent() && Parent()->IsLayoutNGFieldset();
 }
 
 void LayoutBlock::InvalidatePaint(
@@ -1443,6 +1442,10 @@ static inline bool IsChildHitTestCandidate(LayoutBox* box) {
 PositionWithAffinity LayoutBlock::PositionForPoint(
     const PhysicalOffset& point) const {
   NOT_DESTROYED();
+  // NG codepath requires |kPrePaintClean|.
+  // |SelectionModifier| calls this only in legacy codepath.
+  DCHECK(!IsLayoutNGObject() || GetDocument().Lifecycle().GetState() >=
+                                    DocumentLifecycle::kPrePaintClean);
 
   if (IsAtomicInlineLevel()) {
     PositionWithAffinity position =
@@ -1453,10 +1456,7 @@ PositionWithAffinity LayoutBlock::PositionForPoint(
 
   if (IsLayoutNGObject() && PhysicalFragmentCount() &&
       RuntimeEnabledFeatures::LayoutNGFullPositionForPointEnabled()) {
-    // Layout engine boundary. Enter NG PositionForPoint(). Assert
-    // that we're not block-fragmented here.
-    DCHECK_EQ(PhysicalFragmentCount(), 1u);
-    return GetPhysicalFragment(0)->PositionForPoint(point);
+    return PositionForPointInFragments(point);
   }
 
   if (IsTable())
@@ -2021,6 +2021,13 @@ LayoutUnit LayoutBlock::InlineBlockBaseline(
 
 const LayoutBlock* LayoutBlock::EnclosingFirstLineStyleBlock() const {
   NOT_DESTROYED();
+  auto* element = DynamicTo<Element>(GetNode());
+  if (element && element->ShadowPseudoId() ==
+                     shadow_element_names::kPseudoInternalInputSuggested) {
+    // Disable ::first-line style for autofill previews. See
+    // crbug.com/1227170.
+    return nullptr;
+  }
   const LayoutBlock* first_line_block = this;
   bool has_pseudo = false;
   while (true) {
@@ -2505,8 +2512,8 @@ LayoutUnit LayoutBlock::AvailableLogicalHeightForPercentageComputation() const {
                               BorderBefore() + ComputedCSSPaddingBefore(),
                               BorderAfter() + ComputedCSSPaddingAfter());
     available_height = BlockSizeFromAspectRatio(
-        border_padding, StyleRef().LogicalAspectRatio(), StyleRef().BoxSizing(),
-        LogicalWidth());
+        border_padding, StyleRef().LogicalAspectRatio(),
+        StyleRef().BoxSizingForAspectRatio(), LogicalWidth());
   } else if (style.LogicalHeight().IsPercentOrCalc() &&
              !is_out_of_flow_positioned_with_specified_height) {
     LayoutUnit height_with_scrollbar =

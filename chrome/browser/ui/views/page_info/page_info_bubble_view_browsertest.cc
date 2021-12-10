@@ -28,6 +28,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/page_info/page_info.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/safe_browsing/content/password_protection/password_protection_test_util.h"
 #include "components/safe_browsing/core/features.h"
 #include "components/safe_browsing/core/password_protection/metrics_util.h"
 #include "components/strings/grit/components_strings.h"
@@ -391,6 +392,22 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest, ShowBubble) {
             PageInfoBubbleView::GetShownBubbleType());
 }
 
+IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
+                       StopShowingBubbleWhenWebContentsDestroyed) {
+  // Open a new tab so the whole browser does not close once we close
+  // the tab via WebContents::Close() below.
+  AddTabAtIndex(0, GURL("data:text/html,<p>puppies!</p>"),
+                ui::PAGE_TRANSITION_TYPED);
+  OpenPageInfoBubble(browser());
+  EXPECT_EQ(PageInfoBubbleView::BUBBLE_PAGE_INFO,
+            PageInfoBubbleView::GetShownBubbleType());
+
+  browser()->tab_strip_model()->GetActiveWebContents()->Close();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(PageInfoBubbleView::BUBBLE_NONE,
+            PageInfoBubbleView::GetShownBubbleType());
+}
+
 IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest, ChromeURL) {
   ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings"));
   OpenPageInfoBubble(browser());
@@ -484,8 +501,10 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
   service->set_reused_password_account_type_for_last_shown_warning(
       reused_password_account_type);
 
+  scoped_refptr<safe_browsing::PasswordProtectionRequest> request =
+      safe_browsing::CreateDummyRequest(contents);
   service->ShowModalWarning(
-      contents, safe_browsing::RequestOutcome::UNKNOWN,
+      request.get(),
       safe_browsing::LoginReputationClientResponse::VERDICT_TYPE_UNSPECIFIED,
       "unused_token", reused_password_account_type);
 
@@ -563,8 +582,10 @@ IN_PROC_BROWSER_TEST_F(PageInfoBubbleViewBrowserTest,
   service->set_reused_password_account_type_for_last_shown_warning(
       reused_password_account_type);
 
+  scoped_refptr<safe_browsing::PasswordProtectionRequest> request =
+      safe_browsing::CreateDummyRequest(contents);
   service->ShowModalWarning(
-      contents, safe_browsing::RequestOutcome::UNKNOWN,
+      request.get(),
       safe_browsing::LoginReputationClientResponse::VERDICT_TYPE_UNSPECIFIED,
       "unused_token", reused_password_account_type);
 

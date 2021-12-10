@@ -1493,7 +1493,7 @@ class DesktopAuraTestValidPaintWidget : public Widget, public WidgetObserver {
  public:
   explicit DesktopAuraTestValidPaintWidget(Widget::InitParams init_params)
       : Widget(std::move(init_params)) {
-    observer_.Add(this);
+    observation_.Observe(this);
   }
   ~DesktopAuraTestValidPaintWidget() override = default;
 
@@ -1536,7 +1536,7 @@ class DesktopAuraTestValidPaintWidget : public Widget, public WidgetObserver {
   bool expect_paint_ = true;
   bool received_paint_while_hidden_ = false;
   base::OnceClosure quit_closure_;
-  ScopedObserver<Widget, WidgetObserver> observer_{this};
+  base::ScopedObservation<Widget, WidgetObserver> observation_{this};
 
   DISALLOW_COPY_AND_ASSIGN(DesktopAuraTestValidPaintWidget);
 };
@@ -3272,6 +3272,41 @@ TEST_F(DesktopWidgetTest, FullscreenStatePropagated_DesktopWidget) {
   top_level_widget->SetFullscreen(true);
   EXPECT_EQ(top_level_widget->IsVisible(),
             IsNativeWindowVisible(top_level_widget->GetNativeWindow()));
+}
+
+// Used to delete the widget when the supplied bounds changes.
+class DestroyingWidgetBoundsObserver : public WidgetObserver {
+ public:
+  explicit DestroyingWidgetBoundsObserver(std::unique_ptr<Widget> widget)
+      : widget_(std::move(widget)) {
+    widget_->AddObserver(this);
+  }
+
+  // There are no assertions here as not all platforms call
+  // OnWidgetBoundsChanged() when going fullscreen.
+  ~DestroyingWidgetBoundsObserver() override = default;
+
+  // WidgetObserver:
+  void OnWidgetBoundsChanged(Widget* widget,
+                             const gfx::Rect& new_bounds) override {
+    widget_->RemoveObserver(this);
+    widget_.reset();
+  }
+
+ private:
+  std::unique_ptr<Widget> widget_;
+};
+
+// Deletes a Widget when the bounds change as part of toggling fullscreen.
+// This is a regression test for https://crbug.com/1197436 .
+TEST_F(DesktopWidgetTest, DeleteInSetFullscreen) {
+  std::unique_ptr<Widget> widget = std::make_unique<Widget>();
+  Widget::InitParams params = CreateParams(Widget::InitParams::TYPE_WINDOW);
+  params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
+  widget->Init(std::move(params));
+  Widget* w = widget.get();
+  DestroyingWidgetBoundsObserver destroyer(std::move(widget));
+  w->SetFullscreen(true);
 }
 
 namespace {

@@ -49,6 +49,7 @@ def gpu_android_builder(*, name, **kwargs):
         builder_group = "tryserver.chromium.android",
         builderless = True,
         goma_backend = goma.backend.RBE_PROD,
+        os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         ssd = None,
         **kwargs
     )
@@ -134,6 +135,7 @@ def gpu_chromeos_builder(*, name, **kwargs):
         builder_group = "tryserver.chromium.chromiumos",
         builderless = True,
         goma_backend = goma.backend.RBE_PROD,
+        os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         ssd = None,
         **kwargs
     )
@@ -154,9 +156,20 @@ def gpu_linux_builder(*, name, **kwargs):
         builder_group = "tryserver.chromium.linux",
         builderless = True,
         goma_backend = goma.backend.RBE_PROD,
+        os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
         ssd = None,
         **kwargs
     )
+
+gpu_linux_builder(
+    name = "gpu-fyi-try-lacros-amd-rel",
+    pool = "luci.chromium.gpu.linux.amd.try",
+)
+
+gpu_linux_builder(
+    name = "gpu-fyi-try-lacros-intel-rel",
+    pool = "luci.chromium.gpu.linux.intel.try",
+)
 
 gpu_linux_builder(
     name = "gpu-fyi-try-linux-amd-rel",

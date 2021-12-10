@@ -50,6 +50,10 @@ bool URLIsWithinScope(const KURL& url, const KURL& scope) {
          url.GetPath().StartsWith(scope.GetPath());
 }
 
+static bool IsCrLfOrTabChar(UChar c) {
+  return c == '\n' || c == '\r' || c == '\t';
+}
+
 }  // anonymous namespace
 
 ManifestParser::ManifestParser(const String& data,
@@ -84,7 +88,6 @@ void ManifestParser::Parse() {
   manifest_->name = ParseName(root_object.get());
   manifest_->short_name = ParseShortName(root_object.get());
   manifest_->description = ParseDescription(root_object.get());
-  manifest_->categories = ParseCategories(root_object.get());
   manifest_->start_url = ParseStartURL(root_object.get());
   manifest_->scope = ParseScope(root_object.get(), manifest_->start_url);
   manifest_->display = ParseDisplay(root_object.get());
@@ -264,39 +267,27 @@ KURL ManifestParser::ParseURL(const JSONObject* object,
 
 String ManifestParser::ParseName(const JSONObject* object) {
   base::Optional<String> name = ParseString(object, "name", Trim);
+  if (name.has_value()) {
+    name = name->RemoveCharacters(IsCrLfOrTabChar);
+    if (name->length() == 0)
+      name = base::nullopt;
+  }
   return name.has_value() ? *name : String();
 }
 
 String ManifestParser::ParseShortName(const JSONObject* object) {
   base::Optional<String> short_name = ParseString(object, "short_name", Trim);
+  if (short_name.has_value()) {
+    short_name = short_name->RemoveCharacters(IsCrLfOrTabChar);
+    if (short_name->length() == 0)
+      short_name = base::nullopt;
+  }
   return short_name.has_value() ? *short_name : String();
 }
 
 String ManifestParser::ParseDescription(const JSONObject* object) {
   base::Optional<String> description = ParseString(object, "description", Trim);
   return description.has_value() ? *description : String();
-}
-
-Vector<String> ManifestParser::ParseCategories(const JSONObject* object) {
-  Vector<String> categories;
-
-  JSONValue* json_value = object->Get("categories");
-  if (!json_value)
-    return categories;
-
-  JSONArray* categories_list = object->GetArray("categories");
-  if (!categories_list) {
-    AddErrorInfo("property 'categories' ignored, type array expected.");
-    return categories;
-  }
-
-  for (wtf_size_t i = 0; i < categories_list->size(); ++i) {
-    String category_string;
-    categories_list->at(i)->AsString(&category_string);
-    categories.push_back(category_string.StripWhiteSpace().LowerASCII());
-  }
-
-  return categories;
 }
 
 KURL ManifestParser::ParseStartURL(const JSONObject* object) {
@@ -1217,8 +1208,12 @@ String ManifestParser::ParseGCMSenderID(const JSONObject* object) {
 
 mojom::blink::CaptureLinks ManifestParser::ParseCaptureLinks(
     const JSONObject* object) {
-  if (!base::FeatureList::IsEnabled(features::kWebAppEnableLinkCapturing))
+  // Parse if either the command line flag is passed (for about:flags) or the
+  // runtime enabled feature is turned on (for origin trial).
+  if (!base::FeatureList::IsEnabled(features::kWebAppEnableLinkCapturing) &&
+      !RuntimeEnabledFeatures::WebAppLinkCapturingEnabled()) {
     return mojom::blink::CaptureLinks::kUndefined;
+  }
 
   String capture_links_string;
   if (object->GetString("capture_links", &capture_links_string)) {

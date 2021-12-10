@@ -7,6 +7,7 @@
 
 luci.project(
     name = "chromium",
+    config_dir = "luci",
     dev = True,
     buildbucket = "cr-buildbucket-dev.appspot.com",
     logdog = "luci-logdog-dev.appspot.com",
@@ -48,6 +49,10 @@ luci.realm(
         luci.binding(
             roles = "role/buildbucket.reader",
             groups = "all",
+        ),
+        luci.binding(
+            roles = "role/resultdb.invocationCreator",
+            groups = "luci-resultdb-access",
         ),
         # Other roles are inherited from @root which grants them to group:all.
     ],

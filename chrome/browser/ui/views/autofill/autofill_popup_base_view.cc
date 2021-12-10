@@ -30,6 +30,7 @@
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/fill_layout.h"
+#include "ui/views/metadata/metadata_impl_macros.h"
 
 namespace autofill {
 
@@ -38,37 +39,37 @@ int AutofillPopupBaseView::GetCornerRadius() {
       views::EMPHASIS_MEDIUM);
 }
 
-SkColor AutofillPopupBaseView::GetBackgroundColor() {
+SkColor AutofillPopupBaseView::GetBackgroundColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_DropdownBackgroundColor);
 }
 
-SkColor AutofillPopupBaseView::GetForegroundColor() {
+SkColor AutofillPopupBaseView::GetForegroundColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_DropdownForegroundColor);
 }
 
-SkColor AutofillPopupBaseView::GetSelectedBackgroundColor() {
+SkColor AutofillPopupBaseView::GetSelectedBackgroundColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_DropdownSelectedBackgroundColor);
 }
 
-SkColor AutofillPopupBaseView::GetSelectedForegroundColor() {
+SkColor AutofillPopupBaseView::GetSelectedForegroundColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_DropdownSelectedForegroundColor);
 }
 
-SkColor AutofillPopupBaseView::GetFooterBackgroundColor() {
+SkColor AutofillPopupBaseView::GetFooterBackgroundColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_BubbleFooterBackground);
 }
 
-SkColor AutofillPopupBaseView::GetSeparatorColor() {
+SkColor AutofillPopupBaseView::GetSeparatorColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_MenuSeparatorColor);
 }
 
-SkColor AutofillPopupBaseView::GetWarningColor() {
+SkColor AutofillPopupBaseView::GetWarningColor() const {
   return GetNativeTheme()->GetSystemColor(
       ui::NativeTheme::kColorId_AlertSeverityHigh);
 }
@@ -222,19 +223,6 @@ void AutofillPopupBaseView::UpdateClipPath() {
   SetClipPath(clip_path);
 }
 
-gfx::Rect AutofillPopupBaseView::GetWindowBounds() const {
-  views::Widget* widget = views::Widget::GetTopLevelWidgetForNativeView(
-      delegate()->container_view());
-  if (widget)
-    return widget->GetWindowBoundsInScreen();
-
-  // If the widget is null, simply return an empty rect. The most common reason
-  // to end up here is that the NativeView has been destroyed externally, which
-  // can happen at any time. This happens fairly commonly on Windows (e.g., at
-  // shutdown) in particular.
-  return gfx::Rect();
-}
-
 gfx::Rect AutofillPopupBaseView::GetContentAreaBounds() const {
   content::WebContents* web_contents = delegate()->GetWebContents();
   if (web_contents)
@@ -259,14 +247,14 @@ bool AutofillPopupBaseView::DoUpdateBoundsAndRedrawPopup() {
   // area so that the user notices the presence of the popup.
   int item_height =
       children().size() > 0 ? children()[0]->GetPreferredSize().height() : 0;
-  if (!HasEnoughHeightForOneRow(item_height, GetContentAreaBounds(),
-                                element_bounds)) {
+  const gfx::Rect content_area_bounds = GetContentAreaBounds();
+  if (!CanShowDropdownHere(item_height, content_area_bounds, element_bounds)) {
     HideController(PopupHidingReason::kInsufficientSpace);
     return false;
   }
 
   gfx::Rect popup_bounds = CalculatePopupBounds(
-      preferred_size, GetWindowBounds(), element_bounds, delegate()->IsRTL());
+      preferred_size, content_area_bounds, element_bounds, delegate()->IsRTL());
   // Account for the scroll view's border so that the content has enough space.
   popup_bounds.Inset(-GetWidget()->GetRootView()->border()->GetInsets());
   GetWidget()->SetBounds(popup_bounds);
@@ -315,5 +303,16 @@ std::unique_ptr<views::Border> AutofillPopupBaseView::CreateBorder() {
 gfx::NativeView AutofillPopupBaseView::container_view() {
   return delegate_->container_view();
 }
+
+BEGIN_METADATA(AutofillPopupBaseView, views::WidgetDelegateView)
+ADD_READONLY_PROPERTY_METADATA(SkColor, BackgroundColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, ForegroundColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, SelectedBackgroundColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, SelectedForegroundColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, FooterBackgroundColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, SeparatorColor)
+ADD_READONLY_PROPERTY_METADATA(SkColor, WarningColor)
+ADD_READONLY_PROPERTY_METADATA(gfx::Rect, ContentAreaBounds)
+END_METADATA
 
 }  // namespace autofill

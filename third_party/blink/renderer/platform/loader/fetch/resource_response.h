@@ -37,6 +37,7 @@
 #include "services/network/public/mojom/cross_origin_embedder_policy.mojom-shared.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/ip_address_space.mojom-shared.h"
+#include "third_party/blink/public/mojom/timing/resource_timing.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/renderer/platform/network/http_header_map.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
@@ -321,6 +322,9 @@ class PLATFORM_EXPORT ResourceResponse final {
     app_cache_manifest_url_ = url;
   }
 
+  const KURL& WebBundleURL() const { return web_bundle_url_; }
+  void SetWebBundleURL(const KURL& url) { web_bundle_url_ = url; }
+
   bool WasFetchedViaSPDY() const { return was_fetched_via_spdy_; }
   void SetWasFetchedViaSPDY(bool value) { was_fetched_via_spdy_ = value; }
 
@@ -357,6 +361,9 @@ class PLATFORM_EXPORT ResourceResponse final {
   bool IsCorsSameOrigin() const;
   // https://html.spec.whatwg.org/C/#cors-cross-origin
   bool IsCorsCrossOrigin() const;
+
+  int64_t GetPadding() const { return padding_; }
+  void SetPadding(int64_t padding) { padding_ = padding; }
 
   // See network::ResourceResponseInfo::url_list_via_service_worker.
   const Vector<KURL>& UrlListViaServiceWorker() const {
@@ -424,6 +431,9 @@ class PLATFORM_EXPORT ResourceResponse final {
   }
 
   AtomicString ConnectionInfoString() const;
+
+  mojom::blink::CacheState CacheState() const;
+  void SetIsValidated(bool is_validated);
 
   int64_t EncodedDataLength() const { return encoded_data_length_; }
   void SetEncodedDataLength(int64_t value);
@@ -502,6 +512,14 @@ class PLATFORM_EXPORT ResourceResponse final {
 
   network::mojom::CrossOriginEmbedderPolicyValue GetCrossOriginEmbedderPolicy()
       const;
+
+  const base::Optional<net::AuthChallengeInfo>& AuthChallengeInfo() const {
+    return auth_challenge_info_;
+  }
+  void SetAuthChallengeInfo(
+      const base::Optional<net::AuthChallengeInfo>& value) {
+    auth_challenge_info_ = value;
+  }
 
  private:
   void UpdateHeaderParsedState(const AtomicString& name);
@@ -603,6 +621,11 @@ class PLATFORM_EXPORT ResourceResponse final {
   network::mojom::FetchResponseType response_type_ =
       network::mojom::FetchResponseType::kDefault;
 
+  // Pre-computed padding.  This should only be non-zero if |response_type| is
+  // set to kOpaque.  In addition, it is only set if the response was provided
+  // by a service worker FetchEvent handler.
+  int64_t padding_ = 0;
+
   // HTTP version used in the response, if known.
   HTTPVersion http_version_ = kHTTPVersionUnknown;
 
@@ -658,6 +681,9 @@ class PLATFORM_EXPORT ResourceResponse final {
   net::HttpResponseInfo::ConnectionInfo connection_info_ =
       net::HttpResponseInfo::ConnectionInfo::CONNECTION_INFO_UNKNOWN;
 
+  // Whether the resource came from the cache and validated over the network.
+  bool is_validated_ = false;
+
   // Size of the response in bytes prior to decompression.
   int64_t encoded_data_length_ = 0;
 
@@ -677,6 +703,12 @@ class PLATFORM_EXPORT ResourceResponse final {
   // The alias chain order is preserved in reverse, from canonical name (i.e.
   // address record name) through to query name.
   Vector<String> dns_aliases_;
+
+  // The URL of WebBundle this response was loaded from. This value is only
+  // populated for resources loaded from a WebBundle.
+  KURL web_bundle_url_;
+
+  base::Optional<net::AuthChallengeInfo> auth_challenge_info_;
 };
 
 }  // namespace blink
