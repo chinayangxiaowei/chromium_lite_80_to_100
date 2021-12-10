@@ -18,7 +18,6 @@
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_response.mojom.h"
@@ -122,10 +121,11 @@ class CONTENT_EXPORT ServiceWorkerFetchDispatcher {
 
   scoped_refptr<URLLoaderAssets> url_loader_assets_;
 
-  // |preload_handle_| holds the URLLoader and URLLoaderClient for the service
-  // worker to receive the navigation preload response. It's passed to the
-  // service worker along with the fetch event.
-  blink::mojom::FetchEventPreloadHandlePtr preload_handle_;
+  // Holds the URLLoaderClient for the service worker to receive the navigation
+  // preload response. It's passed to the service worker along with the fetch
+  // event.
+  mojo::PendingReceiver<network::mojom::URLLoaderClient>
+      preload_url_loader_client_receiver_;
 
   // Whether to dispatch an offline-capability-check fetch event.
   const bool is_offline_capability_check_ = false;
