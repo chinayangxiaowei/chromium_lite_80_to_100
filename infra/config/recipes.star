@@ -106,10 +106,6 @@ build_recipe(
 )
 
 build_recipe(
-    name = "recipe:binary_size_cast_trybot",
-)
-
-build_recipe(
     name = "recipe:binary_size_fuchsia_trybot",
 )
 
@@ -127,12 +123,21 @@ build_recipe(
 )
 
 build_recipe(
+    name = "recipe:chromium/builder_config_verifier",
+)
+
+build_recipe(
     name = "recipe:chromium/orchestrator",
     bootstrappable = True,
 )
 
 build_recipe(
     name = "recipe:chromium/compilator",
+    bootstrappable = True,
+)
+
+build_recipe(
+    name = "recipe:chromium/builder_cache_prewarmer",
     bootstrappable = True,
 )
 
@@ -186,20 +191,8 @@ build_recipe(
 )
 
 build_recipe(
-    name = "recipe:findit/chromium/compile",
-)
-
-build_recipe(
-    name = "recipe:findit/chromium/export_bot_db",
-)
-
-build_recipe(
     name = "recipe:findit/chromium/single_revision",
     bootstrappable = PROPERTIES_OPTIONAL,
-)
-
-build_recipe(
-    name = "recipe:findit/chromium/update_components",
 )
 
 build_recipe(
@@ -212,6 +205,10 @@ build_recipe(
 
 build_recipe(
     name = "recipe:reclient_goma_comparison",
+)
+
+build_recipe(
+    name = "recipe:requires_testing_checker",
 )
 
 build_recipe(

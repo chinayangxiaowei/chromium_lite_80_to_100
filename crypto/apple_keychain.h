@@ -14,7 +14,7 @@
 
 namespace crypto {
 
-#if defined(OS_IOS)
+#if BUILDFLAG(IS_IOS)
 using AppleSecKeychainItemRef = void*;
 #else
 using AppleSecKeychainItemRef = SecKeychainItemRef;
@@ -55,12 +55,12 @@ class CRYPTO_EXPORT AppleKeychain {
                                       const void* password_data,
                                       AppleSecKeychainItemRef* item) const;
 
-#if !defined(OS_IOS)
+#if BUILDFLAG(IS_MAC)
   virtual OSStatus ItemDelete(AppleSecKeychainItemRef item) const;
-#endif  // !defined(OS_IOS)
+#endif  // !BUILDFLAG(IS_MAC)
 };
 
-#if defined(OS_MAC)
+#if BUILDFLAG(IS_MAC)
 
 // Sets whether Keychain Services is permitted to display UI if needed by
 // calling SecKeychainSetUserInteractionAllowed. This operates in a scoped
@@ -83,7 +83,7 @@ class CRYPTO_EXPORT ScopedKeychainUserInteractionAllowed {
   std::optional<Boolean> was_allowed_;
 };
 
-#endif  // defined(OS_MAC)
+#endif  // BUILDFLAG(IS_MAC)
 
 }  // namespace crypto
 

@@ -8,7 +8,6 @@ load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "cpu", "goma", "os", "xcode")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
-load("//project.star", "settings")
 
 try_.defaults.set(
     builder_group = "tryserver.chromium.mac",
@@ -58,8 +57,9 @@ try_.builder(
     os = os.MAC_DEFAULT,
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "mac-rel",
+    compilator = "mac-rel-compilator",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
     mirrors = [
         "ci/Mac Builder",
@@ -73,26 +73,14 @@ try_.builder(
             condition = builder_config.rts_condition.QUICK_RUN_ONLY,
         ),
     ),
-    builderless = not settings.is_main,
-    use_clang_coverage = True,
-    goma_jobs = goma.jobs.J150,
     main_list_view = "try",
-    os = os.MAC_DEFAULT,
+    use_clang_coverage = True,
     tryjob = try_.job(),
-)
-
-try_.orchestrator_builder(
-    name = "mac-rel-orchestrator",
-    compilator = "mac-rel-compilator",
-    main_list_view = "try",
-    use_clang_coverage = True,
-    tryjob = try_.job(
-        experiment_percentage = 1,
-    ),
 )
 
 try_.compilator_builder(
     name = "mac-rel-compilator",
+    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
     main_list_view = "try",
     os = os.MAC_DEFAULT,
 )
@@ -226,6 +214,7 @@ ios_builder(
 ios_builder(
     name = "ios-simulator",
     branch_selector = branches.STANDARD_MILESTONE,
+    check_for_flakiness = True,
     main_list_view = "try",
     use_clang_coverage = True,
     coverage_exclude_sources = "ios_test_files_and_test_utils",
