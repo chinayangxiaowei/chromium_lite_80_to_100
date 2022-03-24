@@ -14,5 +14,8 @@
     ]
   },
   "builder_group": "chromium.linux",
-  "recipe": "chromium"
+  "recipe": "chromium",
+  "sheriff_rotations": [
+    "chrome_browser_release"
+  ]
 }

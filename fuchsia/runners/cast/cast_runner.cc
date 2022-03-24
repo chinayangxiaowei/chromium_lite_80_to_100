@@ -20,7 +20,6 @@
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/fuchsia/process_context.h"
 #include "base/logging.h"
-#include "base/process/process.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -43,6 +42,7 @@ static constexpr const char* kServices[] = {
     "fuchsia.input.virtualkeyboard.ControllerCreator",
     "fuchsia.intl.PropertyProvider",
     "fuchsia.logger.LogSink",
+    "fuchsia.media.AudioDeviceEnumerator",
     "fuchsia.media.ProfileProvider",
     "fuchsia.media.SessionAudioConsumerFactory",
     "fuchsia.media.drm.PlayReady",
@@ -126,7 +126,6 @@ void EnsureSoftwareVideoDecodersAreDisabled(
 
 // Populates |params| with web data settings. Web data persistence is only
 // enabled if a soft quota is explicitly specified via config-data.
-// Exits the Runner process if creation of data storage fails for any reason.
 void SetDataParamsForMainContext(fuchsia::web::CreateContextParams* params) {
   // Set the web data quota based on the CastRunner configuration.
   const absl::optional<base::Value>& config = cr_fuchsia::LoadPackageConfig();
@@ -144,22 +143,14 @@ void SetDataParamsForMainContext(fuchsia::web::CreateContextParams* params) {
   // configured, once the platform provides storage quotas.
   const auto profile_path = base::FilePath(base::kPersistedCacheDirectoryPath)
                                 .Append(kProfileSubdirectoryName);
-  auto error_code = base::File::Error::FILE_OK;
-  if (!base::CreateDirectoryAndGetError(profile_path, &error_code)) {
-    LOG(ERROR) << "Failed to create profile directory: " << error_code;
-    base::Process::TerminateCurrentProcessImmediately(1);
-  }
+  CHECK(base::CreateDirectory(profile_path));
   params->set_data_directory(base::OpenDirectoryHandle(profile_path));
-  if (!params->data_directory()) {
-    LOG(ERROR) << "Unable to open data to transfer";
-    base::Process::TerminateCurrentProcessImmediately(1);
-  }
+  CHECK(params->data_directory());
   params->set_data_quota_bytes(*data_quota_bytes);
 }
 
 // Populates |params| with settings to enable Widevine & PlayReady CDMs.
 // CDM data persistence is always enabled, with an optional soft quota.
-// Exits the Runner if creation of CDM storage fails for any reason.
 void SetCdmParamsForMainContext(fuchsia::web::CreateContextParams* params) {
   const absl::optional<base::Value>& config = cr_fuchsia::LoadPackageConfig();
   if (config) {
@@ -174,16 +165,9 @@ void SetCdmParamsForMainContext(fuchsia::web::CreateContextParams* params) {
   // Create an isolated-cache-storage sub-directory for CDM data.
   const auto cdm_data_path = base::FilePath(base::kPersistedCacheDirectoryPath)
                                  .Append(kCdmDataSubdirectoryName);
-  auto error_code = base::File::Error::FILE_OK;
-  if (!base::CreateDirectoryAndGetError(cdm_data_path, &error_code)) {
-    LOG(ERROR) << "Failed to create cache directory: " << error_code;
-    base::Process::TerminateCurrentProcessImmediately(1);
-  }
+  CHECK(base::CreateDirectory(cdm_data_path));
   params->set_cdm_data_directory(base::OpenDirectoryHandle(cdm_data_path));
-  if (!params->cdm_data_directory()) {
-    LOG(ERROR) << "Unable to open cdm_data to transfer";
-    base::Process::TerminateCurrentProcessImmediately(1);
-  }
+  CHECK(params->cdm_data_directory());
 
   // Enable the Widevine and Playready CDMs.
   *params->mutable_features() |=
@@ -552,8 +536,6 @@ void CastRunner::OnComponentDestroyed(CastComponent* component) {
 }
 
 fuchsia::web::CreateContextParams CastRunner::GetCommonContextParams() {
-  DCHECK(cors_exempt_headers_);
-
   fuchsia::web::CreateContextParams params;
   params.set_features(fuchsia::web::ContextFeatureFlags::AUDIO);
 
@@ -575,6 +557,7 @@ fuchsia::web::CreateContextParams CastRunner::GetCommonContextParams() {
 
   // If there is a list of headers to exempt from CORS checks, pass the list
   // along to the Context.
+  CHECK(cors_exempt_headers_);
   if (!cors_exempt_headers_->empty())
     params.set_cors_exempt_headers(*cors_exempt_headers_);
 
@@ -598,9 +581,8 @@ fuchsia::web::CreateContextParams CastRunner::GetMainContextParams() {
       params.mutable_service_directory()->NewRequest());
   ZX_CHECK(status == ZX_OK, status) << "ConnectClient failed";
 
-  if (!disable_vulkan_for_test_) {
+  if (!disable_vulkan_for_test_)
     SetCdmParamsForMainContext(&params);
-  }
 
   SetDataParamsForMainContext(&params);
 
@@ -620,31 +602,25 @@ fuchsia::web::CreateContextParams
 CastRunner::GetIsolatedContextParamsWithFuchsiaDirs(
     std::vector<fuchsia::web::ContentDirectoryProvider> content_directories) {
   fuchsia::web::CreateContextParams params = GetCommonContextParams();
-
   EnsureSoftwareVideoDecodersAreDisabled(params.mutable_features());
   params.set_remote_debugging_port(kEphemeralRemoteDebuggingPort);
   params.set_content_directories(std::move(content_directories));
-
   zx_status_t status = isolated_services_->ConnectClient(
       params.mutable_service_directory()->NewRequest());
   ZX_CHECK(status == ZX_OK, status) << "ConnectClient failed";
-
   return params;
 }
 
 fuchsia::web::CreateContextParams
 CastRunner::GetIsolatedContextParamsForCastStreaming() {
   fuchsia::web::CreateContextParams params = GetCommonContextParams();
-
   ApplyCastStreamingContextParams(&params);
   params.set_remote_debugging_port(kEphemeralRemoteDebuggingPort);
-
   // TODO(crbug.com/1069746): Use a different FilteredServiceDirectory for Cast
   // Streaming Contexts.
   zx_status_t status = main_services_->ConnectClient(
       params.mutable_service_directory()->NewRequest());
   ZX_CHECK(status == ZX_OK, status) << "ConnectClient failed";
-
   return params;
 }
 

@@ -4,8 +4,9 @@
 """Definitions of builders in the chromium.fuzz builder group."""
 
 load("//lib/branches.star", "branches")
+load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "cpu", "goma", "os", "xcode")
-load("//lib/ci.star", "ci", "rbe_instance")
+load("//lib/ci.star", "ci", "rbe_instance", "rbe_jobs")
 load("//lib/consoles.star", "consoles")
 
 ci.defaults.set(
@@ -94,7 +95,10 @@ ci.builder(
         category = "site_isolation",
     ),
     notifies = ["Site Isolation Android"],
+    goma_backend = None,
     os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+    reclient_jobs = rbe_jobs.DEFAULT,
+    reclient_instance = rbe_instance.DEFAULT,
 )
 
 ci.builder(
@@ -105,6 +109,9 @@ ci.builder(
     ),
     cq_mirrors_console_view = "mirrors",
     os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+    goma_backend = None,
+    reclient_jobs = rbe_jobs.HIGH_JOBS_FOR_CI,
+    reclient_instance = rbe_instance.DEFAULT,
 )
 
 ci.builder(
@@ -423,6 +430,25 @@ ci.builder(
 # OS shouldn't matter.
 ci.builder(
     name = "mac-osxbeta-rel",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+                "goma_use_local",  # to mitigate compile step timeout (crbug.com/1056935)
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+        ),
+        test_results_config = builder_config.test_results_config(
+            config = "staging_server",
+        ),
+        build_gs_bucket = "chromium-fyi-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "mac",
         short_name = "beta",
@@ -598,6 +624,34 @@ ci.builder(
     cores = 32,
     goma_backend = None,
     reclient_instance = rbe_instance.DEFAULT,
+    os = os.WINDOWS_DEFAULT,
+)
+
+ci.builder(
+    name = "Win x64 Builder (reclient compare)",
+    builderless = True,
+    builder_spec = builder_config.builder_spec(
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+        ),
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = ["use_clang_coverage", "enable_reclient", "reclient_test"],
+        ),
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "win",
+        short_name = "re",
+    ),
+    cores = 32,
+    goma_backend = None,
+    reclient_instance = rbe_instance.DEFAULT,
+    reclient_rewrapper_env = {"RBE_compare": "true"},
+    reclient_ensure_verified = True,
+    description_html = "verify artifacts. should be removed after the migration. crbug.com/1260232",
     os = os.WINDOWS_DEFAULT,
 )
 

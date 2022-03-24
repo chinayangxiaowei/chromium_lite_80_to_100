@@ -68,6 +68,9 @@ try_.builder(
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
+    builderless = False,
+    cores = 16,
+    ssd = True,
 )
 
 try_.builder(
@@ -132,6 +135,8 @@ try_.compilator_builder(
     name = "win10_chromium_x64_rel_ng-compilator",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
     main_list_view = "try",
+    # TODO (crbug.com/1245171): Revert when root issue is fixed
+    grace_period = 3 * time.minute,
 )
 
 try_.builder(
@@ -151,6 +156,7 @@ try_.builder(
     tryjob = try_.job(
         location_regexp = [
             ".+/[+]/sandbox/win/.+",
+            ".+/[+]/sandbox/policy/win/.+",
         ],
     ),
 )

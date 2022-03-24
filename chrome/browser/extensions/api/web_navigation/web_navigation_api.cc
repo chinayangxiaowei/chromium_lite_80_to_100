@@ -57,7 +57,7 @@ void WebNavigationEventRouter::PendingWebContents::Set(
 }
 
 void WebNavigationEventRouter::PendingWebContents::WebContentsDestroyed() {
-  std::move(on_destroy_).Run(target_web_contents_);
+  std::move(on_destroy_).Run(target_web_contents_.get());
   // |this| is deleted!
 }
 
@@ -169,7 +169,8 @@ void WebNavigationEventRouter::PendingWebContentsDestroyed(
 
 WebNavigationTabObserver::WebNavigationTabObserver(
     content::WebContents* web_contents)
-    : WebContentsObserver(web_contents) {}
+    : WebContentsObserver(web_contents),
+      content::WebContentsUserData<WebNavigationTabObserver>(*web_contents) {}
 
 WebNavigationTabObserver::~WebNavigationTabObserver() {}
 
@@ -486,7 +487,7 @@ ExtensionFunction::ResponseAction WebNavigationGetFrameFunction::Run() {
   frame_details.error_occurred =
       frame_navigation_state->GetErrorOccurredInFrame();
   frame_details.parent_frame_id =
-      ExtensionApiFrameIdMap::GetFrameId(render_frame_host->GetParent());
+      ExtensionApiFrameIdMap::GetParentFrameId(render_frame_host);
   return RespondNow(ArgumentList(GetFrame::Results::Create(frame_details)));
 }
 
@@ -510,27 +511,38 @@ ExtensionFunction::ResponseAction WebNavigationGetAllFramesFunction::Run() {
 
   std::vector<GetAllFrames::Results::DetailsType> result_list;
 
-  web_contents->ForEachFrame(base::BindRepeating(
-      [](std::vector<GetAllFrames::Results::DetailsType>& result_list,
+  // We only iterate the frames in the active page. We currently do not
+  // expose back/forward cached frames or prerender frames in the GetAllFrames
+  // API.
+  web_contents->GetMainFrame()->ForEachRenderFrameHost(base::BindRepeating(
+      [](content::WebContents* web_contents,
+         std::vector<GetAllFrames::Results::DetailsType>& result_list,
          content::RenderFrameHost* render_frame_host) {
+        // Don't expose inner WebContents for the getFrames API.
+        if (content::WebContents::FromRenderFrameHost(render_frame_host) !=
+            web_contents) {
+          return content::RenderFrameHost::FrameIterationAction::kSkipChildren;
+        }
+
         auto* navigation_state =
             FrameNavigationState::GetForCurrentDocument(render_frame_host);
 
         if (!navigation_state ||
             !FrameNavigationState::IsValidUrl(navigation_state->GetUrl())) {
-          return;
+          return content::RenderFrameHost::FrameIterationAction::kContinue;
         }
 
         GetAllFrames::Results::DetailsType frame;
         frame.url = navigation_state->GetUrl().spec();
         frame.frame_id = ExtensionApiFrameIdMap::GetFrameId(render_frame_host);
         frame.parent_frame_id =
-            ExtensionApiFrameIdMap::GetFrameId(render_frame_host->GetParent());
+            ExtensionApiFrameIdMap::GetParentFrameId(render_frame_host);
         frame.process_id = render_frame_host->GetProcess()->GetID();
         frame.error_occurred = navigation_state->GetErrorOccurredInFrame();
         result_list.push_back(std::move(frame));
+        return content::RenderFrameHost::FrameIterationAction::kContinue;
       },
-      std::ref(result_list)));
+      web_contents, std::ref(result_list)));
 
   return RespondNow(ArgumentList(GetAllFrames::Results::Create(result_list)));
 }

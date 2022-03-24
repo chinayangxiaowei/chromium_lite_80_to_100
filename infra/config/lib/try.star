@@ -274,7 +274,7 @@ def _orchestrator_builder(
     kwargs.setdefault("goma_backend", None)
     kwargs.setdefault("os", os.LINUX_BIONIC_SWITCH_TO_DEFAULT)
     kwargs.setdefault("service_account", "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com")
-    kwargs.setdefault("ssd", False)
+    kwargs.setdefault("ssd", None)
 
     ret = try_.builder(name = name, **kwargs)
 

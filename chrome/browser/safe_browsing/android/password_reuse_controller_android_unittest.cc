@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 
-#include "base/macros.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
@@ -268,6 +267,24 @@ TEST_F(PasswordReuseControllerAndroidTest, VerifyButtonText) {
   }
 
   delete controller;
+}
+
+TEST_F(PasswordReuseControllerAndroidTest, WebContentDestroyed) {
+  base::HistogramTester histograms;
+  ReusedPasswordAccountType password_type;
+
+  MakeController(
+      nullptr, password_type,
+      base::BindOnce(
+          &PasswordReuseControllerAndroidTest::AssertWarningActionEquality,
+          base::Unretained(this), WarningAction::IGNORE_WARNING));
+
+  DeleteContents();
+  // This histogram is logged in the destructor of the controller. If it is
+  // logged, it indicates that the controller is properly destroyed after the
+  // WebContents is destroyed.
+  histograms.ExpectTotalCount("PasswordProtection.ModalWarningDialogLifetime",
+                              /*count=*/1);
 }
 
 }  // namespace safe_browsing

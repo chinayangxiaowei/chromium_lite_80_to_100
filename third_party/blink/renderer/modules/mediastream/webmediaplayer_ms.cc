@@ -177,37 +177,27 @@ class WebMediaPlayerMS::FrameDeliverer {
       return;
 #endif  // defined(OS_ANDROID)
 
-#if defined(OS_FUCHSIA)
-    // Always create GMP to workaround https://crbug.com/1293616.
-    CreateGpuMemoryBufferPoolIfNecessary();
-#endif  // !defined(OS_FUCHSIA)
-
     if (!gpu_memory_buffer_pool_) {
       int original_frame_id = frame->unique_id();
       EnqueueFrame(original_frame_id, std::move(frame));
       return;
     }
 
-    // If |render_frame_suspended_|, we can keep passing the frames to keep the
-    // latest frame in compositor up to date. However, creating GMB backed
-    // frames is unnecessary, because the frames are not going to be shown for
-    // the time period.
-    bool skip_creating_gpu_memory_buffer = render_frame_suspended_;
-
 #if defined(OS_WIN)
-    skip_creating_gpu_memory_buffer |=
+    const bool skip_creating_gpu_memory_buffer =
         frame->visible_rect().width() <
             kUseGpuMemoryBufferVideoFramesMinResolution.width() ||
         frame->visible_rect().height() <
             kUseGpuMemoryBufferVideoFramesMinResolution.height();
+#else
+    const bool skip_creating_gpu_memory_buffer = false;
 #endif  // defined(OS_WIN)
 
-#if defined(OS_FUCHSIA)
-    // Always create GMP to workaround https://crbug.com/1293616.
-    skip_creating_gpu_memory_buffer = false;
-#endif  // defined(OS_FUCHSIA)
-
-    if (skip_creating_gpu_memory_buffer) {
+    // If |render_frame_suspended_|, we can keep passing the frames to keep the
+    // latest frame in compositor up to date. However, creating GMB backed
+    // frames is unnecessary, because the frames are not going to be shown for
+    // the time period.
+    if (render_frame_suspended_ || skip_creating_gpu_memory_buffer) {
       int original_frame_id = frame->unique_id();
       EnqueueFrame(original_frame_id, std::move(frame));
       // If there are any existing MaybeCreateHardwareFrame() calls, we do not
@@ -1547,6 +1537,16 @@ WebMediaPlayerMS::GetMediaStreamType() {
   }
 
   return absl::nullopt;
+}
+
+void WebMediaPlayerMS::RegisterFrameSinkHierarchy() {
+  if (bridge_)
+    bridge_->RegisterFrameSinkHierarchy();
+}
+
+void WebMediaPlayerMS::UnregisterFrameSinkHierarchy() {
+  if (bridge_)
+    bridge_->UnregisterFrameSinkHierarchy();
 }
 
 }  // namespace blink

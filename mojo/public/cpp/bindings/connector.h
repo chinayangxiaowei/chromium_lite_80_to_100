@@ -18,6 +18,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "mojo/public/cpp/bindings/connection_group.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "mojo/public/cpp/bindings/message_header_validator.h"
 #include "mojo/public/cpp/system/core.h"
 #include "mojo/public/cpp/system/handle_signal_tracker.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
@@ -295,6 +296,8 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) Connector : public MessageReceiver {
   base::OnceClosure connection_error_handler_;
 
   ScopedMessagePipeHandle message_pipe_;
+  // `incoming_receiver_` is not a raw_ptr<...> for performance reasons (based
+  // on analysis of sampling profiler data).
   MessageReceiver* incoming_receiver_ = nullptr;
 
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
@@ -340,6 +343,8 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) Connector : public MessageReceiver {
 
   // A cached pointer to the RunLoopNestingObserver for the thread on which this
   // Connector was created.
+  // `nesting_observer_` is not a raw_ptr<...> for performance reasons (based on
+  // analysis of sampling profiler data).
   RunLoopNestingObserver* nesting_observer_ = nullptr;
 
   // |true| iff the Connector is currently dispatching a message. Used to detect
@@ -348,6 +353,8 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) Connector : public MessageReceiver {
 
   // The number of pending tasks for |CallDispatchNextMessageFromPipe|.
   size_t num_pending_dispatch_tasks_ = 0;
+
+  MessageHeaderValidator header_validator_;
 
 #if defined(ENABLE_IPC_FUZZER)
   std::unique_ptr<MessageReceiver> message_dumper_;

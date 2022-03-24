@@ -35,7 +35,6 @@ public class ReadingListUtilsUnitTest {
     @Test
     @SmallTest
     public void testIsReadingListSupport() {
-        ReadingListUtils.setReadingListSupportedForTesting(null);
         Assert.assertFalse(ReadingListUtils.isReadingListSupported(null));
         Assert.assertFalse(ReadingListUtils.isReadingListSupported(GURL.emptyGURL()));
         Assert.assertFalse(ReadingListUtils.isReadingListSupported(

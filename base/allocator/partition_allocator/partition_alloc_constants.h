@@ -212,7 +212,17 @@ constexpr size_t kSuperPageBaseMask = ~kSuperPageOffsetMask & kMemTagUnmask;
 #if defined(PA_HAS_64_BITS_POINTERS)
 // The Configurable Pool is only available in 64-bit mode
 constexpr size_t kNumPools = 3;
+
+#if defined(OS_MAC)
+// Special-case macOS. Contrary to other platforms, there is no sandbox limit
+// there, meaning that a single renderer could "happily" consume >8GiB. So the
+// 8GiB pool size is a regression. Make the limit higher on this platform only
+// to be consistent with previous behavior. See crbug.com/1232567 for details.
+constexpr size_t kPoolMaxSize = 16 * kGiB;
+#else
 constexpr size_t kPoolMaxSize = 8 * kGiB;
+#endif  // defined(OS_MAC)
+
 #else
 constexpr size_t kNumPools = 2;
 constexpr size_t kPoolMaxSize = 4 * kGiB;
@@ -230,6 +240,18 @@ static constexpr internal::pool_handle kConfigurablePoolHandle = 3;
 // TODO(Richard.Townsend@arm.com): adjust RecommitSystemPagesForData to skip
 // PROT_MTE.
 constexpr size_t kMaxMemoryTaggingSize = 1024;
+
+#if HAS_MEMORY_TAGGING
+// Returns whether the tag of a pointer/slot overflowed and slot needs to be
+// moved to quarantine.
+constexpr ALWAYS_INLINE bool HasOverflowTag(uintptr_t ptr) {
+  // The tag with which the slot is put to quarantine.
+  constexpr uintptr_t kOverflowTag = 0x0f00000000000000uLL;
+  static_assert((kOverflowTag & ~kMemTagUnmask) != 0,
+                "Overflow tag must be in tag bits");
+  return (ptr & ~kMemTagUnmask) == kOverflowTag;
+}
+#endif  // HAS_MEMORY_TAGGING
 
 PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR ALWAYS_INLINE size_t
 NumPartitionPagesPerSuperPage() {
@@ -349,10 +371,10 @@ constexpr size_t kBitsPerSizeT = sizeof(void*) * CHAR_BIT;
 // PartitionPurgeDecommitEmptySlotSpans flag will eagerly decommit all entries
 // in the ring buffer, so with periodic purge enabled, this typically happens
 // every few seconds.
-#if defined(OS_LINUX)
-// Set to a higher value on Linux, to assess impact on performance bots. This
-// roughly halves the number of syscalls done during a speedometer 2.0 run on
-// this platform.
+#if defined(OS_LINUX) || defined(OS_APPLE)
+// Set to a higher value on Linux and macOS, to assess impact on performance
+// bots. This roughly halves the number of syscalls done during a speedometer
+// 2.0 run on these platforms.
 constexpr size_t kMaxFreeableSpans = std::numeric_limits<int8_t>::max();
 #else
 constexpr size_t kMaxFreeableSpans = 16;
