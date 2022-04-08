@@ -66,6 +66,7 @@ import tempfile
 
 PATCHES = [
     'xslt-locale.patch',
+    'remove-crypto.patch',
 ]
 
 
@@ -267,7 +268,7 @@ def prepare_libxslt_distribution(src_path, libxslt_repo_path, temp_dir):
 
     with WorkingDir(libxslt_repo_path):
         commit = subprocess.check_output(
-            ['git', 'log', '-n', '1', '--pretty=format:%H', 'HEAD']).decode('ascii')
+            ['git', 'log', '-n', '1', '--pretty=format:%H', 'HEAD'])
         subprocess.check_call(
             'git archive HEAD | tar -x -C "%s"' % temp_src_path,
             shell=True)
@@ -288,7 +289,7 @@ def prepare_libxslt_distribution(src_path, libxslt_repo_path, temp_dir):
         tar_file = subprocess.check_output(
             '''awk '/PACKAGE =/ {p=$3} /VERSION =/ {v=$3} '''
             '''END {printf("%s-%s.tar.gz", p, v)}' Makefile''',
-            shell=True).decode('ascii')
+            shell=True)
         return commit, os.path.abspath(tar_file)
 
 
@@ -373,7 +374,7 @@ def roll_libxslt_mac(src_path):
 
 def check_clean(path):
     with WorkingDir(path):
-        status = subprocess.check_output(['git', 'status', '-s']).decode('ascii')
+        status = subprocess.check_output(['git', 'status', '-s'])
         if len(status) > 0:
             raise Exception('repository at %s is not clean' % path)
 

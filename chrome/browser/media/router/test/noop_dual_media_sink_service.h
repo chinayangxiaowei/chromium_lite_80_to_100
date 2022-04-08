@@ -24,7 +24,6 @@ class NoopDualMediaSinkService : public DualMediaSinkService {
   void OnUserGesture() override {}
   void StartMdnsDiscovery() override {}
   void BindLogger(LoggerImpl* logger_impl) override {}
-  void RemoveLogger() override {}
 };
 
 }  // namespace media_router

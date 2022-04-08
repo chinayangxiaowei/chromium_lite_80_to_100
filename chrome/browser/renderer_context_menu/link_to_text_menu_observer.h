@@ -19,7 +19,7 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
  public:
   static std::unique_ptr<LinkToTextMenuObserver> Create(
       RenderViewContextMenuProxy* proxy,
-      content::GlobalRenderFrameHostId render_frame_host_id);
+      content::RenderFrameHost* render_frame_host);
 
   LinkToTextMenuObserver(const LinkToTextMenuObserver&) = delete;
   LinkToTextMenuObserver& operator=(const LinkToTextMenuObserver&) = delete;
@@ -36,9 +36,8 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
   void OverrideGeneratedSelectorForTesting(const std::string& selector);
 
  private:
-  explicit LinkToTextMenuObserver(
-      RenderViewContextMenuProxy* proxy,
-      content::GlobalRenderFrameHostId render_frame_host_id);
+  explicit LinkToTextMenuObserver(RenderViewContextMenuProxy* proxy,
+                                  content::RenderFrameHost* render_frame_host);
   // Returns true if the link should be generated from the constructor, vs
   // determined when executed.
   bool ShouldPreemptivelyGenerateLink();
@@ -64,19 +63,19 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
       const std::vector<std::string>& selectors);
 
   // Removes the highlight from the page and updates the URL.
-  void RemoveHighlight();
+  void RemoveHighlights();
 
   // Cancels link generation if we are still waiting for it.
   void Timeout();
 
-  // Returns |remote_|, binding it if not already bound.
+  // Returns |remote_|, for the frame in which the context menu was opened.
   mojo::Remote<blink::mojom::TextFragmentReceiver>& GetRemote();
 
   mojo::Remote<blink::mojom::TextFragmentReceiver> remote_;
   RenderViewContextMenuProxy* proxy_;
   GURL url_;
   GURL raw_url_;
-  content::GlobalRenderFrameHostId render_frame_host_id_;
+  content::RenderFrameHost* render_frame_host_;
 
   // True when the context menu was opened with text selected.
   bool link_needs_generation_ = false;

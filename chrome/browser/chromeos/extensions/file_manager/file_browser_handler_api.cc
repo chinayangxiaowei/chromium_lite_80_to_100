@@ -209,10 +209,6 @@ bool FileSelectorImpl::StartSelectFile(
   if (!web_contents)
     return false;
 
-  // Early return if the select file dialog is already active.
-  if (dialog_)
-    return false;
-
   dialog_ = ui::SelectFileDialog::Create(
       this, std::make_unique<ChromeSelectFilePolicy>(web_contents));
 

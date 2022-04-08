@@ -131,6 +131,7 @@
 <translation id="2122305276694332719">Việc tự động kết nối vào một mạng ẩn sẽ cho phép những người khác nhìn thấy thiết bị và một số tùy chọn cài đặt mạng của bạn. Bạn không nên bật tùy chọn này.</translation>
 <translation id="2125607626296734455">Tiếng Khmer</translation>
 <translation id="2139545522194199494">Mạng <ph name="NETWORK_INDEX" />/<ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />%, Do quản trị viên của bạn quản lý, Kết nối</translation>
+<translation id="2141347188420181405">Mạng <ph name="NETWORK_INDEX" /> trong tổng số <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />%, Quản trị viên của bạn đã chặn, Thông tin chi tiết</translation>
 <translation id="2142680004883808240">Tiếng Nga bằng bàn phím phiên âm YaZHert</translation>
 <translation id="2143778271340628265">Cấu hình proxy thủ công</translation>
 <translation id="2163152940313951844">Ký tự không hợp lệ: <ph name="CHARACTER_NAME" /></translation>
@@ -185,6 +186,7 @@
 <translation id="2563185590376525700">Ếch</translation>
 <translation id="2578394532502990878">Tiếng Tamil (phiên âm)</translation>
 <translation id="2579959351793446050">Tiếng Odia</translation>
+<translation id="2602810353103180630">Mạng <ph name="NETWORK_INDEX" /> trong tổng số <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, Cường độ tín hiệu <ph name="SIGNAL_STRENGTH" />%, Quản trị viên của bạn đã chặn, Thông tin chi tiết</translation>
 <translation id="2614589611416690597">Video <ph name="VIDEO_TYPE" /></translation>
 <translation id="2617342710774726426">Thẻ SIM bị khóa</translation>
 <translation id="2620090360073999360">Không thể kết nối với Google Drive tại thời điểm này.</translation>
@@ -829,7 +831,7 @@
 <translation id="8208580316430297579">Tác phẩm nghệ thuật</translation>
 <translation id="8223479393428528563">Để lưu các tệp này để sử dụng ngoại tuyến, hãy trực tuyến trở lại, nhấp chuột phải vào tệp và chọn tùy chọn <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
 <translation id="8249296373107784235">Hủy bỏ</translation>
-<translation id="8261506727792406068">Xoá</translation>
+<translation id="8261506727792406068">Xóa</translation>
 <translation id="8261561378965667560">Tiếng Trung (bộ gõ Array)</translation>
 <translation id="8269755669432358899">Thu gọn bảng dữ liệu phản hồi về tệp</translation>
 <translation id="8280151743281770066">Phiên âm tiếng Armenia</translation>
@@ -883,7 +885,7 @@
 <translation id="863903787380594467">Mã PIN không chính xác. Bạn còn <ph name="RETRIES" /> lần nhập.</translation>
 <translation id="8639391553632924850"><ph name="INPUT_LABEL" /> – Cổng</translation>
 <translation id="8656768832129462377">Không kiểm tra</translation>
-<translation id="8688591111840995413">Mật khẩu không chính xác</translation>
+<translation id="8688591111840995413">Mật khẩu yếu</translation>
 <translation id="8698464937041809063">Bản vẽ Google</translation>
 <translation id="8712637175834984815">Bỏ qua</translation>
 <translation id="8713112442029511308">Tiếng Malta</translation>

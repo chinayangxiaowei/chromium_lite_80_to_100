@@ -21,9 +21,9 @@
 #include "base/memory/ref_counted.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_clock.h"
 #include "base/time/default_tick_clock.h"
@@ -169,7 +169,7 @@ void DidShowPaymentHandlerWindow(
     int render_frame_id) {
   if (success) {
     service_worker_client_utils::DidNavigate(
-        context, url.GetOrigin(), key,
+        context, url.DeprecatedGetOriginAsURL(), key,
         base::BindOnce(&OnOpenWindowFinished, std::move(callback)),
         GlobalRenderFrameHostId(render_process_id, render_frame_id));
   } else {
@@ -869,6 +869,10 @@ void ServiceWorkerVersion::RestoreControlleeFromBackForwardCacheMap(
     // cause of the crash.
     BackForwardCacheCanStoreDocumentResult can_store;
     can_store.No(controllees_to_be_evicted_.at(client_uuid));
+    TRACE_EVENT(
+        "navigation",
+        "ServiceWorkerVersion::RestoreControlleeFromBackForwardCacheMap",
+        ChromeTrackEvent::kBackForwardCacheCanStoreDocumentResult, can_store);
     SCOPED_CRASH_KEY_STRING32("RestoreForBFCache", "no_controllee_reason",
                               can_store.ToString());
     base::debug::DumpWithoutCrashing();
@@ -1370,8 +1374,8 @@ void ServiceWorkerVersion::GetClient(const std::string& client_uuid,
   }
   ServiceWorkerContainerHost* container_host =
       context_->GetContainerHostByClientID(client_uuid);
-  if (!container_host ||
-      container_host->url().GetOrigin() != script_url_.GetOrigin()) {
+  if (!container_host || container_host->url().DeprecatedGetOriginAsURL() !=
+                             script_url_.DeprecatedGetOriginAsURL()) {
     // The promise will be resolved to 'undefined'.
     // Note that we don't BadMessage here since Clients#get() can be passed an
     // arbitrary UUID. The BadMessages for the origin mismatches below are
@@ -1460,7 +1464,8 @@ void ServiceWorkerVersion::PostMessageToClient(
     }
   }
 
-  if (container_host->url().GetOrigin() != script_url_.GetOrigin()) {
+  if (container_host->url().DeprecatedGetOriginAsURL() !=
+      script_url_.DeprecatedGetOriginAsURL()) {
     mojo::ReportBadMessage(
         "Received Client#postMessage() request for a cross-origin client.");
     receiver_.reset();
@@ -1510,7 +1515,8 @@ void ServiceWorkerVersion::FocusClient(const std::string& client_uuid,
     std::move(callback).Run(nullptr /* client */);
     return;
   }
-  if (container_host->url().GetOrigin() != script_url_.GetOrigin()) {
+  if (container_host->url().DeprecatedGetOriginAsURL() !=
+      script_url_.DeprecatedGetOriginAsURL()) {
     mojo::ReportBadMessage(
         "Received WindowClient#focus() request for a cross-origin client.");
     receiver_.reset();
@@ -1564,7 +1570,8 @@ void ServiceWorkerVersion::NavigateClient(const std::string& client_uuid,
                             std::string("The client was not found."));
     return;
   }
-  if (container_host->url().GetOrigin() != script_url_.GetOrigin()) {
+  if (container_host->url().DeprecatedGetOriginAsURL() !=
+      script_url_.DeprecatedGetOriginAsURL()) {
     mojo::ReportBadMessage(
         "Received WindowClient#navigate() request for a cross-origin client.");
     receiver_.reset();
@@ -1987,17 +1994,18 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
 
   MarkIfStale();
 
-  // Global `this` protecter.
-  // callbacks initiated by this function sometimes reduce refcnt to 0
-  // to make this instance freed.
-  scoped_refptr<ServiceWorkerVersion> protect_this(this);
-
   // Stopping the worker hasn't finished within a certain period.
   if (GetTickDuration(stop_time_) > kStopWorkerTimeout) {
     DCHECK_EQ(EmbeddedWorkerStatus::STOPPING, running_status());
     ReportError(blink::ServiceWorkerStatusCode::kErrorTimeout,
                 "DETACH_STALLED_IN_STOPPING");
 
+    // Detach the worker. Remove |this| as a listener first; otherwise
+    // OnStoppedInternal might try to restart before the new worker
+    // is created. Also, protect |this|, since swapping out the
+    // EmbeddedWorkerInstance could destroy our ServiceWorkerHost which could in
+    // turn destroy |this|.
+    scoped_refptr<ServiceWorkerVersion> protect_this(this);
     embedded_worker_->RemoveObserver(this);
     embedded_worker_->Detach();
     embedded_worker_ = std::make_unique<EmbeddedWorkerInstance>(this);
@@ -2024,6 +2032,7 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
     DCHECK(running_status() == EmbeddedWorkerStatus::STARTING ||
            running_status() == EmbeddedWorkerStatus::STOPPING)
         << static_cast<int>(running_status());
+    scoped_refptr<ServiceWorkerVersion> protect(this);
     FinishStartWorker(blink::ServiceWorkerStatusCode::kErrorTimeout);
     if (running_status() == EmbeddedWorkerStatus::STARTING)
       embedded_worker_->Stop();
@@ -2032,22 +2041,17 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
 
   // Requests have not finished before their expiration.
   bool stop_for_timeout = false;
-  std::set<InflightRequestTimeoutInfo> request_timeouts;
-  request_timeouts.swap(request_timeouts_);
-  auto timeout_iter = request_timeouts.begin();
-  while (timeout_iter != request_timeouts.end()) {
+  auto timeout_iter = request_timeouts_.begin();
+  while (timeout_iter != request_timeouts_.end()) {
     const InflightRequestTimeoutInfo& info = *timeout_iter;
-    if (!RequestExpired(info.expiration)) {
+    if (!RequestExpired(info.expiration))
       break;
-    }
     if (MaybeTimeoutRequest(info)) {
       stop_for_timeout =
           stop_for_timeout || info.timeout_behavior == KILL_ON_TIMEOUT;
     }
-    timeout_iter = request_timeouts.erase(timeout_iter);
+    timeout_iter = request_timeouts_.erase(timeout_iter);
   }
-  DCHECK(request_timeouts_.empty());
-  request_timeouts_.swap(request_timeouts);
   if (stop_for_timeout && running_status() != EmbeddedWorkerStatus::STOPPING)
     embedded_worker_->Stop();
 

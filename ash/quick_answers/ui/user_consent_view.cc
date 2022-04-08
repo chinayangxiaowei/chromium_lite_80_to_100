@@ -131,14 +131,13 @@ class CustomizedLabelButton : public views::MdTextButton {
 // UserConsentView
 // -------------------------------------------------------------
 
-UserConsentView::UserConsentView(
-    const gfx::Rect& anchor_view_bounds,
-    const std::u16string& intent_type,
-    const std::u16string& intent_text,
-    base::WeakPtr<QuickAnswersUiController> controller)
+UserConsentView::UserConsentView(const gfx::Rect& anchor_view_bounds,
+                                 const std::u16string& intent_type,
+                                 const std::u16string& intent_text,
+                                 QuickAnswersUiController* ui_controller)
     : anchor_view_bounds_(anchor_view_bounds),
       event_handler_(this),
-      controller_(std::move(controller)),
+      ui_controller_(ui_controller),
       focus_search_(this,
                     base::BindRepeating(&UserConsentView::GetFocusableViews,
                                         base::Unretained(this))) {
@@ -303,7 +302,7 @@ void UserConsentView::InitButtonBar() {
   // No thanks button.
   auto no_thanks_button = std::make_unique<CustomizedLabelButton>(
       base::BindRepeating(&QuickAnswersUiController::OnUserConsentResult,
-                          controller_, false),
+                          base::Unretained(ui_controller_), false),
       l10n_util::GetStringUTF16(
           IDS_ASH_QUICK_ANSWERS_USER_CONSENT_VIEW_NO_THANKS_BUTTON),
       kSettingsButtonTextColor,
@@ -314,14 +313,13 @@ void UserConsentView::InitButtonBar() {
   auto allow_button = std::make_unique<CustomizedLabelButton>(
       base::BindRepeating(
           [](QuickAnswersPreTargetHandler* handler,
-             base::WeakPtr<QuickAnswersUiController> controller) {
+             QuickAnswersUiController* controller) {
             // When user consent is accepted, QuickAnswersView will be
             // displayed instead of dismissing the menu.
             handler->set_dismiss_anchor_menu_on_view_closed(false);
-            if (controller)
-              controller->OnUserConsentResult(true);
+            controller->OnUserConsentResult(true);
           },
-          &event_handler_, controller_),
+          &event_handler_, ui_controller_),
       l10n_util::GetStringUTF16(
           IDS_ASH_QUICK_ANSWERS_USER_CONSENT_VIEW_ALLOW_BUTTON),
       kAcceptButtonTextColor,

@@ -12,9 +12,11 @@ load("//project.star", "settings")
 try_.defaults.set(
     builder_group = "tryserver.chromium.mac",
     builderless = True,
+    orchestrator_cores = 2,
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
+    compilator_goma_jobs = goma.jobs.J150,
     os = os.MAC_ANY,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
@@ -54,11 +56,27 @@ try_.builder(
     tryjob = try_.job(),
 )
 
+try_.orchestrator_builder(
+    name = "mac-rel-orchestrator",
+    compilator = "mac-rel-compilator",
+    main_list_view = "try",
+    use_clang_coverage = True,
+    tryjob = try_.job(
+        experiment_percentage = 1,
+    ),
+)
+
+try_.compilator_builder(
+    name = "mac-rel-compilator",
+    main_list_view = "try",
+    os = os.MAC_DEFAULT,
+)
+
 try_.builder(
     name = "mac11-arm64-rel",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
     goma_jobs = goma.jobs.J150,
-    os = os.MAC_10_15,
+    os = os.MAC_11,
 )
 
 # NOTE: the following trybots aren't sensitive to Mac version on which
@@ -152,6 +170,7 @@ ios_builder(
 ios_builder(
     name = "ios-simulator-cronet",
     branch_selector = branches.STANDARD_MILESTONE,
+    check_for_flakiness = True,
     main_list_view = "try",
     tryjob = try_.job(
         location_regexp = [
@@ -168,6 +187,7 @@ ios_builder(
 ios_builder(
     name = "ios-simulator-full-configs",
     branch_selector = branches.STANDARD_MILESTONE,
+    check_for_flakiness = True,
     main_list_view = "try",
     use_clang_coverage = True,
     coverage_exclude_sources = "ios_test_files_and_test_utils",

@@ -12,9 +12,12 @@ try_.defaults.set(
     builder_group = "tryserver.chromium.win",
     builderless = True,
     cores = 8,
+    orchestrator_cores = 2,
+    compilator_cores = 32,
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
+    compilator_goma_jobs = goma.jobs.J300,
     os = os.WINDOWS_DEFAULT,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
@@ -115,17 +118,20 @@ try_.builder(
     os = os.WINDOWS_10,
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "win10_chromium_x64_rel_ng",
+    compilator = "win10_chromium_x64_rel_ng-compilator",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
-    goma_jobs = goma.jobs.J300,
-    os = os.WINDOWS_10,
-    cores = 16,
-    ssd = True,
     use_clang_coverage = True,
     coverage_test_types = ["unit", "overall"],
     main_list_view = "try",
     tryjob = try_.job(),
+)
+
+try_.compilator_builder(
+    name = "win10_chromium_x64_rel_ng-compilator",
+    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    main_list_view = "try",
 )
 
 try_.builder(

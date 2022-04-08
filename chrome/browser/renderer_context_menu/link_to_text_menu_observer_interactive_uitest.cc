@@ -71,7 +71,7 @@ class LinkToTextMenuObserverTest : public extensions::ExtensionBrowserTest,
   void Reset(bool incognito) {
     menu_ = std::make_unique<MockRenderViewContextMenu>(incognito);
     observer_ =
-        LinkToTextMenuObserver::Create(menu_.get(), getRenderFrameHostId());
+        LinkToTextMenuObserver::Create(menu_.get(), getRenderFrameHost());
     menu_->SetObserver(observer_.get());
   }
 
@@ -89,9 +89,9 @@ class LinkToTextMenuObserverTest : public extensions::ExtensionBrowserTest,
   MockRenderViewContextMenu* menu() { return menu_.get(); }
   LinkToTextMenuObserver* observer() { return observer_.get(); }
 
-  content::GlobalRenderFrameHostId getRenderFrameHostId() {
+  content::RenderFrameHost* getRenderFrameHost() {
     auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
-    return web_contents->GetMainFrame()->GetGlobalId();
+    return web_contents->GetMainFrame();
   }
 
  private:
@@ -248,7 +248,7 @@ IN_PROC_BROWSER_TEST_P(LinkToTextMenuObserverTest, HiddenForExtensions) {
   menu()->set_web_contents(web_contents);
 
   std::unique_ptr<LinkToTextMenuObserver> observer =
-      LinkToTextMenuObserver::Create(menu(), getRenderFrameHostId());
+      LinkToTextMenuObserver::Create(menu(), getRenderFrameHost());
   EXPECT_EQ(nullptr, observer);
 }
 

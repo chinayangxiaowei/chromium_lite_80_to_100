@@ -363,6 +363,7 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 	}
 	/*
 	* Clear the document tree.
+	* REVISIT TODO: Do we expect ID/IDREF tables to be existent?
 	*/
 	if (RVT->children != NULL) {
 	    xmlFreeNodeList(RVT->children);
@@ -372,6 +373,10 @@ xsltReleaseRVT(xsltTransformContextPtr ctxt, xmlDocPtr RVT)
 	if (RVT->ids != NULL) {
 	    xmlFreeIDTable((xmlIDTablePtr) RVT->ids);
 	    RVT->ids = NULL;
+	}
+	if (RVT->refs != NULL) {
+	    xmlFreeRefTable((xmlRefTablePtr) RVT->refs);
+	    RVT->refs = NULL;
 	}
 
 	/*

@@ -31,7 +31,6 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 class ExtensionServiceTest;
-class ScopedProfileKeepAlive;
 class SkBitmap;
 
 namespace base {
@@ -369,9 +368,6 @@ class CrxInstaller : public SandboxedUnpackerClient {
 
   // The Profile the extension is being installed in.
   Profile* profile_;
-
-  // Prevent Profile destruction until the CrxInstaller is done.
-  std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive_;
 
   // The extension being installed.
   scoped_refptr<const Extension> extension_;

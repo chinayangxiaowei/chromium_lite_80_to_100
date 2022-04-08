@@ -36,7 +36,6 @@ class CloseBubbleOnTabActivationHelper : public TabStripModelObserver {
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void OnTabStripModelDestroyed(TabStripModel* tab_strip_model) override;
 
  private:
   views::BubbleDialogDelegateView* owner_bubble_;  // weak, owns me.

@@ -54,6 +54,7 @@
 <translation id="2192232475740621500">Använd låg densitet</translation>
 <translation id="219905428774326614">Startprogram, alla appar</translation>
 <translation id="2267918077332197517">Blockera alla aviseringar från den här webbplatsen</translation>
+<translation id="2283117145434822734">F6</translation>
 <translation id="2289052229480071835">Tryck på tryckområdena på skärmen.</translation>
 <translation id="2295140143284145483">Enkät</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/sek</translation>
@@ -90,7 +91,7 @@
 <translation id="3087734570205094154">Nederst</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3157931365184549694">Återställ</translation>
-<translation id="3183922693828471536">Scrolla hit</translation>
+<translation id="3183922693828471536">Rulla hit</translation>
 <translation id="3234408098842461169">Nedpil</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 dag}other{# dagar}}</translation>
 <translation id="3295886253693811851">Ring från</translation>
@@ -240,7 +241,7 @@
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 sek kvar}other{# sek kvar}}</translation>
 <translation id="8134065097954893699">Sidan läses in igen</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, autoslutför</translation>
-<translation id="815598010540052116">Scrolla nedåt</translation>
+<translation id="815598010540052116">Rulla nedåt</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
@@ -248,7 +249,7 @@
 <translation id="8247998213073982446"><ph name="APP_NAME" />, app</translation>
 <translation id="8259556432390118667">Hexadecimalt färgvärde</translation>
 <translation id="8328145009876646418">Vänsterkant</translation>
-<translation id="8331626408530291785">Scrolla uppåt</translation>
+<translation id="8331626408530291785">Rulla uppåt</translation>
 <translation id="8352146631962686268">{YEARS,plural, =1{1 år}other{# år}}</translation>
 <translation id="838869780401515933">kryssa för</translation>
 <translation id="8393700583063109961">Skicka meddelande</translation>

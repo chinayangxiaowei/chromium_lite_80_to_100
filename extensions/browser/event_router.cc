@@ -306,7 +306,7 @@ void EventRouter::AddLazyListenerForServiceWorker(
 }
 
 void EventRouter::AddFilteredListenerForMainThread(
-    const std::string& extension_id,
+    mojom::EventListenerParamPtr param,
     const std::string& event_name,
     base::Value filter,
     bool add_lazy_listener) {
@@ -315,7 +315,7 @@ void EventRouter::AddFilteredListenerForMainThread(
   if (!process)
     return;
 
-  AddFilteredEventListener(event_name, process, extension_id, absl::nullopt,
+  AddFilteredEventListener(event_name, process, std::move(param), absl::nullopt,
                            base::Value::AsDictionaryValue(filter),
                            add_lazy_listener);
 }
@@ -338,9 +338,10 @@ void EventRouter::AddFilteredListenerForServiceWorker(
   sw_identifier.thread_id = worker_thread_id;
   sw_identifier.version_id = service_worker_version_id;
 
-  AddFilteredEventListener(event_name, process, extension_id, sw_identifier,
-                           base::Value::AsDictionaryValue(filter),
-                           add_lazy_listener);
+  AddFilteredEventListener(
+      event_name, process,
+      mojom::EventListenerParam::NewExtensionId(extension_id), sw_identifier,
+      base::Value::AsDictionaryValue(filter), add_lazy_listener);
 }
 
 void EventRouter::RemoveListenerForMainThread(
@@ -406,7 +407,7 @@ void EventRouter::RemoveLazyListenerForServiceWorker(
 }
 
 void EventRouter::RemoveFilteredListenerForMainThread(
-    const std::string& extension_id,
+    mojom::EventListenerParamPtr param,
     const std::string& event_name,
     base::Value filter,
     bool remove_lazy_listener) {
@@ -415,9 +416,9 @@ void EventRouter::RemoveFilteredListenerForMainThread(
   if (!process)
     return;
 
-  RemoveFilteredEventListener(event_name, process, extension_id, absl::nullopt,
-                              base::Value::AsDictionaryValue(filter),
-                              remove_lazy_listener);
+  RemoveFilteredEventListener(
+      event_name, process, std::move(param), absl::nullopt,
+      base::Value::AsDictionaryValue(filter), remove_lazy_listener);
 }
 
 void EventRouter::RemoveFilteredListenerForServiceWorker(
@@ -438,9 +439,10 @@ void EventRouter::RemoveFilteredListenerForServiceWorker(
   sw_identifier.thread_id = worker_thread_id;
   sw_identifier.version_id = service_worker_version_id;
 
-  RemoveFilteredEventListener(event_name, process, extension_id, sw_identifier,
-                              base::Value::AsDictionaryValue(filter),
-                              remove_lazy_listener);
+  RemoveFilteredEventListener(
+      event_name, process,
+      mojom::EventListenerParam::NewExtensionId(extension_id), sw_identifier,
+      base::Value::AsDictionaryValue(filter), remove_lazy_listener);
 }
 
 void EventRouter::AddEventListener(const std::string& event_name,
@@ -591,53 +593,81 @@ void EventRouter::RemoveLazyEventListener(const std::string& event_name,
 void EventRouter::AddFilteredEventListener(
     const std::string& event_name,
     RenderProcessHost* process,
-    const std::string& extension_id,
+    mojom::EventListenerParamPtr param,
     absl::optional<ServiceWorkerIdentifier> sw_identifier,
     const base::DictionaryValue& filter,
     bool add_lazy_listener) {
   const bool is_for_service_worker = sw_identifier.has_value();
-  listeners_.AddListener(
-      is_for_service_worker
-          ? EventListener::ForExtensionServiceWorker(
-                event_name, extension_id, process, sw_identifier->scope,
-                sw_identifier->version_id, sw_identifier->thread_id,
-                filter.CreateDeepCopy())
-          : EventListener::ForExtension(event_name, extension_id, process,
-                                        filter.CreateDeepCopy()));
-
-  if (!add_lazy_listener)
+  std::unique_ptr<EventListener> regular_listener;
+  std::unique_ptr<EventListener> lazy_listener;
+  if (is_for_service_worker && param->is_extension_id()) {
+    regular_listener = EventListener::ForExtensionServiceWorker(
+        event_name, param->get_extension_id(), process, sw_identifier->scope,
+        sw_identifier->version_id, sw_identifier->thread_id,
+        filter.CreateDeepCopy());
+    if (add_lazy_listener) {
+      lazy_listener = EventListener::ForExtensionServiceWorker(
+          event_name, param->get_extension_id(), nullptr, sw_identifier->scope,
+          // Lazy listener, without worker version id and thread id.
+          blink::mojom::kInvalidServiceWorkerVersionId, kMainThreadId,
+          filter.CreateDeepCopy());
+    }
+  } else if (param->is_extension_id()) {
+    regular_listener =
+        EventListener::ForExtension(event_name, param->get_extension_id(),
+                                    process, filter.CreateDeepCopy());
+    if (add_lazy_listener) {
+      lazy_listener =
+          EventListener::ForExtension(event_name, param->get_extension_id(),
+                                      nullptr,  // Lazy, without process.
+                                      filter.CreateDeepCopy());
+    }
+  } else if (param->is_listener_url() && !add_lazy_listener) {
+    regular_listener =
+        EventListener::ForURL(event_name, param->get_listener_url(), process,
+                              filter.CreateDeepCopy());
+  } else {
+    mojo::ReportBadMessage(kAddEventListenerWithInvalidParam);
     return;
+  }
+  listeners_.AddListener(std::move(regular_listener));
 
-  bool added = listeners_.AddListener(
-      is_for_service_worker
-          ? EventListener::ForExtensionServiceWorker(
-                event_name, extension_id, nullptr, sw_identifier->scope,
-                // Lazy listener, without worker version id and thread id.
-                blink::mojom::kInvalidServiceWorkerVersionId, kMainThreadId,
-                filter.CreateDeepCopy())
-          : EventListener::ForExtension(event_name, extension_id,
-                                        nullptr,  // Lazy, without process.
-                                        filter.CreateDeepCopy()));
-  if (added)
-    AddFilterToEvent(event_name, extension_id, is_for_service_worker, &filter);
+  DCHECK_EQ(add_lazy_listener, !!lazy_listener);
+  if (lazy_listener) {
+    bool added = listeners_.AddListener(std::move(lazy_listener));
+    if (added) {
+      AddFilterToEvent(event_name, param->get_extension_id(),
+                       is_for_service_worker, &filter);
+    }
+  }
 }
 
 void EventRouter::RemoveFilteredEventListener(
     const std::string& event_name,
     RenderProcessHost* process,
-    const std::string& extension_id,
+    mojom::EventListenerParamPtr param,
     absl::optional<ServiceWorkerIdentifier> sw_identifier,
     const base::DictionaryValue& filter,
     bool remove_lazy_listener) {
   const bool is_for_service_worker = sw_identifier.has_value();
-  std::unique_ptr<EventListener> listener =
-      is_for_service_worker
-          ? EventListener::ForExtensionServiceWorker(
-                event_name, extension_id, process, sw_identifier->scope,
-                sw_identifier->version_id, sw_identifier->thread_id,
-                filter.CreateDeepCopy())
-          : EventListener::ForExtension(event_name, extension_id, process,
-                                        filter.CreateDeepCopy());
+  std::unique_ptr<EventListener> listener;
+  if (is_for_service_worker && param->is_extension_id()) {
+    listener = EventListener::ForExtensionServiceWorker(
+        event_name, param->get_extension_id(), process, sw_identifier->scope,
+        sw_identifier->version_id, sw_identifier->thread_id,
+        filter.CreateDeepCopy());
+  } else if (param->is_extension_id()) {
+    listener =
+        EventListener::ForExtension(event_name, param->get_extension_id(),
+                                    process, filter.CreateDeepCopy());
+
+  } else if (param->is_listener_url() && !remove_lazy_listener) {
+    listener = EventListener::ForURL(event_name, param->get_listener_url(),
+                                     process, filter.CreateDeepCopy());
+  } else {
+    mojo::ReportBadMessage(kRemoveEventListenerWithInvalidParam);
+    return;
+  }
 
   listeners_.RemoveListener(listener.get());
 
@@ -646,8 +676,8 @@ void EventRouter::RemoveFilteredEventListener(
     bool removed = listeners_.RemoveListener(listener.get());
 
     if (removed) {
-      RemoveFilterFromEvent(event_name, extension_id, is_for_service_worker,
-                            &filter);
+      RemoveFilterFromEvent(event_name, param->get_extension_id(),
+                            is_for_service_worker, &filter);
     }
   }
 }
@@ -914,33 +944,17 @@ void EventRouter::DispatchEventToProcess(
     return;
   }
 
-  std::unique_ptr<base::ListValue> modified_event_args;
-  std::unique_ptr<EventFilteringInfo> modified_event_filter_info;
   if (!event->will_dispatch_callback.is_null() &&
-      !event->will_dispatch_callback.Run(
-          listener_context, target_context, extension, listener_filter,
-          &modified_event_args, &modified_event_filter_info)) {
+      !event->will_dispatch_callback.Run(listener_context, target_context,
+                                         extension, event, listener_filter)) {
     return;
   }
 
-  base::ListValue* event_args_to_use = event->event_args.get();
-  std::unique_ptr<base::ListValue> list_modified_event_args;
-  if (modified_event_args) {
-    // If `will_dispatch_callback` provided modified args, use it.
-    list_modified_event_args = base::ListValue::From(
-        std::make_unique<base::Value>(std::move(*modified_event_args)));
-    event_args_to_use = list_modified_event_args.get();
-  }
-
-  std::unique_ptr<EventFilteringInfo> filter_info =
-      modified_event_filter_info
-          ? std::move(modified_event_filter_info)
-          : std::make_unique<EventFilteringInfo>(event->filter_info);
-
   int event_id = g_extension_event_id.GetNext();
-  DispatchExtensionMessage(
-      process, worker_thread_id, listener_context, extension_id, event_id,
-      event->event_name, event_args_to_use, event->user_gesture, *filter_info);
+  DispatchExtensionMessage(process, worker_thread_id, listener_context,
+                           extension_id, event_id, event->event_name,
+                           event->event_args.get(), event->user_gesture,
+                           event->filter_info);
 
   for (TestObserver& observer : test_observers_)
     observer.OnDidDispatchEventToProcess(*event);

@@ -4,10 +4,9 @@ Requirements:
 =============
 
 this library requires a recent version of libxml2 which you can grab from
-either the GNOME download server or the GitLab release page:
+either the GNOME FTP or the xmlsoft.org server:
 
-    https://gitlab.gnome.org/GNOME/libxml2/-/releases
-    https://download.gnome.org/sources/libxml2/
+  ftp://xmlsoft.org/
 
 When installing from a distribution package like a tar.gz:
 ==========================================================
@@ -29,8 +28,8 @@ to build the project and
 (possibly after having gained root access) to install the library
 and associated include and scripts.
 
-When installing from a Git clone:
-=================================
+When installing from a checkout of the GNOME CVS base:
+======================================================
 
 
 run ./autogen.sh possibly indicating the desired installation prefix: 

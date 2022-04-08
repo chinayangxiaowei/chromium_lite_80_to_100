@@ -54,7 +54,6 @@ void FileSelectHelper::RunFileChooser(
   DCHECK(!web_contents_);
   DCHECK(listener);
   DCHECK(!listener_);
-  DCHECK(!select_file_dialog_);
 
   listener_ = std::move(listener);
   web_contents_ = content::WebContents::FromRenderFrameHost(render_frame_host)
@@ -118,7 +117,6 @@ void FileSelectHelper::RunFileChooser(
 void FileSelectHelper::RunFileChooserEnd() {
   if (listener_)
     listener_->FileSelectionCanceled();
-  select_file_dialog_.reset();
   Release();
 }
 

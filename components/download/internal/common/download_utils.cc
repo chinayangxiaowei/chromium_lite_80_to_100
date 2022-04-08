@@ -288,10 +288,8 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
     // cross-site URL has been visited before.
     url::Origin origin = url::Origin::Create(params->url());
     request->trusted_params->isolation_info = net::IsolationInfo::Create(
-        params->update_first_party_url_on_redirect()
-            ? net::IsolationInfo::RequestType::kMainFrame
-            : net::IsolationInfo::RequestType::kOther,
-        origin, origin, net::SiteForCookies::FromOrigin(origin));
+        net::IsolationInfo::RequestType::kMainFrame, origin, origin,
+        net::SiteForCookies::FromOrigin(origin));
     request->site_for_cookies = net::SiteForCookies::FromUrl(params->url());
   }
 
@@ -299,8 +297,7 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
   request->referrer = params->referrer();
   request->referrer_policy = params->referrer_policy();
   request->is_main_frame = true;
-  request->update_first_party_url_on_redirect =
-      params->update_first_party_url_on_redirect();
+  request->update_first_party_url_on_redirect = true;
 
   // Downloads should be treated as navigations from Fetch spec perspective.
   // See also:

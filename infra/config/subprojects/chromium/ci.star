@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 load("//lib/branches.star", "branches")
-load("//lib/builders.star", "builders", "cpu")
+load("//lib/builders.star", "cpu")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//project.star", "settings")
@@ -12,11 +12,8 @@ load("//project.star", "settings")
 ci.defaults.set(
     bucket = "ci",
     build_numbers = True,
-    configure_kitchen = True,
     cpu = cpu.X86_64,
-    swarming_tags = ["vpython:native-python-wrapper"],
     triggered_by = ["chromium-gitiles-trigger"],
-    free_space = builders.free_space.standard,
 )
 
 luci.bucket(

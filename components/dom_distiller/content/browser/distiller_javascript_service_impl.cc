@@ -3,55 +3,47 @@
 // found in the LICENSE file.
 
 #include "components/dom_distiller/content/browser/distiller_javascript_service_impl.h"
-#include "components/dom_distiller/core/dom_distiller_service.h"
 
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 
 namespace dom_distiller {
 
 DistillerJavaScriptServiceImpl::DistillerJavaScriptServiceImpl(
-    base::WeakPtr<DomDistillerService> distiller_service_weak_ptr)
-    : distiller_service_weak_ptr_(distiller_service_weak_ptr) {}
+    DistillerUIHandle* distiller_ui_handle,
+    DistilledPagePrefs* distilled_page_prefs)
+    : distiller_ui_handle_(distiller_ui_handle),
+      distilled_page_prefs_(distilled_page_prefs) {}
 
 DistillerJavaScriptServiceImpl::~DistillerJavaScriptServiceImpl() = default;
 
 void DistillerJavaScriptServiceImpl::HandleDistillerOpenSettingsCall() {
-  if (distiller_service_weak_ptr_.WasInvalidated())
+  if (!distiller_ui_handle_) {
     return;
+  }
 
-  distiller_service_weak_ptr_.get()->GetDistillerUIHandle()->OpenSettings();
+  distiller_ui_handle_->OpenSettings();
 }
 
 void DistillerJavaScriptServiceImpl::HandleStoreThemePref(mojom::Theme theme) {
-  if (distiller_service_weak_ptr_.WasInvalidated())
-    return;
-
-  distiller_service_weak_ptr_.get()->GetDistilledPagePrefs()->SetTheme(theme);
+  distilled_page_prefs_->SetTheme(theme);
 }
 
 void DistillerJavaScriptServiceImpl::HandleStoreFontFamilyPref(
     mojom::FontFamily font_family) {
-  if (distiller_service_weak_ptr_.WasInvalidated())
-    return;
-
-  distiller_service_weak_ptr_.get()->GetDistilledPagePrefs()->SetFontFamily(
-      font_family);
+  distilled_page_prefs_->SetFontFamily(font_family);
 }
 
 void DistillerJavaScriptServiceImpl::HandleStoreFontScalingPref(
     float font_scale) {
-  if (distiller_service_weak_ptr_.WasInvalidated())
-    return;
-
-  distiller_service_weak_ptr_.get()->GetDistilledPagePrefs()->SetFontScaling(
-      font_scale);
+  distilled_page_prefs_->SetFontScaling(font_scale);
 }
 
 void CreateDistillerJavaScriptService(
-    base::WeakPtr<DomDistillerService> distiller_service_weak_ptr,
+    DistillerUIHandle* distiller_ui_handle,
+    DistilledPagePrefs* distilled_page_prefs,
     mojo::PendingReceiver<mojom::DistillerJavaScriptService> receiver) {
   mojo::MakeSelfOwnedReceiver(std::make_unique<DistillerJavaScriptServiceImpl>(
-                                  distiller_service_weak_ptr),
+                                  distiller_ui_handle, distilled_page_prefs),
                               std::move(receiver));
 }
 

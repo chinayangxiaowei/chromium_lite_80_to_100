@@ -205,10 +205,8 @@ void CastDialogView::ShowDialog(
     Profile* profile,
     const base::Time& start_time,
     MediaRouterDialogOpenOrigin activation_location) {
+  DCHECK(!instance_);
   DCHECK(!start_time.is_null());
-  // Hide the previous dialog instance if it exists, since there can only be one
-  // instance at a time.
-  HideDialog();
   instance_ = new CastDialogView(anchor_view, anchor_position, controller,
                                  profile, start_time, activation_location);
   views::Widget* widget =
@@ -223,7 +221,6 @@ CastDialogView::CastDialogView(views::View* anchor_view,
                                const base::Time& start_time,
                                MediaRouterDialogOpenOrigin activation_location)
     : BubbleDialogDelegateView(anchor_view, anchor_position),
-      selected_source_(SourceType::kTab),
       controller_(controller),
       profile_(profile),
       metrics_(start_time, activation_location, profile) {

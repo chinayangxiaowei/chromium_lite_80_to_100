@@ -17,7 +17,6 @@ try_.defaults.set(
             path = "win_toolchain",
         ),
     ],
-    configure_kitchen = True,
     cpu = cpu.X86_64,
     cq_group = "cq",
     # Max. pending time for builds. CQ considers builds pending >2h as timed
@@ -25,7 +24,6 @@ try_.defaults.set(
     expiration_timeout = 2 * time.hour,
     grace_period = 2 * time.minute,
     subproject_list_view = "luci.chromium.try",
-    swarming_tags = ["vpython:native-python-wrapper"],
     task_template_canary_percentage = 5,
 )
 
@@ -185,6 +183,10 @@ chrome_internal_verifier(
 
 chrome_internal_verifier(
     builder = "lacros-arm-generic-chrome",
+)
+
+chrome_internal_verifier(
+    builder = "lacros-arm-generic-chrome-skylab",
 )
 
 chrome_internal_verifier(

@@ -18,7 +18,7 @@ ci.defaults.set(
     # goma.jobs.MANY_JOBS_FOR_CI is 500).
     # goma_jobs=goma.jobs.MANY_JOBS_FOR_CI
     goma_jobs = goma.jobs.J150,
-    os = os.LINUX_DEFAULT,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = ci.DEFAULT_POOL,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     sheriff_rotations = sheriff_rotations.ANDROID,
@@ -127,7 +127,7 @@ ci.builder(
         short_name = "64",
     ),
     cq_mirrors_console_view = "mirrors",
-    execution_timeout = 5 * time.hour,
+    execution_timeout = 7 * time.hour,
 )
 
 ci.builder(
@@ -138,7 +138,7 @@ ci.builder(
         short_name = "32",
     ),
     cq_mirrors_console_view = "mirrors",
-    execution_timeout = 4 * time.hour,
+    execution_timeout = 6 * time.hour,
 )
 
 ci.builder(

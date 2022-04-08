@@ -131,8 +131,8 @@ DocumentFragment* DragData::AsFragment(LocalFrame* frame) const {
     platform_drag_data_->HtmlAndBaseURL(html, base_url);
     DCHECK(frame->GetDocument());
     if (DocumentFragment* fragment =
-            CreateSanitizedFragmentFromMarkupWithContext(
-                *frame->GetDocument(), html, 0, html.length(), base_url))
+            CreateFragmentFromMarkup(*frame->GetDocument(), html, base_url,
+                                     kDisallowScriptingAndPluginContent))
       return fragment;
   }
 

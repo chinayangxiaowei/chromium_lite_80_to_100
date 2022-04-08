@@ -336,11 +336,7 @@ int ReadJPEG(const uint8_t* const data, size_t data_size,
   pic->width = width;
   pic->height = height;
   ok = WebPPictureImportRGB(pic, rgb, (int)stride);
-  if (!ok) {
-    pic->width = 0;   // WebPPictureImportRGB() barely touches 'pic' on failure.
-    pic->height = 0;  // Just reset dimensions but keep any 'custom_ptr' etc.
-    MetadataFree(metadata);  // In case the caller forgets to free it on error.
-  }
+  if (!ok) goto Error;
 
  End:
   free(rgb);

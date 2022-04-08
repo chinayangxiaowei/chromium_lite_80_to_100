@@ -107,18 +107,15 @@ class ServicesDelegate {
   virtual DownloadProtectionService* GetDownloadService() = 0;
 #endif
 
-  // Takes a SharedURLLoaderFactory with the Safe Browsing NetworkContext and
-  // one from the BrowserProcess.
+  // Takes a SharedURLLoaderFactory from the BrowserProcess, for use in the
+  // database manager.
   virtual void StartOnIOThread(
-      scoped_refptr<network::SharedURLLoaderFactory> sb_url_loader_factory,
       scoped_refptr<network::SharedURLLoaderFactory> browser_url_loader_factory,
       const V4ProtocolConfig& v4_config) = 0;
   virtual void StopOnIOThread(bool shutdown) = 0;
 
   virtual void CreateTelemetryService(Profile* profile) {}
   virtual void RemoveTelemetryService(Profile* profile) {}
-
-  virtual void OnProfileWillBeDestroyed(Profile* profile) {}
 
  protected:
   // Unowned pointer

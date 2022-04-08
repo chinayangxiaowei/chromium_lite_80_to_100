@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-load("//lib/builders.star", "builder", "builders", "cpu", "defaults", "goma", "os", "xcode")
+load("//lib/builders.star", "builder", "cpu", "defaults", "goma", "os", "xcode")
 
 luci.bucket(
     name = "goma",
@@ -24,18 +24,15 @@ luci.bucket(
 
 defaults.bucket.set("goma")
 defaults.build_numbers.set(True)
-defaults.configure_kitchen.set(True)
 defaults.cores.set(8)
 defaults.cpu.set(cpu.X86_64)
 defaults.executable.set("recipe:chromium")
 defaults.execution_timeout.set(3 * time.hour)
 defaults.os.set(os.LINUX_DEFAULT)
 defaults.pool.set("luci.chromium.ci")
-defaults.free_space.set(builders.free_space.standard)
 defaults.service_account.set(
     "goma-release-testing@chops-service-accounts.iam.gserviceaccount.com",
 )
-defaults.swarming_tags.set(["vpython:native-python-wrapper"])
 defaults.triggered_by.set(["chromium-gitiles-trigger"])
 
 # Builders appear after the function used to define them, with all builders
@@ -52,7 +49,7 @@ def fyi_goma_rbe_canary_builder(
         *,
         name,
         goma_backend = goma.backend.RBE_PROD,
-        os = os.LINUX_DEFAULT,
+        os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         **kwargs):
     return builder(
         name = name,
@@ -153,7 +150,7 @@ def fyi_goma_rbe_latest_client_builder(
         *,
         name,
         goma_backend = goma.backend.RBE_PROD,
-        os = os.LINUX_DEFAULT,
+        os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
         **kwargs):
     return builder(
         name = name,
@@ -240,7 +237,7 @@ def goma_builder(
         *,
         name,
         builderless = False,
-        os = os.LINUX_DEFAULT,
+        os = os.LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT,
         **kwargs):
     return builder(
         name = name,

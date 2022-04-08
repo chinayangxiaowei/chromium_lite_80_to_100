@@ -41,6 +41,9 @@ class CONTENT_EXPORT PrefetchURLLoaderService final
   explicit PrefetchURLLoaderService(BrowserContext* browser_context);
   ~PrefetchURLLoaderService() override;
 
+  PrefetchURLLoaderService(const PrefetchURLLoaderService&) = delete;
+  PrefetchURLLoaderService& operator=(const PrefetchURLLoaderService&) = delete;
+
   void GetFactory(
       mojo::PendingReceiver<network::mojom::URLLoaderFactory> receiver,
       int frame_tree_node_id,
@@ -121,8 +124,6 @@ class CONTENT_EXPORT PrefetchURLLoaderService final
       signed_exchange_prefetch_metric_recorder_;
 
   std::string accept_langs_;
-
-  DISALLOW_COPY_AND_ASSIGN(PrefetchURLLoaderService);
 };
 
 }  // namespace content

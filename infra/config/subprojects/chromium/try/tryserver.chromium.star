@@ -15,14 +15,17 @@ try_.defaults.set(
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
-    os = os.LINUX_DEFAULT,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
 
 consoles.list_view(
     name = "tryserver.chromium",
-    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    branch_selector = [
+        branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+        branches.FUCHSIA_LTS_MILESTONE,
+    ],
 )
 
 try_.builder(
@@ -32,7 +35,7 @@ try_.builder(
 
 try_.builder(
     name = "fuchsia-official",
-    branch_selector = branches.STANDARD_MILESTONE,
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
 )
 
 try_.builder(

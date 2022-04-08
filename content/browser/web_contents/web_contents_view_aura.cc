@@ -69,7 +69,6 @@
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
-#include "ui/aura/window_tree_host.h"
 #include "ui/aura/window_tree_host_observer.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/custom_data_helper.h"
@@ -130,8 +129,12 @@ class WebDragSourceAura : public content::WebContentsObserver {
   WebDragSourceAura(aura::Window* window, WebContentsImpl* contents)
       : WebContentsObserver(contents), window_(window) {}
 
+  WebDragSourceAura(const WebDragSourceAura&) = delete;
+  WebDragSourceAura& operator=(const WebDragSourceAura&) = delete;
+
   // content::WebContentsObserver
-  void RenderProcessGone(base::TerminationStatus status) override {
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override {
     CancelDrag();
   }
 
@@ -154,8 +157,6 @@ class WebDragSourceAura : public content::WebContentsObserver {
 
  private:
   aura::Window* window_;
-
-  DISALLOW_COPY_AND_ASSIGN(WebDragSourceAura);
 };
 
 #if defined(OS_LINUX) || defined(OS_CHROMEOS) || defined(OS_WIN)
@@ -382,6 +383,10 @@ class WebContentsViewAura::AsyncDropNavigationObserver
                               const gfx::PointF& screen_pt,
                               int key_modifiers);
 
+  AsyncDropNavigationObserver(const AsyncDropNavigationObserver&) = delete;
+  AsyncDropNavigationObserver& operator=(const AsyncDropNavigationObserver&) =
+      delete;
+
   // WebContentsObserver:
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
 
@@ -406,8 +411,6 @@ class WebContentsViewAura::AsyncDropNavigationObserver
   const gfx::PointF client_pt_;
   const gfx::PointF screen_pt_;
   const int key_modifiers_;
-
-  DISALLOW_COPY_AND_ASSIGN(AsyncDropNavigationObserver);
 };
 
 WebContentsViewAura::AsyncDropNavigationObserver::AsyncDropNavigationObserver(
@@ -523,6 +526,9 @@ class WebContentsViewAura::WindowObserver
                              const gfx::Rect& new_bounds,
                              ui::PropertyChangeReason reason) override {
     DCHECK(window == host_window_ || window == view_->window_.get());
+    if (!ShouldNotifyOfBoundsChanges())
+      return;
+
     if (pending_window_changes_) {
       pending_window_changes_->window_bounds_changed = true;
       if (old_bounds.origin() != new_bounds.origin())
@@ -540,8 +546,12 @@ class WebContentsViewAura::WindowObserver
   }
 
   void OnWindowAddedToRootWindow(aura::Window* window) override {
-    if (window == view_->window_.get())
-      window->GetHost()->AddObserver(this);
+    if (window != view_->window_.get())
+      return;
+
+    window->GetHost()->AddObserver(this);
+    if (view_->web_contents_->IsBeingCaptured())
+      view_->video_capture_lock_ = window->GetHost()->CreateVideoCaptureLock();
   }
 
   void OnWindowRemovingFromRootWindow(aura::Window* window,
@@ -549,16 +559,23 @@ class WebContentsViewAura::WindowObserver
     if (window == view_->window_.get()) {
       window->GetHost()->RemoveObserver(this);
       pending_window_changes_.reset();
+      view_->video_capture_lock_.reset();
     }
   }
 
   // Overridden WindowTreeHostObserver:
   void OnHostWillProcessBoundsChange(aura::WindowTreeHost* host) override {
+    if (!ShouldNotifyOfBoundsChanges())
+      return;
+
     DCHECK(!pending_window_changes_);
     pending_window_changes_ = std::make_unique<PendingWindowChanges>();
   }
 
   void OnHostDidProcessBoundsChange(aura::WindowTreeHost* host) override {
+    if (!ShouldNotifyOfBoundsChanges())
+      return;
+
     if (!pending_window_changes_)
       return;  // Happens if added to a new host during bounds change.
 
@@ -571,6 +588,9 @@ class WebContentsViewAura::WindowObserver
 
   void OnHostMovedInPixels(aura::WindowTreeHost* host,
                            const gfx::Point& new_origin_in_pixels) override {
+    if (!ShouldNotifyOfBoundsChanges())
+      return;
+
     if (pending_window_changes_) {
       pending_window_changes_->host_moved = true;
       return;
@@ -579,6 +599,12 @@ class WebContentsViewAura::WindowObserver
   }
 
  private:
+  bool ShouldNotifyOfBoundsChanges() const {
+    // Do not notify of bounds changes for guests as guests' window bounds are
+    // supposed to come from its embedder.
+    return !view_->web_contents_->IsGuest();
+  }
+
   // Used to avoid multiple calls to SendScreenRects(). In particular, when
   // WindowTreeHost changes its size, it's entirely likely the aura::Windows
   // will change as well. When OnHostWillProcessBoundsChange() is called,
@@ -598,6 +624,7 @@ class WebContentsViewAura::WindowObserver
   };
 
   void ProcessWindowBoundsChange(bool did_origin_change) {
+    DCHECK(ShouldNotifyOfBoundsChanges());
     SendScreenRects();
     if (did_origin_change) {
       TouchSelectionControllerClientAura* selection_controller_client =
@@ -608,6 +635,7 @@ class WebContentsViewAura::WindowObserver
   }
 
   void ProcessHostMovedInPixels() {
+    DCHECK(ShouldNotifyOfBoundsChanges());
     // NOTE: this function is *not* called if OnHostWillProcessBoundsChange()
     // *and* the bounds changes (OnWindowBoundsChanged() is called).
     TRACE_EVENT1(
@@ -951,13 +979,7 @@ void WebContentsViewAura::CreateAuraWindow(aura::Window* context) {
   window_->layer()->SetMasksToBounds(true);
   window_->TrackOcclusionState();
 
-  // WindowObserver is not interesting and is problematic for Browser Plugin
-  // guests.
-  // The use cases for WindowObserver do not apply to Browser Plugins:
-  // 1) guests do not support NPAPI plugins.
-  // 2) guests' window bounds are supposed to come from its embedder.
-  if (!web_contents_->IsGuest())
-    window_observer_ = std::make_unique<WindowObserver>(this);
+  window_observer_ = std::make_unique<WindowObserver>(this);
 }
 
 void WebContentsViewAura::UpdateWebContentsVisibility() {
@@ -1053,10 +1075,19 @@ void WebContentsViewAura::SetOverscrollControllerEnabled(bool enabled) {
     gesture_nav_simple_.reset();
 }
 
+void WebContentsViewAura::OnCapturerCountChanged() {
+  if (web_contents_->IsBeingCaptured()) {
+    if (!video_capture_lock_ && window_->GetHost())
+      video_capture_lock_ = window_->GetHost()->CreateVideoCaptureLock();
+  } else {
+    video_capture_lock_.reset();
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // WebContentsViewAura, RenderViewHostDelegateView implementation:
 
-void WebContentsViewAura::ShowContextMenu(RenderFrameHost* render_frame_host,
+void WebContentsViewAura::ShowContextMenu(RenderFrameHost& render_frame_host,
                                           const ContextMenuParams& params) {
   TouchSelectionControllerClientAura* selection_controller_client =
       GetSelectionControllerClient();
@@ -1452,9 +1483,8 @@ void WebContentsViewAura::OnDragExited() {
 void WebContentsViewAura::CompleteDragExit() {
   drag_in_progress_ = false;
 
-  if (web_contents_->IsBeingDestroyed() ||
-      current_rvh_for_drag_ !=
-          GetRenderViewHostID(web_contents_->GetRenderViewHost()) ||
+  if (current_rvh_for_drag_ !=
+      GetRenderViewHostID(web_contents_->GetRenderViewHost()) ||
       !current_drop_data_) {
     return;
   }

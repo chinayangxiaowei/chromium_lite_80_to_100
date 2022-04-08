@@ -166,7 +166,7 @@ class EventRouter : public KeyedService,
                                        const GURL& worker_scope_url,
                                        const std::string& name) override;
 
-  void AddFilteredListenerForMainThread(const std::string& extension_id,
+  void AddFilteredListenerForMainThread(mojom::EventListenerParamPtr param,
                                         const std::string& name,
                                         base::Value filter,
                                         bool add_lazy_listener) override;
@@ -195,7 +195,7 @@ class EventRouter : public KeyedService,
                                           const GURL& worker_scope_url,
                                           const std::string& name) override;
 
-  void RemoveFilteredListenerForMainThread(const std::string& extension_id,
+  void RemoveFilteredListenerForMainThread(mojom::EventListenerParamPtr param,
                                            const std::string& name,
                                            base::Value filter,
                                            bool remove_lazy_listener) override;
@@ -259,7 +259,7 @@ class EventRouter : public KeyedService,
   void AddFilteredEventListener(
       const std::string& event_name,
       content::RenderProcessHost* process,
-      const std::string& extension_id,
+      mojom::EventListenerParamPtr param,
       absl::optional<ServiceWorkerIdentifier> sw_identifier,
       const base::DictionaryValue& filter,
       bool add_lazy_listener);
@@ -269,7 +269,7 @@ class EventRouter : public KeyedService,
   void RemoveFilteredEventListener(
       const std::string& event_name,
       content::RenderProcessHost* process,
-      const std::string& extension_id,
+      mojom::EventListenerParamPtr param,
       absl::optional<ServiceWorkerIdentifier> sw_identifier,
       const base::DictionaryValue& filter,
       bool remove_lazy_listener);
@@ -505,13 +505,12 @@ class EventRouter : public KeyedService,
 struct Event {
   // This callback should return true if the event should be dispatched to the
   // given context and extension, and false otherwise.
-  using WillDispatchCallback = base::RepeatingCallback<bool(
-      content::BrowserContext*,
-      Feature::Context,
-      const Extension*,
-      const base::DictionaryValue*,
-      std::unique_ptr<base::ListValue>* event_args_out,
-      std::unique_ptr<EventFilteringInfo>* event_filtering_info_out)>;
+  using WillDispatchCallback =
+      base::RepeatingCallback<bool(content::BrowserContext*,
+                                   Feature::Context,
+                                   const Extension*,
+                                   Event*,
+                                   const base::DictionaryValue*)>;
 
   // The identifier for the event, for histograms. In most cases this
   // correlates 1:1 with |event_name|, in some cases events will generate
@@ -540,11 +539,10 @@ struct Event {
   EventFilteringInfo filter_info;
 
   // If specified, this is called before dispatching an event to each
-  // extension. This is guaranteed to be called synchronously with
+  // extension. The third argument is a mutable reference to event_args,
+  // allowing the caller to provide different arguments depending on the
+  // extension and profile. This is guaranteed to be called synchronously with
   // DispatchEvent, so callers don't need to worry about lifetime.
-  // The args |event_args_out|, |event_filtering_info_out| allows caller to
-  // provide modified `Event::event_args`, `Event::filter_info` depending on the
-  // extension and profile.
   //
   // NOTE: the Extension argument to this may be NULL because it's possible for
   // this event to be dispatched to non-extension processes, like WebUI.

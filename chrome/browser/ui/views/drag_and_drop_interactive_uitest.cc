@@ -17,11 +17,11 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
-#include "base/sequenced_task_runner.h"
 #include "base/strings/pattern.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "build/build_config.h"
@@ -1270,6 +1270,10 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest, DragStartInFrame) {
 // a drag-and-drop loop run by Windows OS.
 #define MAYBE_DragSameOriginImageBetweenFrames \
   DISABLED_DragSameOriginImageBetweenFrames
+#elif (defined(ADDRESS_SANITIZER) && defined(OS_LINUX))
+// Failing to receive final drop event on linux-asan crbug.com/1268407.
+#define MAYBE_DragSameOriginImageBetweenFrames \
+  DISABLED_DragSameOriginImageBetweenFrames
 #else
 #define MAYBE_DragSameOriginImageBetweenFrames DragSameOriginImageBetweenFrames
 #endif
@@ -1297,6 +1301,9 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest,
 #if defined(OS_WIN)
 #define MAYBE_DragCorsSameOriginImageBetweenFrames \
   DISABLED_DragCorsSameOriginImageBetweenFrames
+#elif (defined(ADDRESS_SANITIZER) && defined(OS_LINUX))
+#define MAYBE_DragCorsSameOriginImageBetweenFrames \
+  DISABLED_DragCorsSameOriginImageBetweenFrames
 #else
 #define MAYBE_DragCorsSameOriginImageBetweenFrames \
   DragCorsSameOriginImageBetweenFrames
@@ -1313,6 +1320,9 @@ IN_PROC_BROWSER_TEST_P(DragAndDropBrowserTest,
 }
 
 #if defined(OS_WIN)
+#define MAYBE_DragCrossOriginImageBetweenFrames \
+  DISABLED_DragCrossOriginImageBetweenFrames
+#elif (defined(ADDRESS_SANITIZER) && defined(OS_LINUX))
 #define MAYBE_DragCrossOriginImageBetweenFrames \
   DISABLED_DragCrossOriginImageBetweenFrames
 #else
@@ -2064,77 +2074,5 @@ INSTANTIATE_TEST_SUITE_P(
     DragAndDropBrowserTest,
     ::testing::Combine(::testing::Values(true),
                        ::testing::ValuesIn(ui_scaling_factors)));
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-class DragAndDropBrowserTestNoParam : public InProcessBrowserTest {
- protected:
-  void SimulateDragFromOmniboxToWebContents(base::OnceClosure quit) {
-    chrome::FocusLocationBar(browser());
-
-    BrowserView* browser_view =
-        BrowserView::GetBrowserViewForBrowser(browser());
-    OmniboxViewViews* omnibox_view =
-        browser_view->toolbar()->location_bar()->omnibox_view();
-
-    // Simulate mouse move to omnibox.
-    gfx::Point point;
-    views::View::ConvertPointToScreen(omnibox_view, &point);
-    EXPECT_TRUE(ui_controls::SendMouseMoveNotifyWhenDone(
-        point.x(), point.y(),
-        base::BindOnce(&DragAndDropBrowserTestNoParam::Step2,
-                       base::Unretained(this), std::move(quit))));
-  }
-
-  void Step2(base::OnceClosure quit) {
-    // Simulate mouse down.
-    EXPECT_TRUE(ui_controls::SendMouseEventsNotifyWhenDone(
-        ui_controls::LEFT, ui_controls::DOWN,
-        base::BindOnce(&DragAndDropBrowserTestNoParam::Step3,
-                       base::Unretained(this), std::move(quit))));
-  }
-
-  void Step3(base::OnceClosure quit) {
-    // Simulate mouse move to WebContents.
-    // Keep sending mouse move until the current tab is closed.
-    // After the current tab is closed, send mouse up to end drag and drop.
-    if (browser()->tab_strip_model()->count() == 1) {
-      EXPECT_TRUE(ui_controls::SendMouseEventsNotifyWhenDone(
-          ui_controls::LEFT, ui_controls::UP, std::move(quit)));
-      return;
-    }
-
-    gfx::Rect bounds = browser()
-                           ->tab_strip_model()
-                           ->GetActiveWebContents()
-                           ->GetContainerBounds();
-    EXPECT_TRUE(ui_controls::SendMouseMoveNotifyWhenDone(
-        bounds.CenterPoint().x(), bounds.CenterPoint().y(),
-        base::BindOnce(&DragAndDropBrowserTestNoParam::Step3,
-                       base::Unretained(this), std::move(quit))));
-  }
-};
-
-// https://crbug.com/1312505
-IN_PROC_BROWSER_TEST_F(DragAndDropBrowserTestNoParam, CloseTabDuringDrag) {
-  EXPECT_EQ(1, browser()->tab_strip_model()->count());
-  ui_test_utils::TabAddedWaiter wait_for_new_tab(browser());
-
-  // Create a new tab that closes itself on dragover event.
-  ASSERT_TRUE(ExecuteScript(
-      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
-      "window.open('javascript:document.addEventListener("
-      "\"dragover\", () => {window.close(); })');"));
-
-  wait_for_new_tab.Wait();
-
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
-
-  base::RunLoop loop;
-  SimulateDragFromOmniboxToWebContents(loop.QuitClosure());
-  loop.Run();
-
-  EXPECT_EQ(1, browser()->tab_strip_model()->count());
-}
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 }  // namespace chrome

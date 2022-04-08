@@ -15,7 +15,7 @@ try_.defaults.set(
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
-    os = os.LINUX_DEFAULT,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
@@ -49,6 +49,9 @@ try_.builder(
     name = "android-binary-size",
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
+    # TODO (kimstephanie): Change to cores = 16 and ssd = True once bots have
+    # landed
+    cores = "8|16",
     executable = "recipe:binary_size_trybot",
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
@@ -69,6 +72,8 @@ try_.builder(
         },
     },
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -163,6 +168,8 @@ try_.builder(
     use_java_coverage = True,
     coverage_test_types = ["unit", "overall"],
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -177,18 +184,24 @@ try_.builder(
     tryjob = try_.job(
         experiment_percentage = 5,
     ),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
     name = "android-marshmallow-x86-rel",
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
-    cores = 16,
+    # TODO(crbug.com/1251739): Go back to targeting one core amount after
+    # collecting experiment results.
+    cores = "16|32",
     goma_jobs = goma.jobs.J300,
     ssd = True,
     use_java_coverage = True,
     coverage_test_types = ["unit", "overall"],
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -253,6 +266,8 @@ try_.builder(
     ssd = True,
     main_list_view = "try",
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -265,6 +280,8 @@ try_.builder(
     tryjob = try_.job(
         experiment_percentage = 5,
     ),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -367,6 +384,8 @@ try_.builder(
     goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -411,6 +430,8 @@ try_.builder(
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -431,6 +452,8 @@ try_.builder(
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
+    # TODO(crbug/1202741)
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -485,4 +508,5 @@ try_.builder(
         experiment_percentage = 5,
     ),
     ssd = True,
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )

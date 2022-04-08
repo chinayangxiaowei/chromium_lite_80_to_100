@@ -202,6 +202,9 @@ class CONTENT_EXPORT ServiceWorkerVersion
           remote_reference,
       base::WeakPtr<ServiceWorkerContextCore> context);
 
+  ServiceWorkerVersion(const ServiceWorkerVersion&) = delete;
+  ServiceWorkerVersion& operator=(const ServiceWorkerVersion&) = delete;
+
   int64_t version_id() const { return version_id_; }
   int64_t registration_id() const { return registration_id_; }
   const GURL& script_url() const { return script_url_; }
@@ -865,8 +868,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
                                bool is_browser_startup_complete,
                                blink::ServiceWorkerStatusCode status);
 
-  // The caller of MaybeTimeoutRequest must increase reference count of |this|
-  // to avoid it deleted during the execution.
   bool MaybeTimeoutRequest(const InflightRequestTimeoutInfo& info);
   void SetAllRequestExpirations(const base::TimeTicks& expiration);
 
@@ -1151,8 +1152,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
   base::UnguessableToken reporting_source_;
 
   base::WeakPtrFactory<ServiceWorkerVersion> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(ServiceWorkerVersion);
 };
 
 }  // namespace content

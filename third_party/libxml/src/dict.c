@@ -20,8 +20,12 @@
 #include "libxml.h"
 
 #include <limits.h>
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
 
 /*
  * Following http://www.ocert.org/advisories/ocert-2011-003.html
@@ -34,7 +38,8 @@
  *  list we will use the BigKey algo as soon as the hash size grows
  *  over MIN_DICT_SIZE so this actually works
  */
-#if !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+#if defined(HAVE_RAND) && defined(HAVE_SRAND) && defined(HAVE_TIME) && \
+    !defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 #define DICT_RANDOMIZATION
 #endif
 
@@ -1289,3 +1294,5 @@ xmlDictGetUsage(xmlDictPtr dict) {
     return(limit);
 }
 
+#define bottom_dict
+#include "elfgcchack.h"

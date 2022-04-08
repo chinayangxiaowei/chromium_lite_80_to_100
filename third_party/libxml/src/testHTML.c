@@ -12,7 +12,7 @@
 
 #include <string.h>
 #include <stdarg.h>
-#include <stdlib.h>
+
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -25,6 +25,9 @@
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
 #endif
 
 #include <libxml/xmlmemory.h>
@@ -624,7 +627,11 @@ parseSAXFile(char *filename) {
     if (push) {
 	FILE *f;
 
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
 	f = fopen(filename, "rb");
+#else
+	f = fopen(filename, "r");
+#endif
 	if (f != NULL) {
 	    int res, size = 3;
 	    char chars[4096];
@@ -650,7 +657,11 @@ parseSAXFile(char *filename) {
 	    fclose(f);
 	}
 	if (!noout) {
-	    f = fopen(filename, "rb");
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
+		f = fopen(filename, "rb");
+#else
+		f = fopen(filename, "r");
+#endif
 	    if (f != NULL) {
 		int res, size = 3;
 		char chars[4096];
@@ -710,7 +721,11 @@ parseAndPrintFile(char *filename) {
     if (push) {
 	FILE *f;
 
+#if defined(_WIN32) || defined (__DJGPP__) && !defined (__CYGWIN__)
 	f = fopen(filename, "rb");
+#else
+	f = fopen(filename, "r");
+#endif
 	if (f != NULL) {
 	    int res, size = 3;
 	    char chars[4096];

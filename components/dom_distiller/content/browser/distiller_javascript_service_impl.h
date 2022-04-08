@@ -5,21 +5,22 @@
 #ifndef COMPONENTS_DOM_DISTILLER_CONTENT_BROWSER_DISTILLER_JAVASCRIPT_SERVICE_IMPL_H_
 #define COMPONENTS_DOM_DISTILLER_CONTENT_BROWSER_DISTILLER_JAVASCRIPT_SERVICE_IMPL_H_
 
-#include "base/memory/weak_ptr.h"
 #include "components/dom_distiller/content/common/mojom/distiller_javascript_service.mojom.h"
+#include "components/dom_distiller/core/distilled_page_prefs.h"
+#include "components/dom_distiller/core/distiller_ui_handle.h"
 #include "components/dom_distiller/core/mojom/distilled_page_prefs.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 
 namespace dom_distiller {
 
-class DomDistillerService;
+class DistilledPagePrefs;
 
 // This is the receiving end of "distiller" JavaScript object calls.
 class DistillerJavaScriptServiceImpl
     : public mojom::DistillerJavaScriptService {
  public:
-  explicit DistillerJavaScriptServiceImpl(
-      base::WeakPtr<DomDistillerService> distiller_service_weak_ptr);
+  DistillerJavaScriptServiceImpl(DistillerUIHandle* distiller_ui_handle,
+                                 DistilledPagePrefs* distilled_page_prefs);
   ~DistillerJavaScriptServiceImpl() override;
 
   // Mojo mojom::DistillerJavaScriptService implementation.
@@ -37,12 +38,14 @@ class DistillerJavaScriptServiceImpl
       const DistillerJavaScriptServiceImpl&) = delete;
 
  private:
-  base::WeakPtr<DomDistillerService> distiller_service_weak_ptr_;
+  DistillerUIHandle* distiller_ui_handle_;
+  DistilledPagePrefs* distilled_page_prefs_;
 };
 
 // static
 void CreateDistillerJavaScriptService(
-    base::WeakPtr<DomDistillerService> distiller_service_weak_ptr,
+    DistillerUIHandle* distiller_ui_handle,
+    DistilledPagePrefs* distilled_page_prefs,
     mojo::PendingReceiver<mojom::DistillerJavaScriptService> receiver);
 
 }  // namespace dom_distiller

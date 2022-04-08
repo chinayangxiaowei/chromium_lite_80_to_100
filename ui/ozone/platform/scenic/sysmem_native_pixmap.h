@@ -10,6 +10,8 @@
 
 namespace ui {
 
+class ScenicOverlayView;
+
 class SysmemNativePixmap : public gfx::NativePixmap {
  public:
   SysmemNativePixmap(scoped_refptr<SysmemBufferCollection> collection,
@@ -35,9 +37,14 @@ class SysmemNativePixmap : public gfx::NativePixmap {
                             std::vector<gfx::GpuFence> release_fences) override;
   gfx::NativePixmapHandle ExportHandle() override;
 
+  const gfx::NativePixmapHandle& PeekHandle() const;
+
   // Returns true if overlay planes are supported and ScheduleOverlayPlane() can
   // be called.
-  bool SupportsOverlayPlane(gfx::AcceleratedWidget widget) const;
+  bool SupportsOverlayPlane() const;
+
+  // Returns true ScenicOverlayView for the pixmap if any.
+  ScenicOverlayView* GetScenicOverlayView();
 
  private:
   ~SysmemNativePixmap() override;

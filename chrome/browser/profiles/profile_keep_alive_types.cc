@@ -41,8 +41,6 @@ std::ostream& operator<<(std::ostream& out,
       return out << "kWebAppPermissionDialogWindow";
     case ProfileKeepAliveOrigin::kSessionDataDeleter:
       return out << "kSessionDataDeleter";
-    case ProfileKeepAliveOrigin::kWebAppProtocolHandlerLaunch:
-      return out << "kWebAppProtocolHandlerLaunch";
     case ProfileKeepAliveOrigin::kExtensionUpdater:
       return out << "kExtensionUpdater";
     case ProfileKeepAliveOrigin::kProfileCreationFlow:
@@ -51,8 +49,8 @@ std::ostream& operator<<(std::ostream& out,
       return out << "kPendingNotificationCloseEvent";
     case ProfileKeepAliveOrigin::kFeedbackDialog:
       return out << "kFeedbackDialog";
-    case ProfileKeepAliveOrigin::kCrxInstaller:
-      return out << "kCrxInstaller";
+    case ProfileKeepAliveOrigin::kWebAppUpdate:
+      return out << "kWebAppUpdate";
   }
   NOTREACHED();
   return out << static_cast<int>(origin);

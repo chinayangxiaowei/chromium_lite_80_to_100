@@ -595,10 +595,6 @@ void Display::InitializeRenderer(bool enable_shared_images) {
   aggregator_->SetDisplayColorSpaces(display_color_spaces_);
   aggregator_->SetMaxRenderTargetSize(
       output_surface_->capabilities().max_render_target_size);
-  // Do not move the |CopyOutputRequest| instances to the aggregated frame if
-  // the frame won't be drawn (as that would drop the copy request).
-  aggregator_->set_take_copy_requests(
-      !output_surface_->capabilities().skips_draw);
 }
 
 bool Display::IsRootFrameMissing() const {
@@ -635,6 +631,8 @@ void DebugDrawFrame(const AggregatedFrame& frame) {
     DBG_DRAW_TEXT_OPT("frame.root.material", DBG_OPT_GREEN,
                       display_rect.origin(),
                       base::NumberToString(static_cast<int>(quad->material)));
+    DBG_DRAW_TEXT_OPT("frame.root.display_rect", DBG_OPT_GREEN,
+                      display_rect.origin(), display_rect.ToString());
     DBG_DRAW_RECT("frame.root.quad", display_rect);
   }
 }

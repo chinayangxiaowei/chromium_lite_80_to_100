@@ -19,10 +19,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/current_thread.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/authpolicy/authpolicy_helper.h"
@@ -73,10 +73,6 @@
 #include "ui/display/screen.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
-
-// TODO(b/228873153): Remove after figuring out the root cause of the bug
-#undef ENABLED_VLOG_LEVEL
-#define ENABLED_VLOG_LEVEL 1
 
 namespace ash {
 namespace {
@@ -206,7 +202,6 @@ ScreenLocker::ScreenLocker(const user_manager::UserList& users)
 }
 
 void ScreenLocker::Init() {
-  VLOG(1) << "ScreenLocker::Init()";
   input_method::InputMethodManager* imm =
       input_method::InputMethodManager::Get();
   saved_ime_state_ = imm->GetActiveIMEState();
@@ -613,7 +608,6 @@ void ScreenLocker::HandleShowLockScreenRequest() {
 
 // static
 void ScreenLocker::Show() {
-  VLOG(1) << "ScreenLocker::Show()";
   base::RecordAction(UserMetricsAction("ScreenLocker_Show"));
   DCHECK(base::CurrentUIThread::IsSet());
 

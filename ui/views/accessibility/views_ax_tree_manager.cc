@@ -36,15 +36,9 @@ ViewsAXTreeManager::ViewsAXTreeManager(Widget* widget)
   views::WidgetAXTreeIDMap::GetInstance().AddWidget(tree_id_, widget);
   views_event_observer_.Observe(AXEventManager::Get());
   widget_observer_.Observe(widget);
-
-  // Load complete can't be fired synchronously here. The act of firing the
-  // event will call |View::GetViewAccessibility|, which (if fired
-  // synchronously) will create *another* |ViewsAXTreeManager| for the same
-  // widget, since the wrapper that created this |ViewsAXTreeManager| hasn't
-  // been added to the cache yet.
-  base::SequencedTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(&ViewsAXTreeManager::FireLoadComplete,
-                                weak_factory_.GetWeakPtr()));
+  View* root_view = widget->GetRootView();
+  if (root_view)
+    root_view->NotifyAccessibilityEvent(ax::mojom::Event::kLoadComplete, true);
 }
 
 ViewsAXTreeManager::~ViewsAXTreeManager() {
@@ -66,7 +60,7 @@ void ViewsAXTreeManager::UnsetGeneratedEventCallbackForTesting() {
 ui::AXNode* ViewsAXTreeManager::GetNodeFromTree(
     const ui::AXTreeID tree_id,
     const ui::AXNodeID node_id) const {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return nullptr;
 
   const ui::AXTreeManager* manager =
@@ -76,7 +70,7 @@ ui::AXNode* ViewsAXTreeManager::GetNodeFromTree(
 
 ui::AXNode* ViewsAXTreeManager::GetNodeFromTree(
     const ui::AXNodeID node_id) const {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return nullptr;
 
   return ax_tree_.GetFromId(node_id);
@@ -93,7 +87,7 @@ ui::AXTreeID ViewsAXTreeManager::GetParentTreeID() const {
 }
 
 ui::AXNode* ViewsAXTreeManager::GetRootAsAXNode() const {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return nullptr;
 
   return ax_tree_.root();
@@ -121,32 +115,28 @@ void ViewsAXTreeManager::OnViewEvent(View* view, ax::mojom::Event event) {
 }
 
 void ViewsAXTreeManager::OnWidgetDestroyed(Widget* widget) {
-  // If a widget becomes disconnected from its root view, we shouldn't keep it
-  // in the map or attempt any operations on it.
-  if (widget->is_top_level() || !widget->GetRootView())
+  if (widget->is_top_level())
     views::WidgetAXTreeIDMap::GetInstance().RemoveWidget(widget);
 
   widget_ = nullptr;
 }
 
 void ViewsAXTreeManager::OnWidgetClosing(Widget* widget) {
-  // If a widget becomes disconnected from its root view, we shouldn't keep it
-  // in the map or attempt any operations on it.
-  if (widget->is_top_level() || !widget->GetRootView())
+  if (widget->is_top_level())
     views::WidgetAXTreeIDMap::GetInstance().RemoveWidget(widget);
 
   widget_ = nullptr;
 }
 
 void ViewsAXTreeManager::PerformAction(const ui::AXActionData& data) {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return;
 
   tree_source_.HandleAccessibleAction(data);
 }
 
 void ViewsAXTreeManager::SerializeTreeUpdates() {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return;
 
   // Better to set this flag to false early in case this method, or any method
@@ -181,7 +171,7 @@ void ViewsAXTreeManager::SerializeTreeUpdates() {
 
 void ViewsAXTreeManager::UnserializeTreeUpdates(
     const std::vector<ui::AXTreeUpdate>& updates) {
-  if (!widget_ || !widget_->GetRootView())
+  if (!widget_)
     return;
 
   for (const ui::AXTreeUpdate& update : updates) {
@@ -195,17 +185,10 @@ void ViewsAXTreeManager::UnserializeTreeUpdates(
   // AXEventGenerator to generate events based on the updates.
   for (const ui::AXEventGenerator::TargetedEvent& targeted_event :
        event_generator_) {
-    FireGeneratedEvent(targeted_event.event_params.event, *targeted_event.node);
+    if (ui::AXNode* node = ax_tree().GetFromId(targeted_event.node_id))
+      FireGeneratedEvent(targeted_event.event_params.event, *node);
   }
   event_generator_.ClearEvents();
-}
-
-void ViewsAXTreeManager::FireLoadComplete() {
-  DCHECK(widget_);
-
-  View* root_view = widget_->GetRootView();
-  if (root_view)
-    root_view->NotifyAccessibilityEvent(ax::mojom::Event::kLoadComplete, true);
 }
 
 void ViewsAXTreeManager::FireGeneratedEvent(

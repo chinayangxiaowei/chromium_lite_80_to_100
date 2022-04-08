@@ -10,14 +10,17 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
+#include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/tablet_mode.h"
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/no_destructor.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
@@ -45,6 +48,7 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/browser/extension_system.h"
+#include "ui/aura/window.h"
 #include "ui/base/base_window.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/shell_dialogs/select_file_policy.h"
@@ -190,13 +194,13 @@ SelectFileDialogExtension::RoutingID GetRoutingID(
 // anonymous namespace for the friend declaration to work.
 class SystemFilesAppDialogDelegate : public chromeos::SystemWebDialogDelegate {
  public:
-  SystemFilesAppDialogDelegate(base::WeakPtr<SelectFileDialogExtension> parent,
+  SystemFilesAppDialogDelegate(SelectFileDialogExtension* parent,
                                const std::string& id,
                                GURL url,
                                std::u16string title)
       : chromeos::SystemWebDialogDelegate(url, title),
         id_(id),
-        parent_(std::move(parent)) {}
+        parent_(parent) {}
   ~SystemFilesAppDialogDelegate() override = default;
 
   void SetModal(bool modal) {
@@ -214,17 +218,11 @@ class SystemFilesAppDialogDelegate : public chromeos::SystemWebDialogDelegate {
   }
 
   void OnDialogShown(content::WebUI* webui) override {
-    if (parent_) {
-      parent_->OnSystemDialogShown(webui->GetWebContents(), id_);
-    }
+    parent_->OnSystemDialogShown(webui->GetWebContents(), id_);
     chromeos::SystemWebDialogDelegate::OnDialogShown(webui);
   }
 
-  void OnDialogWillClose() override {
-    if (parent_) {
-      parent_->OnSystemDialogWillClose();
-    }
-  }
+  void OnDialogWillClose() override { parent_->OnSystemDialogWillClose(); }
 
  private:
   // The routing ID. We store it so that we can call back into the
@@ -233,7 +231,7 @@ class SystemFilesAppDialogDelegate : public chromeos::SystemWebDialogDelegate {
   const std::string id_;
 
   // The parent of this delegate.
-  base::WeakPtr<SelectFileDialogExtension> parent_;
+  SelectFileDialogExtension* parent_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -284,7 +282,29 @@ void SelectFileDialogExtension::ExtensionDialogClosing(
 
 void SelectFileDialogExtension::ExtensionTerminated(
     ExtensionDialog* dialog) {
-  // The extension crashed (or the process was killed). Close the dialog.
+  // The extension would have been unloaded because of the termination,
+  // reload it.
+  std::string extension_id = dialog->host()->extension()->id();
+  // Reload the extension after a bit; the extension may not have been unloaded
+  // yet. We don't want to try to reload the extension only to have the Unload
+  // code execute after us and re-unload the extension.
+  //
+  // TODO(rkc): This is ugly. The ideal solution is that we shouldn't need to
+  // reload the extension at all - when we try to open the extension the next
+  // time, the extension subsystem would automatically reload it for us. At
+  // this time though this is broken because of some faulty wiring in
+  // extensions::ProcessManager::CreateViewHost. Once that is fixed, remove
+  // this.
+  if (profile_) {
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &extensions::ExtensionService::ReloadExtension,
+            base::Unretained(extensions::ExtensionSystem::Get(profile_)
+                                 ->extension_service()),
+            extension_id));
+  }
+
   dialog->GetWidget()->Close();
 }
 
@@ -423,8 +443,21 @@ void SelectFileDialogExtension::SelectFileWithFileManagerParams(
   // The web contents to associate the dialog with.
   content::WebContents* web_contents = nullptr;
 
+  // The folder selection dialog created for capture mode should never be
+  // parented to a browser window (if one exists). https://crbug.com/1258842.
+  const bool is_for_capture_mode =
+      owner.window &&
+      owner.window->GetId() ==
+          ash::kShellWindowId_CaptureModeFolderSelectionDialogOwner;
+
+  const bool skip_finding_browser = is_for_capture_mode ||
+                                    owner.android_task_id.has_value() ||
+                                    owner.lacros_window_id.has_value();
+
+  can_resize_ = !ash::TabletMode::IsInTabletMode() && !is_for_capture_mode;
+
   // Obtain BaseWindow and WebContents if the owner window is browser.
-  if (!owner.android_task_id.has_value() && !owner.lacros_window_id.has_value())
+  if (!skip_finding_browser)
     FindRuntimeContext(owner.window, &base_window, &web_contents);
 
   if (web_contents)
@@ -456,13 +489,12 @@ void SelectFileDialogExtension::SelectFileWithFileManagerParams(
   gfx::NativeWindow parent_window =
       base_window ? base_window->GetNativeWindow() : owner.window;
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  can_resize_ = !ash::TabletMode::IsInTabletMode();
-#endif
-
   if (ash::features::IsFileManagerSwaEnabled()) {
+    // SystemFilesAppDialogDelegate is a self-deleting class that calls the
+    // delete operator once the dialog for which it was created has been closed.
+    // Hence this memory-leak looking code pattern.
     auto* dialog_delegate = new SystemFilesAppDialogDelegate(
-        weak_factory_.GetWeakPtr(), routing_id, file_manager_url, dialog_title);
+        this, routing_id, file_manager_url, dialog_title);
     dialog_delegate->SetModal(owner.window != nullptr);
     dialog_delegate->set_can_resize(can_resize_);
     dialog_delegate->ShowSystemDialog(parent_window);

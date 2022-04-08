@@ -49,13 +49,14 @@ struct TextureQuadParams {
 };
 
 // Helper to build a CompositorRenderPass and add quads to it. By default the
-// CompositorRenderPass will have full damage. Functionality is broken down into
+// CompositoRenderPass will have full damage. Functionality is broken down into
 // methods to modify render pass attributes, methods to add new quads and
 // methods to modify SharedQuadState for the last quad added.
 class RenderPassBuilder {
  public:
   RenderPassBuilder(CompositorRenderPassId id, const gfx::Size& output_size);
   RenderPassBuilder(CompositorRenderPassId id, const gfx::Rect& output_rect);
+
   RenderPassBuilder(const RenderPassBuilder& other) = delete;
   RenderPassBuilder& operator=(const RenderPassBuilder& other) = delete;
   ~RenderPassBuilder();
@@ -67,6 +68,8 @@ class RenderPassBuilder {
   RenderPassBuilder& SetDamageRect(const gfx::Rect& damage_rect);
   RenderPassBuilder& SetCacheRenderPass(bool val);
   RenderPassBuilder& SetHasDamageFromContributingContent(bool val);
+  RenderPassBuilder& AddFilter(const cc::FilterOperation& filter);
+  RenderPassBuilder& AddBackdropFilter(const cc::FilterOperation& filter);
 
   // Methods to add DrawQuads start here. The methods are structured so that the
   // most important attributes on the quad are function parameters. Less
@@ -193,9 +196,16 @@ class CompositorFrameBuilder {
   CompositorRenderPassId::Generator render_pass_id_generator_;
 };
 
+// Duplicates a list of render passes by calling DeepCopy() on each.
+CompositorRenderPassList CopyRenderPasses(
+    const CompositorRenderPassList& render_pass_list);
+
 // Creates a CompositorFrame that has a render pass with 20x20 output_rect and
 // empty damage_rect. This CompositorFrame is valid and can be sent over IPC.
 CompositorFrame MakeDefaultCompositorFrame();
+
+// Creates a CompositorFrame with provided list of render passes.
+CompositorFrame MakeCompositorFrame(CompositorRenderPassList render_pass_list);
 
 // Makes an aggregated frame out of the default compositor frame.
 AggregatedFrame MakeDefaultAggregatedFrame(size_t num_render_passes = 1);

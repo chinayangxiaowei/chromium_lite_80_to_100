@@ -17,17 +17,9 @@ scoped_refptr<DawnControlClientHolder> DawnControlClientHolder::Create(
   auto dawn_control_client_holder =
       base::MakeRefCounted<DawnControlClientHolder>(std::move(context_provider),
                                                     std::move(task_runner));
-  // The context lost callback occurs when the client receives
-  // OnGpuControlLostContext. This can happen on fatal errors when the GPU
-  // channel is disconnected: the GPU process crashes, the GPU process fails to
-  // deserialize a message, etc. We mark the context lost, but NOT destroy the
-  // entire WebGraphicsContext3DProvider as that would free services for mapping
-  // shared memory. There may still be outstanding mapped GPUBuffers pointing to
-  // this memory.
   dawn_control_client_holder->context_provider_->ContextProvider()
       ->SetLostContextCallback(WTF::BindRepeating(
-          &DawnControlClientHolder::MarkContextLost,
-          dawn_control_client_holder->weak_ptr_factory_.GetWeakPtr()));
+          &DawnControlClientHolder::Destroy, dawn_control_client_holder));
   return dawn_control_client_holder;
 }
 
@@ -46,7 +38,7 @@ DawnControlClientHolder::DawnControlClientHolder(
 DawnControlClientHolder::~DawnControlClientHolder() = default;
 
 void DawnControlClientHolder::Destroy() {
-  MarkContextLost();
+  api_channel_->Disconnect();
 
   // Destroy the WebGPU context.
   // This ensures that GPU resources are eagerly reclaimed.
@@ -76,25 +68,15 @@ DawnControlClientHolder::GetContextProviderWeakPtr() const {
   return context_provider_->GetWeakPtr();
 }
 
-void DawnControlClientHolder::MarkContextLost() {
-  if (context_lost_) {
-    return;
-  }
-  api_channel_->Disconnect();
-  context_lost_ = true;
-}
-
 bool DawnControlClientHolder::IsContextLost() const {
-  return context_lost_;
+  return !context_provider_;
 }
 
 std::unique_ptr<RecyclableCanvasResource>
-DawnControlClientHolder::GetOrCreateCanvasResource(
-    const IntSize& size,
-    const CanvasResourceParams& params,
-    bool is_origin_top_left) {
+DawnControlClientHolder::GetOrCreateCanvasResource(const SkImageInfo& info,
+                                                   bool is_origin_top_left) {
   return recyclable_resource_cache_.GetOrCreateCanvasResource(
-      size, params, is_origin_top_left);
+      info, is_origin_top_left);
 }
 
 }  // namespace blink

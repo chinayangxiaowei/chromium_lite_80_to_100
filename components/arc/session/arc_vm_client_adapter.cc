@@ -57,9 +57,10 @@
 #include "chromeos/system/core_scheduling.h"
 #include "chromeos/system/statistics_provider.h"
 #include "components/arc/arc_features.h"
-#include "components/arc/arc_service_manager.h"
 #include "components/arc/arc_util.h"
 #include "components/arc/session/arc_bridge_service.h"
+#include "components/arc/session/arc_dlc_installer.h"
+#include "components/arc/session/arc_service_manager.h"
 #include "components/arc/session/arc_session.h"
 #include "components/arc/session/connection_holder.h"
 #include "components/arc/session/file_system_status.h"
@@ -279,12 +280,11 @@ std::vector<std::string> GenerateKernelCmdline(
       break;
   }
 
-  // Check if enabled.
-  if (base::FeatureList::IsEnabled(arc::kUseHighMemoryDalvikProfile)) {
+  if (base::FeatureList::IsEnabled(arc::kUseDalvikMemoryProfile)) {
     switch (start_params.dalvik_memory_profile) {
       case StartParams::DalvikMemoryProfile::DEFAULT:
-        break;
       case StartParams::DalvikMemoryProfile::M4G:
+        // Use the 4G profile for devices with 4GB RAM or less.
         result.push_back("androidboot.arc_dalvik_memory_profile=4G");
         break;
       case StartParams::DalvikMemoryProfile::M8G:
@@ -295,8 +295,8 @@ std::vector<std::string> GenerateKernelCmdline(
         break;
     }
   } else {
-    VLOG(1) << "High-memory dalvik profile is not enabled, default low-memory "
-               "is used.";
+    VLOG(1) << "Dalvik memory profile is not enabled, the default setting is "
+            << "used.";
   }
 
   std::string log_profile_name;
@@ -349,7 +349,12 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
   for (auto& entry : kernel_cmdline)
     request.add_params(std::move(entry));
 
+  vm_tools::concierge::VirtualMachineSpec* vm = request.mutable_vm();
+
+  vm->set_kernel(file_system_status.guest_kernel_path().value());
+
   // Add rootfs as /dev/vda.
+  vm->set_rootfs(file_system_status.system_image_path().value());
   request.set_rootfs_writable(file_system_status.is_host_rootfs_writable() &&
                               file_system_status.is_system_image_ext_format());
 
@@ -370,6 +375,9 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
     disk_image->set_writable(false);
     disk_image->set_do_mount(true);
   }
+
+  // Add Android fstab.
+  request.set_fstab(file_system_status.fstab_path().value());
 
   // Add cpus.
   request.set_cpus(cpus);
@@ -863,6 +871,18 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     if (file_system_status_rewriter_for_testing_)
       file_system_status_rewriter_for_testing_.Run(&file_system_status);
 
+    VLOG(2) << "Wait for DLC installation if necessary";
+    // Waits for a stable state (kInstalled/kUninstalled) and proceeds
+    // regardless of installation result because even if the installation
+    // has failed, it will only affect limited functionality (e.g. without
+    // Houdini library for ARM apps). ARCVM should still continue to start.
+    ArcDlcInstaller::Get()->WaitForStableState(base::BindOnce(
+        &ArcVmClientAdapter::LoadDemoResources, weak_factory_.GetWeakPtr(),
+        std::move(callback), std::move(file_system_status)));
+  }
+
+  void LoadDemoResources(chromeos::VoidDBusMethodCallback callback,
+                         FileSystemStatus file_system_status) {
     VLOG(2) << "Retrieving demo session apps path";
     DCHECK(demo_mode_delegate_);
     demo_mode_delegate_->EnsureOfflineResourcesLoaded(base::BindOnce(
@@ -885,12 +905,11 @@ class ArcVmClientAdapter : public ArcClientAdapter,
     // use, set |cpus| to the number of physical cores. Otherwise, set the
     // variable to the number of logical cores minus the ones disabled by
     // chrome://flags/#scheduler-configuration.
-    const int32_t cpus =
-        (chromeos::system::IsCoreSchedulingAvailable() &&
-         !use_per_vm_core_scheduling)
-            ? chromeos::system::NumberOfProcessorsForCoreScheduling()
-            : base::SysInfo::NumberOfProcessors() -
-                  start_params_.num_cores_disabled;
+    const int32_t cpus = (chromeos::system::IsCoreSchedulingAvailable() &&
+                          !use_per_vm_core_scheduling)
+                             ? chromeos::system::NumberOfPhysicalCores()
+                             : base::SysInfo::NumberOfProcessors() -
+                                   start_params_.num_cores_disabled;
     DCHECK_LT(0, cpus);
 
     std::vector<std::string> kernel_cmdline = GenerateKernelCmdline(

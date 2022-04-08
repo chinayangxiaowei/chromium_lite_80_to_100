@@ -10,16 +10,19 @@
 #define IN_LIBXML
 #include "libxml.h"
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined (__CYGWIN__)
 #define XML_DIR_SEP '\\'
 #else
 #define XML_DIR_SEP '/'
 #endif
 
 #include <string.h>
+#ifdef HAVE_CTYPE_H
 #include <ctype.h>
+#endif
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-
+#endif
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
@@ -1548,10 +1551,8 @@ xmlNewInputFromFile(xmlParserCtxtPtr ctxt, const char *filename) {
     }
 
     inputStream = xmlNewInputStream(ctxt);
-    if (inputStream == NULL) {
-	xmlFreeParserInputBuffer(buf);
+    if (inputStream == NULL)
 	return(NULL);
-    }
 
     inputStream->buf = buf;
     inputStream = xmlCheckHTTPInput(ctxt, inputStream);
@@ -1735,7 +1736,7 @@ xmlInitParserCtxt(xmlParserCtxtPtr ctxt)
 	ctxt->options |= XML_PARSE_NOBLANKS;
     }
 
-    ctxt->vctxt.flags = XML_VCTXT_USE_PCTXT;
+    ctxt->vctxt.finishDtd = XML_CTXT_FINISH_DTD_0;
     ctxt->vctxt.userData = ctxt;
     ctxt->vctxt.error = xmlParserValidityError;
     ctxt->vctxt.warning = xmlParserValidityWarning;
@@ -2164,3 +2165,5 @@ xmlKeepBlanksDefault(int val) {
     return(old);
 }
 
+#define bottom_parserInternals
+#include "elfgcchack.h"

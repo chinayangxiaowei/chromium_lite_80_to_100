@@ -43,18 +43,18 @@ class QuickAnswersUiControllerTest : public AshTestBase {
 };
 
 TEST_F(QuickAnswersUiControllerTest, TearDownWhileQuickAnswersViewShowing) {
-  EXPECT_FALSE(ui_controller()->IsShowingQuickAnswersView());
+  EXPECT_FALSE(ui_controller()->is_showing_quick_answers_view());
   ui_controller()->CreateQuickAnswersView(kDefaultAnchorBoundsInScreen,
                                           "default_title", "default_query",
                                           /*is_internal=*/false);
-  EXPECT_TRUE(ui_controller()->IsShowingQuickAnswersView());
+  EXPECT_TRUE(ui_controller()->is_showing_quick_answers_view());
 }
 
-TEST_F(QuickAnswersUiControllerTest, TearDownWhileNoticeViewShowing) {
-  EXPECT_FALSE(ui_controller()->is_showing_user_notice_view());
-  ui_controller()->CreateUserNoticeView(kDefaultAnchorBoundsInScreen,
-                                        std::u16string(), std::u16string());
-  EXPECT_FALSE(ui_controller()->IsShowingUserConsentView());
+TEST_F(QuickAnswersUiControllerTest, TearDownWhileConsentViewShowing) {
+  EXPECT_FALSE(ui_controller()->is_showing_user_consent_view());
+  ui_controller()->CreateUserConsentView(kDefaultAnchorBoundsInScreen,
+                                         std::u16string(), std::u16string());
+  EXPECT_TRUE(ui_controller()->is_showing_user_consent_view());
 }
 
 }  // namespace ash

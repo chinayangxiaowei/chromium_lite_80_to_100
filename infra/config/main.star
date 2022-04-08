@@ -166,7 +166,10 @@ luci.realm(
     ],
 )
 
-# Launch Swarming tasks in "realms-aware mode", crbug.com/1136313.
+luci.builder.defaults.experiments.set({
+    # TODO(crbug.com/1135718): Promote out of experiment for all builders.
+    "chromium.chromium_tests.use_rdb_results": 100,
+})
 luci.builder.defaults.test_presentation.set(resultdb.test_presentation(grouping_keys = ["status", "v.test_suite"]))
 
 exec("//swarming.star")
@@ -185,6 +188,7 @@ branches.exec("//subprojects/webrtc/subproject.star")
 exec("//generators/cq-usage.star")
 branches.exec("//generators/cq-builders-md.star")
 
+exec("//generators/scheduler-noop-jobs.star")
 exec("//generators/sort-consoles.star")
 
 exec("//validators/builders-in-consoles.star")

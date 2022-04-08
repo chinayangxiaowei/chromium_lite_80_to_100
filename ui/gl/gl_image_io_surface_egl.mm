@@ -39,9 +39,12 @@ InternalFormatType BufferFormatToInternalFormatType(gfx::BufferFormat format,
     case gfx::BufferFormat::R_8:
       return {GL_RED, GL_UNSIGNED_BYTE};
     case gfx::BufferFormat::R_16:
+      // TODO(https://crbug.com/1233228): This should be GL_RED.
       return {GL_RED_INTEGER, GL_UNSIGNED_SHORT};
     case gfx::BufferFormat::RG_88:
       return {GL_RG, GL_UNSIGNED_BYTE};
+    case gfx::BufferFormat::RG_1616:
+      return {GL_RG, GL_UNSIGNED_SHORT};
     case gfx::BufferFormat::BGRX_8888:
       if (emulate_rgb) {
         return {GL_BGRA_EXT, GL_UNSIGNED_BYTE};
@@ -309,6 +312,12 @@ bool GLImageIOSurfaceEGL::CopyTexImage(unsigned target) {
   const EGLint texture_type =
       format_ == gfx::BufferFormat::P010 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE;
 
+  // GL_UNSIGNED_SHORT is not supported for all contexts. Use half-float
+  // instead.
+  // https://crbug.com/1282350
+  const GLenum rgb_texture_type =
+      format_ == gfx::BufferFormat::P010 ? GL_HALF_FLOAT_OES : GL_UNSIGNED_BYTE;
+
   // clang-format off
   const EGLint yAttribs[] = {
     EGL_WIDTH,                         size_.width(),
@@ -376,7 +385,7 @@ bool GLImageIOSurfaceEGL::CopyTexImage(unsigned target) {
   }
 
   yuv_to_rgb_converter->CopyYUV420ToRGB(target, size_, rgb_texture,
-                                        texture_type);
+                                        rgb_texture_type);
   if (glGetError() != GL_NO_ERROR) {
     LOG(ERROR) << "Failed converting from YUV to RGB";
     return false;

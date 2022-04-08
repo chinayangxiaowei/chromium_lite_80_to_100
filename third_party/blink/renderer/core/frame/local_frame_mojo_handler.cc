@@ -213,16 +213,15 @@ v8::MaybeLocal<v8::Value> CallMethodOnFrame(LocalFrame* local_frame,
 
 // A wrapper class used as the callback for JavaScript executed
 // in an isolated world.
-class JavaScriptIsolatedWorldRequest : public PausableScriptExecutor::Executor,
-                                       public WebScriptExecutionCallback {
+class JavaScriptIsolatedWorldRequest
+    : public GarbageCollected<JavaScriptIsolatedWorldRequest>,
+      public WebScriptExecutionCallback {
   using JavaScriptExecuteRequestInIsolatedWorldCallback =
       mojom::blink::LocalFrame::JavaScriptExecuteRequestInIsolatedWorldCallback;
 
  public:
   JavaScriptIsolatedWorldRequest(
       LocalFrame* local_frame,
-      int32_t world_id,
-      const String& script,
       bool wants_result,
       mojom::blink::LocalFrame::JavaScriptExecuteRequestInIsolatedWorldCallback
           callback);
@@ -232,52 +231,26 @@ class JavaScriptIsolatedWorldRequest : public PausableScriptExecutor::Executor,
       const JavaScriptIsolatedWorldRequest&) = delete;
   ~JavaScriptIsolatedWorldRequest() override;
 
-  // PausableScriptExecutor::Executor overrides.
-  Vector<v8::Local<v8::Value>> Execute(LocalDOMWindow*) override;
-
-  void Trace(Visitor* visitor) const override;
-
-  // WebScriptExecutionCallback overrides.
+  // WebScriptExecutionCallback:
   void Completed(const WebVector<v8::Local<v8::Value>>& result) override;
+
+  void Trace(Visitor* visitor) const { visitor->Trace(local_frame_); }
 
  private:
   Member<LocalFrame> local_frame_;
-  int32_t world_id_;
-  String script_;
   bool wants_result_;
   JavaScriptExecuteRequestInIsolatedWorldCallback callback_;
 };
 
 JavaScriptIsolatedWorldRequest::JavaScriptIsolatedWorldRequest(
     LocalFrame* local_frame,
-    int32_t world_id,
-    const String& script,
     bool wants_result,
     JavaScriptExecuteRequestInIsolatedWorldCallback callback)
     : local_frame_(local_frame),
-      world_id_(world_id),
-      script_(script),
       wants_result_(wants_result),
-      callback_(std::move(callback)) {
-  DCHECK_GT(world_id, DOMWrapperWorld::kMainWorldId);
-}
+      callback_(std::move(callback)) {}
 
 JavaScriptIsolatedWorldRequest::~JavaScriptIsolatedWorldRequest() = default;
-
-void JavaScriptIsolatedWorldRequest::Trace(Visitor* visitor) const {
-  PausableScriptExecutor::Executor::Trace(visitor);
-  visitor->Trace(local_frame_);
-}
-
-Vector<v8::Local<v8::Value>> JavaScriptIsolatedWorldRequest::Execute(
-    LocalDOMWindow* window) {
-  // Note: An error event in an isolated world will never be dispatched to
-  // a foreign world.
-  ClassicScript* classic_script = ClassicScript::CreateUnspecifiedScript(
-      script_, SanitizeScriptErrors::kDoNotSanitize);
-  return {classic_script->RunScriptInIsolatedWorldAndReturnValue(window,
-                                                                 world_id_)};
-}
 
 void JavaScriptIsolatedWorldRequest::Completed(
     const WebVector<v8::Local<v8::Value>>& result) {
@@ -298,6 +271,7 @@ void JavaScriptIsolatedWorldRequest::Completed(
     if (new_value)
       value = base::Value::FromUniquePtrValue(std::move(new_value));
   }
+
   std::move(callback_).Run(std::move(value));
 }
 
@@ -679,7 +653,7 @@ void LocalFrameMojoHandler::GetResourceSnapshotForWebBundle(
 void LocalFrameMojoHandler::CopyImageAt(const gfx::Point& window_point) {
   gfx::Point viewport_position =
       frame_->GetWidgetForLocalRoot()->DIPsToRoundedBlinkSpace(window_point);
-  frame_->CopyImageAtViewportPoint(IntPoint(viewport_position));
+  frame_->CopyImageAtViewportPoint(viewport_position);
 }
 
 void LocalFrameMojoHandler::SaveImageAt(const gfx::Point& window_point) {
@@ -729,9 +703,7 @@ void LocalFrameMojoHandler::MediaPlayerActionAt(
     blink::mojom::blink::MediaPlayerActionPtr action) {
   gfx::Point viewport_position =
       frame_->GetWidgetForLocalRoot()->DIPsToRoundedBlinkSpace(window_point);
-  IntPoint location(viewport_position);
-
-  frame_->MediaPlayerActionAtViewportPoint(location, action->type,
+  frame_->MediaPlayerActionAtViewportPoint(viewport_position, action->type,
                                            action->enable);
 }
 
@@ -909,18 +881,19 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestForTests(
 
   v8::HandleScope handle_scope(V8PerIsolateData::MainThreadIsolate());
   v8::Local<v8::Value> result;
+
+  // `kDoNotSanitize` is used because this is only for tests and some tests
+  // need `kDoNotSanitize` for dynamic imports.
+  ClassicScript* script = ClassicScript::CreateUnspecifiedScript(
+      javascript, SanitizeScriptErrors::kDoNotSanitize);
+
   if (world_id == DOMWrapperWorld::kMainWorldId) {
-    result = ClassicScript::CreateUnspecifiedScript(javascript)
-                 ->RunScriptAndReturnValue(DomWindow());
+    result = script->RunScriptAndReturnValue(DomWindow());
   } else {
     CHECK_GT(world_id, DOMWrapperWorld::kMainWorldId);
     CHECK_LT(world_id, DOMWrapperWorld::kDOMWrapperWorldEmbedderWorldIdLimit);
-    // Note: An error event in an isolated world will never be dispatched to
-    // a foreign world.
     result =
-        ClassicScript::CreateUnspecifiedScript(
-            javascript, SanitizeScriptErrors::kDoNotSanitize)
-            ->RunScriptInIsolatedWorldAndReturnValue(DomWindow(), world_id);
+        script->RunScriptInIsolatedWorldAndReturnValue(DomWindow(), world_id);
   }
 
   if (wants_result) {
@@ -960,16 +933,13 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestInIsolatedWorld(
   v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
   scoped_refptr<DOMWrapperWorld> isolated_world =
       DOMWrapperWorld::EnsureIsolatedWorld(ToIsolate(frame_), world_id);
-
-  // This member will be traced as the |executor| on the PausableScriptExector.
-  auto* execution_request =
-      MakeGarbageCollected<JavaScriptIsolatedWorldRequest>(
-          frame_, world_id, javascript, wants_result, std::move(callback));
-
+  ScriptSourceCode source_code = ScriptSourceCode(javascript);
+  HeapVector<ScriptSourceCode> sources;
+  sources.Append(&source_code, 1);
   auto* executor = MakeGarbageCollected<PausableScriptExecutor>(
-      DomWindow(), ToScriptState(frame_, *isolated_world),
-      /*callback=*/execution_request,
-      /*executor=*/execution_request);
+      DomWindow(), std::move(isolated_world), sources, false /* user_gesture */,
+      MakeGarbageCollected<JavaScriptIsolatedWorldRequest>(
+          frame_, wants_result, std::move(callback)));
   executor->Run();
 
   script_execution_power_mode_voter_->ResetVoteAfterTimeout(
@@ -1110,13 +1080,20 @@ void LocalFrameMojoHandler::HandleRendererDebugURL(const KURL& url) {
 
 void LocalFrameMojoHandler::GetCanonicalUrlForSharing(
     GetCanonicalUrlForSharingCallback callback) {
-  KURL canonical_url;
+  KURL canon_url;
   HTMLLinkElement* link_element = GetDocument()->LinkCanonical();
-  if (link_element)
-    canonical_url = link_element->Href();
-  std::move(callback).Run(canonical_url.IsNull()
-                              ? absl::nullopt
-                              : absl::make_optional(canonical_url));
+  if (link_element) {
+    canon_url = link_element->Href();
+    KURL doc_url = GetDocument()->Url();
+    // When sharing links to pages, the fragment identifier often serves to mark a specific place
+    // within the page that the user wishes to point the recipient to. Canonical URLs generally
+    // don't and can't contain this state, so try to match user expectations a little more closely
+    // here by splicing the fragment identifier (if there is one) into the shared URL.
+    if (doc_url.HasFragmentIdentifier() && !canon_url.HasFragmentIdentifier())
+      canon_url.SetFragmentIdentifier(doc_url.FragmentIdentifier());
+  }
+  std::move(callback).Run(canon_url.IsNull() ? absl::nullopt
+                                             : absl::make_optional(canon_url));
 }
 
 void LocalFrameMojoHandler::AnimateDoubleTapZoom(const gfx::Point& point,
@@ -1162,7 +1139,7 @@ void LocalFrameMojoHandler::PluginActionAt(
     mojom::blink::PluginActionType action) {
   // TODO(bokan): Location is probably in viewport coordinates
   HitTestResult result =
-      HitTestResultForRootFramePos(frame_, PhysicalOffset(IntPoint(location)));
+      HitTestResultForRootFramePos(frame_, PhysicalOffset(location));
   Node* node = result.InnerNode();
   if (!IsA<HTMLObjectElement>(*node) && !IsA<HTMLEmbedElement>(*node))
     return;

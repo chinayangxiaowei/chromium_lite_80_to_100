@@ -13,7 +13,7 @@
 #include "libxml.h"
 #include <stdio.h>
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) || defined(__CYGWIN__)
 #include <unistd.h>
 #endif
 #include <string.h>

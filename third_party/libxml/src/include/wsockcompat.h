@@ -5,6 +5,9 @@
 #if !defined __XML_WSOCKCOMPAT_H__
 #define __XML_WSOCKCOMPAT_H__
 
+#ifdef _WIN32_WCE
+#include <winsock.h>
+#else
 #include <errno.h>
 #include <winsock2.h>
 
@@ -26,6 +29,7 @@
 #if defined(GetAddrInfo)
 #include <wspiapi.h>
 #define HAVE_GETADDRINFO
+#endif
 #endif
 
 #undef XML_SOCKLEN_T

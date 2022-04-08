@@ -24,11 +24,11 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/task/current_thread.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time_to_iso8601.h"
 #include "base/values.h"
@@ -915,9 +915,8 @@ bool OnDeterminingFilenameWillDispatchCallback(
     content::BrowserContext* browser_context,
     Feature::Context target_context,
     const Extension* extension,
-    const base::DictionaryValue* listener_filter,
-    std::unique_ptr<base::ListValue>* event_args_out,
-    std::unique_ptr<EventFilteringInfo>* event_filtering_info_out) {
+    Event* event,
+    const base::DictionaryValue* listener_filter) {
   *any_determiners = true;
   base::Time installed =
       ExtensionPrefs::Get(browser_context)->GetInstallTime(extension->id());

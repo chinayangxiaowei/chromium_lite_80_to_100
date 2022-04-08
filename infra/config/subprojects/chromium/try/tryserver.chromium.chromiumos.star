@@ -4,7 +4,6 @@
 """Definitions of builders in the tryserver.chromium.chromiumos builder group."""
 
 load("//lib/branches.star", "branches")
-load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "goma", "os")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
@@ -13,10 +12,12 @@ load("//project.star", "settings")
 try_.defaults.set(
     builder_group = "tryserver.chromium.chromiumos",
     cores = 8,
+    orchestrator_cores = 2,
+    compilator_cores = 32,
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
-    os = os.LINUX_DEFAULT,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
@@ -45,9 +46,9 @@ try_.builder(
 try_.builder(
     name = "chromeos-amd64-generic-rel",
     branch_selector = branches.CROS_LTS_MILESTONE,
-    mirrors = ["ci/chromeos-amd64-generic-rel"],
     builderless = not settings.is_main,
     main_list_view = "try",
+    os = os.LINUX_BIONIC_REMOVE,
     tryjob = try_.job(),
 )
 
@@ -61,6 +62,7 @@ try_.builder(
     mirrors = ["ci/chromeos-arm-generic-rel"],
     builderless = not settings.is_main,
     main_list_view = "try",
+    os = os.LINUX_BIONIC_REMOVE,
     tryjob = try_.job(),
 )
 
@@ -69,6 +71,7 @@ try_.builder(
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
+    os = os.LINUX_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -76,6 +79,7 @@ try_.builder(
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
+    os = os.LINUX_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -83,26 +87,17 @@ try_.builder(
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
+    os = os.LINUX_BIONIC_REMOVE,
     tryjob = try_.job(),
 )
 
 try_.builder(
     name = "chromeos-kevin-compile-rel",
-    mirrors = [
-        "ci/chromeos-kevin-rel",
-    ],
-    try_settings = builder_config.try_settings(
-        include_all_triggered_testers = True,
-        is_compile_only = True,
-    ),
 )
 
 try_.builder(
     name = "chromeos-kevin-rel",
     branch_selector = branches.CROS_LTS_MILESTONE,
-    mirrors = [
-        "ci/chromeos-kevin-rel",
-    ],
     main_list_view = "try",
     tryjob = try_.job(
         location_regexp = [
@@ -115,22 +110,23 @@ try_.builder(
 
 try_.builder(
     name = "linux-chromeos-inverse-fieldtrials-fyi-rel",
-    mirrors = builder_config.copy_from("try/linux-chromeos-rel"),
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "linux-chromeos-rel",
-    mirrors = [
-        "ci/linux-chromeos-rel",
-    ],
+    compilator = "linux-chromeos-rel-compilator",
     branch_selector = branches.CROS_LTS_MILESTONE,
-    builderless = not settings.is_main,
-    cores = 8,
-    goma_jobs = goma.jobs.J300,
     main_list_view = "try",
-    tryjob = try_.job(),
     use_clang_coverage = True,
     coverage_test_types = ["unit", "overall"],
+    tryjob = try_.job(),
+)
+
+try_.compilator_builder(
+    name = "linux-chromeos-rel-compilator",
+    branch_selector = branches.CROS_LTS_MILESTONE,
+    main_list_view = "try",
+    goma_jobs = goma.jobs.J300,
 )
 
 try_.builder(
@@ -152,6 +148,7 @@ try_.builder(
     goma_jobs = goma.jobs.J300,
     main_list_view = "try",
     tryjob = try_.job(),
+    os = os.LINUX_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -162,6 +159,7 @@ try_.builder(
     main_list_view = "try",
     use_clang_coverage = True,
     coverage_test_types = ["unit", "overall"],
+    os = os.LINUX_BIONIC_REMOVE,
     tryjob = try_.job(
         experiment_percentage = 3,
     ),
@@ -174,6 +172,7 @@ try_.builder(
     ssd = True,
     goma_jobs = goma.jobs.J300,
     main_list_view = "try",
+    os = os.LINUX_BIONIC_REMOVE,
     tryjob = try_.job(
         experiment_percentage = 1,
     ),
@@ -202,11 +201,6 @@ try_.builder(
 
 try_.builder(
     name = "chromeos-amd64-generic-rel-rts",
-    mirrors = ["ci/chromeos-amd64-generic-rel"],
-    try_settings = builder_config.try_settings(
-        rts_config = builder_config.rts_config(
-            condition = builder_config.rts_condition.ALWAYS,
-        ),
-    ),
     builderless = False,
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )

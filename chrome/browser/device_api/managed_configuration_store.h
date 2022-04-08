@@ -6,35 +6,47 @@
 #define CHROME_BROWSER_DEVICE_API_MANAGED_CONFIGURATION_STORE_H_
 
 #include "base/files/file_path.h"
-#include "base/values.h"
+#include "base/observer_list_threadsafe.h"
+#include "chrome/browser/device_api/managed_configuration_api.h"
 #include "components/value_store/leveldb_value_store.h"
 #include "url/origin.h"
 
-// Class responsible for internal storage of the managed configuration.
-// Setting/getting the data is a blocking operation and need to be run on a
-// thread that supports this.
+namespace base {
+class SequencedTaskRunner;
+}
+
+// Class responsible for internal storage of the managed configuration. Adding
+// and removing observers is allowed on any thread, while setting/getting the
+// data is only allowed on the FILE thread.
 //
 // By itself, this class can be percieved as a handle to access levelDB database
 // stored at |path|.
 class ManagedConfigurationStore {
  public:
-  ManagedConfigurationStore(const url::Origin& origin,
-                            const base::FilePath& path);
+  ManagedConfigurationStore(
+      scoped_refptr<base::SequencedTaskRunner> backend_sequence,
+      const url::Origin& origin,
+      const base::FilePath& path);
   ~ManagedConfigurationStore();
 
-  // Returns |true| if the new policy is different from the previously set
-  // policy.
-  bool SetCurrentPolicy(const base::DictionaryValue& current_configuration);
-  std::unique_ptr<base::DictionaryValue> Get(
-      const std::vector<std::string>& keys);
+  // Initializes connection to the database. Must be called on
+  // |backend_sequence_|.
+  void InitializeOnBackend();
+
+  void AddObserver(ManagedConfigurationAPI::Observer* observer);
+  void RemoveObserver(ManagedConfigurationAPI::Observer* observer);
+
+  // Read/Write operations must be called on |backend_sequence_|.
+  void SetCurrentPolicy(const base::DictionaryValue& current_configuration);
+  value_store::ValueStore::ReadResult Get(const std::vector<std::string>& keys);
 
  private:
-  // Initializes connection to the database.
-  void Initialize();
-
+  scoped_refptr<base::SequencedTaskRunner> backend_sequence_;
   const url::Origin origin_;
   const base::FilePath path_;
   std::unique_ptr<value_store::ValueStore> store_;
+  scoped_refptr<base::ObserverListThreadSafe<ManagedConfigurationAPI::Observer>>
+      observers_;
 };
 
 #endif  // CHROME_BROWSER_DEVICE_API_MANAGED_CONFIGURATION_STORE_H_

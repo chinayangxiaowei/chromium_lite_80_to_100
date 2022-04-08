@@ -9,7 +9,6 @@
 
 #include "ash/ash_export.h"
 #include "ash/quick_answers/ui/quick_answers_focus_search.h"
-#include "base/memory/weak_ptr.h"
 #include "ui/events/event_handler.h"
 #include "ui/views/focus/focus_manager.h"
 
@@ -21,7 +20,7 @@ class LabelButton;
 
 namespace ash {
 
-class AssistantWebView;
+class AshWebView;
 class QuickAnswersUiController;
 class QuickAnswersPreTargetHandler;
 
@@ -35,7 +34,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   QuickAnswersView(const gfx::Rect& anchor_view_bounds,
                    const std::string& title,
                    bool is_internal,
-                   base::WeakPtr<QuickAnswersUiController> controller);
+                   QuickAnswersUiController* controller);
 
   QuickAnswersView(const QuickAnswersView&) = delete;
   QuickAnswersView& operator=(const QuickAnswersView&) = delete;
@@ -79,7 +78,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   void OnPhoneticsAudioButtonPressed(const GURL& phonetics_audio);
 
   gfx::Rect anchor_view_bounds_;
-  base::WeakPtr<QuickAnswersUiController> controller_;
+  QuickAnswersUiController* const controller_;
   bool has_second_row_answer_ = false;
   std::string title_;
   bool is_internal_ = false;
@@ -94,7 +93,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   views::ImageButton* phonetics_audio_button_ = nullptr;
 
   // Invisible web view to play phonetics audio for definition results.
-  AssistantWebView* phonetics_audio_web_view_ = nullptr;
+  AshWebView* phonetics_audio_web_view_ = nullptr;
 
   std::unique_ptr<QuickAnswersPreTargetHandler> quick_answers_view_handler_;
   std::unique_ptr<QuickAnswersFocusSearch> focus_search_;

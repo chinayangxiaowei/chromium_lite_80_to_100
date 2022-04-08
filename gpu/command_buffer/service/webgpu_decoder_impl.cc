@@ -424,12 +424,11 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
 
   int32_t GetPreferredAdapterIndex(PowerPreference power_preference) const;
 
-  error::Error DoRequestDevice(
-      DawnRequestDeviceSerial request_device_serial,
-      int32_t requested_adapter_index,
-      uint32_t device_id,
-      uint32_t device_generation,
-      const WGPUDeviceProperties& requested_device_properties);
+  void DoRequestDevice(DawnRequestDeviceSerial request_device_serial,
+                       int32_t requested_adapter_index,
+                       uint32_t device_id,
+                       uint32_t device_generation,
+                       const WGPUDeviceProperties& requested_device_properties);
   void OnRequestDeviceCallback(DawnRequestDeviceSerial request_device_serial,
                                size_t requested_adapter_index,
                                uint32_t device_id,
@@ -584,20 +583,26 @@ ContextResult WebGPUDecoderImpl::Initialize() {
   return ContextResult::kSuccess;
 }
 
-error::Error WebGPUDecoderImpl::DoRequestDevice(
+void WebGPUDecoderImpl::DoRequestDevice(
     DawnRequestDeviceSerial request_device_serial,
     int32_t requested_adapter_index,
     uint32_t device_id,
     uint32_t device_generation,
     const WGPUDeviceProperties& request_device_properties) {
-  if (requested_adapter_index < 0 ||
-      static_cast<uint32_t>(requested_adapter_index) >= dawn_adapters_.size()) {
-    return error::kOutOfBounds;
-  }
+  DCHECK_LE(0, requested_adapter_index);
+
+  DCHECK_LT(static_cast<size_t>(requested_adapter_index),
+            dawn_adapters_.size());
 
   dawn_native::DeviceDescriptor device_descriptor;
   if (request_device_properties.textureCompressionBC) {
     device_descriptor.requiredFeatures.push_back("texture_compression_bc");
+  }
+  if (request_device_properties.textureCompressionETC2) {
+    device_descriptor.requiredFeatures.push_back("texture-compression-etc2");
+  }
+  if (request_device_properties.textureCompressionASTC) {
+    device_descriptor.requiredFeatures.push_back("texture-compression-astc");
   }
   if (request_device_properties.shaderFloat16) {
     device_descriptor.requiredFeatures.push_back("shader_float16");
@@ -662,8 +667,6 @@ error::Error WebGPUDecoderImpl::DoRequestDevice(
         std::move(*callback).Run(status, wgpu_device, message);
       },
       new CallbackT(std::move(callback)));
-
-  return error::kNoError;
 }
 
 void WebGPUDecoderImpl::OnRequestDeviceCallback(
@@ -1074,8 +1077,9 @@ error::Error WebGPUDecoderImpl::HandleRequestDevice(
     }
   }
 
-  return DoRequestDevice(request_device_serial, adapter_service_id, device_id,
-                         device_generation, device_properties);
+  DoRequestDevice(request_device_serial, adapter_service_id, device_id,
+                  device_generation, device_properties);
+  return error::kNoError;
 }
 
 error::Error WebGPUDecoderImpl::HandleDawnCommands(
@@ -1102,6 +1106,7 @@ error::Error WebGPUDecoderImpl::HandleDawnCommands(
                "WebGPUDecoderImpl::HandleDawnCommands", "bytes", size);
 
   if (!wire_server_->HandleCommands(shm_commands, size)) {
+    NOTREACHED();
     return error::kLostContext;
   }
 

@@ -102,7 +102,6 @@ void BackgroundFetchDelegateBase::DownloadUrl(
                           weak_ptr_factory_.GetWeakPtr());
   params.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(traffic_annotation);
-  params.request_params.update_first_party_url_on_redirect = false;
 
   JobDetails* job_details = GetJobDetails(job_id);
   if (job_details->job_state == JobDetails::State::kPendingWillStartPaused ||
@@ -111,6 +110,9 @@ void BackgroundFetchDelegateBase::DownloadUrl(
     DoShowUi(job_id);
     job_details->MarkJobAsStarted();
   }
+
+  params.request_params.isolation_info =
+      job_details->fetch_description->isolation_info;
 
   if (job_details->job_state == JobDetails::State::kStartedButPaused) {
     job_details->on_resume = base::BindOnce(
@@ -169,11 +171,8 @@ void BackgroundFetchDelegateBase::CancelDownload(std::string job_id) {
   Abort(job_id);
 
   if (auto client = GetClient(job_id)) {
-    // The |download_guid| is not releavnt here as the job has already
-    // been aborted and is assumed to have been removed.
     client->OnJobCancelled(
-        job_id, "" /* download_guid */,
-        blink::mojom::BackgroundFetchFailureReason::CANCELLED_FROM_UI);
+        job_id, blink::mojom::BackgroundFetchFailureReason::CANCELLED_FROM_UI);
   }
 }
 
@@ -243,15 +242,14 @@ void BackgroundFetchDelegateBase::MarkJobComplete(const std::string& job_id) {
   job_details->current_fetch_guids.clear();
 }
 
-void BackgroundFetchDelegateBase::FailFetch(const std::string& job_id,
-                                            const std::string& download_guid) {
+void BackgroundFetchDelegateBase::FailFetch(const std::string& job_id) {
   // Save a copy before Abort() deletes the reference.
   const std::string unique_id = job_id;
   Abort(job_id);
 
   if (auto client = GetClient(unique_id)) {
     client->OnJobCancelled(
-        download_guid, unique_id,
+        unique_id,
         blink::mojom::BackgroundFetchFailureReason::DOWNLOAD_TOTAL_EXCEEDED);
   }
 }
@@ -303,7 +301,7 @@ void BackgroundFetchDelegateBase::OnDownloadUpdated(
     // We only do this if total download size is specified. If not specified,
     // this check is skipped. This is to allow for situations when the
     // total download size cannot be known when invoking fetch.
-    FailFetch(job_id, download_guid);
+    FailFetch(job_id);
     return;
   }
   DoUpdateUi(job_id);

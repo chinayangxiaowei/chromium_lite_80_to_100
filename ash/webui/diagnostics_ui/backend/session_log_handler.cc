@@ -31,7 +31,6 @@ const char kNetworkingLogSectionHeader[] = "=== Networking === \n";
 const char kNoRoutinesRun[] =
     "No routines of this type were run in the session.\n";
 const char kDefaultSessionLogFileName[] = "session_log.txt";
-const char kRoutineLogBasePath[] = "/tmp/diagnostics/";
 
 std::string GetRoutineResultsString(const std::string& results) {
   const std::string section_header =
@@ -47,13 +46,13 @@ std::string GetRoutineResultsString(const std::string& results) {
 
 SessionLogHandler::SessionLogHandler(
     const SelectFilePolicyCreator& select_file_policy_creator,
-    ash::HoldingSpaceClient* holding_space_client)
-    : SessionLogHandler(
-          select_file_policy_creator,
-          std::make_unique<TelemetryLog>(),
-          std::make_unique<RoutineLog>(base::FilePath(kRoutineLogBasePath)),
-          std::make_unique<NetworkingLog>(base::FilePath(kRoutineLogBasePath)),
-          holding_space_client) {}
+    ash::HoldingSpaceClient* holding_space_client,
+    const base::FilePath& log_directory_path)
+    : SessionLogHandler(select_file_policy_creator,
+                        std::make_unique<TelemetryLog>(),
+                        std::make_unique<RoutineLog>(log_directory_path),
+                        std::make_unique<NetworkingLog>(log_directory_path),
+                        holding_space_client) {}
 
 SessionLogHandler::SessionLogHandler(
     const SelectFilePolicyCreator& select_file_policy_creator,
@@ -179,9 +178,6 @@ void SessionLogHandler::HandleSaveSessionLogRequest(
       web_contents ? web_contents->GetTopLevelNativeWindow()
                    : gfx::kNullNativeWindow;
 
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
   select_file_dialog_ = ui::SelectFileDialog::Create(
       this, select_file_policy_creator_.Run(web_contents));
   select_file_dialog_->SelectFile(

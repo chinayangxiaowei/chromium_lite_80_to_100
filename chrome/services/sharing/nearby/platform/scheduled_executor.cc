@@ -91,12 +91,6 @@ void ScheduledExecutor::Shutdown() {
   is_shut_down_ = true;
 }
 
-int ScheduledExecutor::GetTid(int index) const {
-  // ScheduledExecutor does not own a thread pool directly nor manages threads,
-  // thus cannot support this debug feature.
-  return 0;
-}
-
 std::shared_ptr<api::Cancelable> ScheduledExecutor::Schedule(
     Runnable&& runnable,
     absl::Duration duration) {
@@ -113,11 +107,11 @@ std::shared_ptr<api::Cancelable> ScheduledExecutor::Schedule(
   timer_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ScheduledExecutor::StartTimerWithId,
-                     timer_task_runner_weak_factory_.GetWeakPtr(), id,
+                     base::Unretained(this), id,
                      base::Microseconds(absl::ToInt64Microseconds(duration))));
 
-  return std::make_shared<CancelableTask>(base::BindOnce(
-      &TryCancelTask, cancelable_task_weak_factory_.GetWeakPtr(), id));
+  return std::make_shared<CancelableTask>(
+      base::BindOnce(&TryCancelTask, weak_factory_.GetWeakPtr(), id));
 }
 
 void ScheduledExecutor::StartTimerWithId(const base::UnguessableToken& id,
@@ -131,10 +125,9 @@ void ScheduledExecutor::StartTimerWithId(const base::UnguessableToken& id,
     return;
 
   it->second->timer.SetTaskRunner(timer_task_runner_);
-  it->second->timer.Start(
-      FROM_HERE, delay,
-      base::BindOnce(&ScheduledExecutor::RunTaskWithId,
-                     timer_task_runner_weak_factory_.GetWeakPtr(), id));
+  it->second->timer.Start(FROM_HERE, delay,
+                          base::BindOnce(&ScheduledExecutor::RunTaskWithId,
+                                         base::Unretained(this), id));
 }
 
 void ScheduledExecutor::StopTimerWithIdAndDeleteTaskEntry(
@@ -184,7 +177,7 @@ bool ScheduledExecutor::OnTaskCancelled(const base::UnguessableToken& id) {
   timer_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ScheduledExecutor::StopTimerWithIdAndDeleteTaskEntry,
-                     timer_task_runner_weak_factory_.GetWeakPtr(), id));
+                     base::Unretained(this), id));
   return true;
 }
 

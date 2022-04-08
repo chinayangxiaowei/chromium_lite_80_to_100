@@ -12,17 +12,23 @@ load("//project.star", "settings")
 try_.defaults.set(
     builder_group = "tryserver.chromium.linux",
     cores = 8,
+    orchestrator_cores = 2,
+    compilator_cores = 16,
     executable = try_.DEFAULT_EXECUTABLE,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
-    os = os.LINUX_DEFAULT,
+    compilator_goma_jobs = goma.jobs.J150,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = try_.DEFAULT_POOL,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
 )
 
 consoles.list_view(
     name = "tryserver.chromium.linux",
-    branch_selector = branches.CROS_LTS_MILESTONE,
+    branch_selector = [
+        branches.CROS_LTS_MILESTONE,
+        branches.FUCHSIA_LTS_MILESTONE,
+    ],
 )
 
 try_.builder(
@@ -77,8 +83,28 @@ try_.builder(
 )
 
 try_.builder(
+    name = "fuchsia-binary-size",
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
+    builderless = True,
+    executable = "recipe:binary_size_fuchsia_trybot",
+    properties = {
+        "$build/binary_size": {
+            "analyze_targets": [
+                "//fuchsia/release:fuchsia_sizes",
+            ],
+            "compile_targets": [
+                "fuchsia_sizes",
+            ],
+        },
+    },
+    tryjob = try_.job(
+        experiment_percentage = 5,
+    ),
+)
+
+try_.builder(
     name = "fuchsia-arm64-cast",
-    branch_selector = branches.STANDARD_MILESTONE,
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
     main_list_view = "try",
     tryjob = try_.job(
         location_regexp = [
@@ -125,7 +151,7 @@ try_.builder(
 
 try_.builder(
     name = "fuchsia-x64-cast",
-    branch_selector = branches.STANDARD_MILESTONE,
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -133,7 +159,7 @@ try_.builder(
 
 try_.builder(
     name = "fuchsia_arm64",
-    branch_selector = branches.STANDARD_MILESTONE,
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -141,7 +167,7 @@ try_.builder(
 
 try_.builder(
     name = "fuchsia_x64",
-    branch_selector = branches.STANDARD_MILESTONE,
+    branch_selector = branches.FUCHSIA_LTS_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
     tryjob = try_.job(),
@@ -270,14 +296,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "linux-ozone-rel",
-    branch_selector = branches.STANDARD_MILESTONE,
-    builderless = not settings.is_main,
-    main_list_view = "try",
-    tryjob = try_.job(),
-)
-
-try_.builder(
     name = "linux-perfetto-rel",
     tryjob = try_.job(
         experiment_percentage = 100,
@@ -291,15 +309,21 @@ try_.builder(
     ),
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "linux-rel",
+    compilator = "linux-rel-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
-    builderless = not settings.is_main,
-    goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     use_clang_coverage = True,
     coverage_test_types = ["unit", "overall"],
+    cores = "2|4",
     tryjob = try_.job(),
+)
+
+try_.compilator_builder(
+    name = "linux-rel-compilator",
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_list_view = "try",
 )
 
 try_.builder(
@@ -309,7 +333,6 @@ try_.builder(
     reclient_jobs = 150,
     goma_backend = None,
     reclient_instance = "rbe-chromium-gvisor-shadow",
-    kitchen_emulate_gce = True,
     tryjob = try_.job(
         experiment_percentage = 10,
     ),
@@ -321,9 +344,7 @@ try_.builder(
     branch_selector = branches.STANDARD_MILESTONE,
     builderless = not settings.is_main,
     main_list_view = "try",
-    tryjob = try_.job(
-        experiment_percentage = 1,
-    ),
+    tryjob = try_.job(),
 )
 
 try_.builder(
@@ -366,13 +387,18 @@ try_.builder(
     name = "linux_chromium_archive_rel_ng",
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "linux_chromium_asan_rel_ng",
+    compilator = "linux_chromium_asan_rel_ng-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
-    goma_jobs = goma.jobs.J150,
-    ssd = True,
     main_list_view = "try",
     tryjob = try_.job(),
+)
+
+try_.compilator_builder(
+    name = "linux_chromium_asan_rel_ng-compilator",
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_list_view = "try",
 )
 
 try_.builder(
@@ -461,13 +487,18 @@ try_.builder(
     goma_jobs = goma.jobs.J150,
 )
 
-try_.builder(
+try_.orchestrator_builder(
     name = "linux_chromium_tsan_rel_ng",
+    compilator = "linux_chromium_tsan_rel_ng-compilator",
     branch_selector = branches.STANDARD_MILESTONE,
-    builderless = not settings.is_main,
-    goma_jobs = goma.jobs.J150,
     main_list_view = "try",
     tryjob = try_.job(),
+)
+
+try_.compilator_builder(
+    name = "linux_chromium_tsan_rel_ng-compilator",
+    branch_selector = branches.STANDARD_MILESTONE,
+    main_list_view = "try",
 )
 
 try_.builder(
@@ -603,6 +634,7 @@ try_.builder(
     tryjob = try_.job(
         experiment_percentage = 5,
     ),
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
@@ -613,6 +645,7 @@ try_.builder(
     tryjob = try_.job(
         experiment_percentage = 5,
     ),
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 # RTS builders (https://crbug.com/1203048)
@@ -625,9 +658,11 @@ try_.builder(
     tryjob = try_.job(
         experiment_percentage = 5,
     ),
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )
 
 try_.builder(
     name = "fuchsia_x64_rts",
     builderless = False,
+    os = os.LINUX_XENIAL_OR_BIONIC_REMOVE,
 )

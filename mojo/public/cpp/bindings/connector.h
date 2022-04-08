@@ -15,11 +15,9 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
-#include "base/sequenced_task_runner.h"
+#include "base/task/sequenced_task_runner.h"
 #include "mojo/public/cpp/bindings/connection_group.h"
 #include "mojo/public/cpp/bindings/message.h"
-#include "mojo/public/cpp/bindings/message_header_validator.h"
-#include "mojo/public/cpp/bindings/sync_handle_watcher.h"
 #include "mojo/public/cpp/system/core.h"
 #include "mojo/public/cpp/system/handle_signal_tracker.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
@@ -33,6 +31,8 @@ namespace mojo {
 namespace internal {
 class MessageQuotaChecker;
 }
+
+class SyncHandleWatcher;
 
 // The Connector class is responsible for performing read/write operations on a
 // MessagePipe. It writes messages it receives through the MessageReceiver
@@ -348,8 +348,6 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) Connector : public MessageReceiver {
 
   // The number of pending tasks for |CallDispatchNextMessageFromPipe|.
   size_t num_pending_dispatch_tasks_ = 0;
-
-  MessageHeaderValidator header_validator_;
 
 #if defined(ENABLE_IPC_FUZZER)
   std::unique_ptr<MessageReceiver> message_dumper_;

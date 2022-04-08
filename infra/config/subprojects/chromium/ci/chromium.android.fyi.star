@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 """Definitions of builders in the chromium.android.fyi builder group."""
 
-load("//lib/builders.star", "goma", "os", "reclient")
-load("//lib/ci.star", "ci")
+load("//lib/builders.star", "goma", "os")
+load("//lib/ci.star", "ci", "rbe_instance", "rbe_jobs")
 load("//lib/consoles.star", "consoles")
 
 ci.defaults.set(
@@ -13,7 +13,7 @@ ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
     goma_backend = goma.backend.RBE_PROD,
-    os = os.LINUX_DEFAULT,
+    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
     pool = ci.DEFAULT_POOL,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
 )
@@ -34,7 +34,7 @@ ci.builder(
     # Higher build timeout since dbg ASAN builds can take a while on a clobber
     # build.
     execution_timeout = 4 * time.hour,
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
+    reclient_instance = rbe_instance.DEFAULT,
     reclient_jobs = 150,
     schedule = "triggered",  # triggered manually via Scheduler UI
 )
@@ -103,6 +103,9 @@ ci.builder(
         category = "webview",
         short_name = "p-rel",
     ),
+    goma_backend = None,
+    reclient_jobs = rbe_jobs.DEFAULT,
+    reclient_instance = rbe_instance.DEFAULT,
 )
 
 # TODO(crbug.com/1022533#c40): Remove this builder once there are no associated

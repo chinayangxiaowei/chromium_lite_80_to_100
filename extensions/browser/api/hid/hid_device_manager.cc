@@ -17,7 +17,7 @@
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/no_destructor.h"
-#include "base/single_thread_task_runner.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/device_service.h"
@@ -72,15 +72,13 @@ void PopulateHidDeviceInfo(hid::HidDeviceInfo* output,
   }
 }
 
-bool WillDispatchDeviceEvent(
-    base::WeakPtr<HidDeviceManager> device_manager,
-    const device::mojom::HidDeviceInfo& device_info,
-    content::BrowserContext* browser_context,
-    Feature::Context target_context,
-    const Extension* extension,
-    const base::DictionaryValue* listener_filter,
-    std::unique_ptr<base::ListValue>* event_args_out,
-    std::unique_ptr<EventFilteringInfo>* event_filtering_info_out) {
+bool WillDispatchDeviceEvent(base::WeakPtr<HidDeviceManager> device_manager,
+                             const device::mojom::HidDeviceInfo& device_info,
+                             content::BrowserContext* browser_context,
+                             Feature::Context target_context,
+                             const Extension* extension,
+                             Event* event,
+                             const base::DictionaryValue* listener_filter) {
   if (device_manager && extension) {
     return device_manager->HasPermission(extension, device_info, false);
   }

@@ -283,7 +283,7 @@ CertificatesHandler::CertificatesHandler()
 CertificatesHandler::~CertificatesHandler() {
   if (select_file_dialog_.get())
     select_file_dialog_->ListenerDestroyed();
-  select_file_dialog_.reset();
+  select_file_dialog_ = nullptr;
 }
 
 void CertificatesHandler::RegisterMessages() {
@@ -357,7 +357,9 @@ void CertificatesHandler::RegisterMessages() {
 }
 
 void CertificatesHandler::CertificatesRefreshed() {
-  PopulateTree("personalCerts", net::USER_CERT);
+  if (ShouldDisplayClientCertificates()) {
+    PopulateTree("personalCerts", net::USER_CERT);
+  }
   PopulateTree("serverCerts", net::SERVER_CERT);
   PopulateTree("caCerts", net::CA_CERT);
   PopulateTree("otherCerts", net::OTHER_CERT);
@@ -382,8 +384,6 @@ void CertificatesHandler::FileSelected(const base::FilePath& path,
     default:
       NOTREACHED();
   }
-
-  select_file_dialog_.reset();
 }
 
 void CertificatesHandler::FileSelectionCanceled(void* params) {
@@ -488,10 +488,6 @@ void CertificatesHandler::HandleEditCATrust(const base::ListValue* args) {
 }
 
 void CertificatesHandler::HandleExportPersonal(const base::ListValue* args) {
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
   CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
 
@@ -534,7 +530,7 @@ void CertificatesHandler::HandleExportPersonalPasswordSelected(
   // Currently, we don't support exporting more than one at a time.  If we do,
   // this would need to either change this to use UnlockSlotsIfNecessary or
   // change UnlockCertSlotIfNecessary to take a CertificateList.
-  CHECK_EQ(selected_cert_list_.size(), 1U);
+  DCHECK_EQ(selected_cert_list_.size(), 1U);
 
   // TODO(mattm): do something smarter about non-extractable keys
   chrome::UnlockCertSlotIfNecessary(
@@ -581,18 +577,12 @@ void CertificatesHandler::ExportPersonalFileWritten(const int* write_errno,
 }
 
 void CertificatesHandler::HandleImportPersonal(const base::ListValue* args) {
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  // When policy changes while user on the certificate manager page, the UI
-  // doesn't update without page refresh and user can still see and use import
-  // button. Because of this 'return' the button will do nothing.
-  if (!IsClientCertificateManagementAllowedPolicy(Slot::kUser)) {
+  // When the "allowed" value changes while user on the certificate manager
+  // page, the UI doesn't update without page refresh and user can still see and
+  // use import button. Because of this 'return' the button will do nothing.
+  if (!IsClientCertificateManagementAllowed(Slot::kUser)) {
     return;
   }
-#endif
 
   CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
@@ -751,14 +741,10 @@ void CertificatesHandler::ImportExportCleanup() {
   // away so they don't try and call back to us.
   if (select_file_dialog_.get())
     select_file_dialog_->ListenerDestroyed();
-  select_file_dialog_.reset();
+  select_file_dialog_ = nullptr;
 }
 
 void CertificatesHandler::HandleImportServer(const base::ListValue* args) {
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
   CHECK_EQ(1U, args->GetList().size());
   AssignWebUICallbackId(args);
 
@@ -826,18 +812,12 @@ void CertificatesHandler::ImportServerFileRead(const int* read_errno,
 }
 
 void CertificatesHandler::HandleImportCA(const base::ListValue* args) {
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  // When policy changes while user on the certificate manager page, the UI
-  // doesn't update without page refresh and user can still see and use import
-  // button. Because of this 'return' the button will do nothing.
-  if (!IsCACertificateManagementAllowedPolicy(CertificateSource::kImported)) {
+  // When the "allowed" value changes while user on the certificate manager
+  // page, the UI doesn't update without page refresh and user can still see and
+  // use import button. Because of this 'return' the button will do nothing.
+  if (!IsCACertificateManagementAllowed(CertificateSource::kImported)) {
     return;
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   CHECK_EQ(1U, args->GetList().size());
   AssignWebUICallbackId(args);
@@ -983,19 +963,13 @@ void CertificatesHandler::OnCertificateManagerModelCreated(
 }
 
 void CertificatesHandler::CertificateManagerModelReady() {
-  bool client_import_allowed = true;
-  bool ca_import_allowed = true;
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  client_import_allowed =
-      IsClientCertificateManagementAllowedPolicy(Slot::kUser);
-  ca_import_allowed =
-      IsCACertificateManagementAllowedPolicy(CertificateSource::kImported);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   if (IsJavascriptAllowed()) {
-    FireWebUIListener("client-import-allowed-changed",
-                      base::Value(client_import_allowed));
+    FireWebUIListener(
+        "client-import-allowed-changed",
+        base::Value(IsClientCertificateManagementAllowed(Slot::kUser)));
     FireWebUIListener("ca-import-allowed-changed",
-                      base::Value(ca_import_allowed));
+                      base::Value(IsCACertificateManagementAllowed(
+                          CertificateSource::kImported)));
   }
   certificate_manager_model_->Refresh();
 }
@@ -1177,10 +1151,66 @@ CertificatesHandler::GetCertInfoFromCallbackArgs(const base::Value& args,
   return cert_info_id_map_.Lookup(cert_info_id);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+bool CertificatesHandler::IsClientCertificateManagementAllowed(Slot slot) {
+#if defined(OS_CHROMEOS)
+  if (!IsClientCertificateManagementAllowedPolicy(slot)) {
+    return false;
+  }
+#endif  //  defined(OS_CHROMEOS)
+
+  return ShouldDisplayClientCertificates();
+}
+
+bool CertificatesHandler::IsCACertificateManagementAllowed(
+    CertificateSource source) {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  // TODO(b/194781831): Currently CA certificates are shared between all
+  // profiles for technical reasons. Evaluating the policy independently in each
+  // profile would create a policy escape (e.g. if one of profiles is not
+  // managed). Therefore make the main profile "own" CA certificates and allow
+  // management based on its policy.
+  if (!Profile::FromWebUI(web_ui())->IsMainProfile()) {
+    return false;
+  }
+#endif  // #if BUILDFLAG(IS_CHROMEOS_LACROS)
+
+#if defined(OS_CHROMEOS)
+  if (!IsCACertificateManagementAllowedPolicy(source)) {
+    return false;
+  }
+#endif  // defined(OS_CHROMEOS)
+
+  return true;
+}
+
+bool CertificatesHandler::ShouldDisplayClientCertificates() {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  // TODO(b/194781831): When secondary profiles in Lacros-Chrome support client
+  // certificates, this should be removed and the page should be updated to
+  // support them.
+  if (!Profile::FromWebUI(web_ui())->IsMainProfile()) {
+    return false;
+  }
+#endif  // #if BUILDFLAG(IS_CHROMEOS_LACROS)
+
+  return true;
+}
+
+#if defined(OS_CHROMEOS)
 bool CertificatesHandler::IsClientCertificateManagementAllowedPolicy(
     Slot slot) {
   Profile* profile = Profile::FromWebUI(web_ui());
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  if (!profile->IsMainProfile()) {
+    // TODO(b/194781831): Currently client certificates are not supported in
+    // secondary profiles on Lacros-Chrome. This "return" disables some buttons
+    // (e.g. Import, Import&Bind) that wouldn't work anyway. This can be changed
+    // when client certificates for secondary profiles are implemented.
+    return false;
+  }
+#endif  //  BUILDFLAG(IS_CHROMEOS_LACROS)
+
   PrefService* prefs = profile->GetPrefs();
   auto policy_value = static_cast<ClientCertificateManagementPermission>(
       prefs->GetInteger(prefs::kClientCertificateManagementAllowed));
@@ -1194,6 +1224,17 @@ bool CertificatesHandler::IsClientCertificateManagementAllowedPolicy(
 bool CertificatesHandler::IsCACertificateManagementAllowedPolicy(
     CertificateSource source) {
   Profile* profile = Profile::FromWebUI(web_ui());
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  if (!profile->IsMainProfile()) {
+    // TODO(b/194781831): Currently CA certificates are shared between all
+    // profiles for technical reasons. Therefore only the main profile should
+    // decide if they are allowed to be managed. This can be changed when a
+    // proper separation of CA certificates between profiles is implemented.
+    return false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+
   PrefService* prefs = profile->GetPrefs();
   auto policy_value = static_cast<CACertificateManagementPermission>(
       prefs->GetInteger(prefs::kCACertificateManagementAllowed));
@@ -1205,7 +1246,7 @@ bool CertificatesHandler::IsCACertificateManagementAllowedPolicy(
       return policy_value != CACertificateManagementPermission::kNone;
   }
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // defined(OS_CHROMEOS)
 
 bool CertificatesHandler::CanDeleteCertificate(
     const CertificateManagerModel::CertInfo* cert_info) {
@@ -1215,18 +1256,16 @@ bool CertificatesHandler::CanDeleteCertificate(
     return false;
   }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
   if (cert_info->type() == net::CertType::USER_CERT) {
-    return IsClientCertificateManagementAllowedPolicy(
+    return IsClientCertificateManagementAllowed(
         cert_info->device_wide() ? Slot::kSystem : Slot::kUser);
   }
   if (cert_info->type() == net::CertType::CA_CERT) {
     CertificateSource source = cert_info->can_be_deleted()
                                    ? CertificateSource::kImported
                                    : CertificateSource::kBuiltIn;
-    return IsCACertificateManagementAllowedPolicy(source);
+    return IsCACertificateManagementAllowed(source);
   }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   return true;
 }
 
@@ -1237,17 +1276,14 @@ bool CertificatesHandler::CanEditCertificate(
        CertificateManagerModel::CertInfo::Source::kPolicy)) {
     return false;
   }
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+
   CertificateSource source = cert_info->can_be_deleted()
                                  ? CertificateSource::kImported
                                  : CertificateSource::kBuiltIn;
-  return IsCACertificateManagementAllowedPolicy(source);
-#else
-  return true;
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+  return IsCACertificateManagementAllowed(source);
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if defined(OS_CHROMEOS)
 void CertificatesHandler::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   // Allow users to manage all client certificates by default. This can be
@@ -1262,6 +1298,6 @@ void CertificatesHandler::RegisterProfilePrefs(
       prefs::kCACertificateManagementAllowed,
       static_cast<int>(CACertificateManagementPermission::kAll));
 }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#endif  // defined(OS_CHROMEOS)
 
 }  // namespace certificate_manager

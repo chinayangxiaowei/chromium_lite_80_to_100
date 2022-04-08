@@ -273,10 +273,7 @@ std::unique_ptr<CupsPrintersHandler> CupsPrintersHandler::CreateForTesting(
       profile, ppd_provider, std::move(printer_configurer), printers_manager));
 }
 
-CupsPrintersHandler::~CupsPrintersHandler() {
-  if (select_file_dialog_)
-    select_file_dialog_->ListenerDestroyed();
-}
+CupsPrintersHandler::~CupsPrintersHandler() = default;
 
 void CupsPrintersHandler::RegisterMessages() {
   web_ui()->RegisterDeprecatedMessageCallback(
@@ -377,8 +374,7 @@ void CupsPrintersHandler::HandleGetCupsSavedPrintersList(
   AllowJavascript();
 
   CHECK_EQ(1U, args->GetList().size());
-  std::string callback_id;
-  CHECK(args->GetString(0, &callback_id));
+  const std::string& callback_id = args->GetList()[0].GetString();
 
   std::vector<Printer> printers =
       printers_manager_->GetPrinters(PrinterClass::kSaved);
@@ -402,13 +398,10 @@ void CupsPrintersHandler::HandleGetCupsEnterprisePrintersList(
 }
 
 void CupsPrintersHandler::HandleUpdateCupsPrinter(const base::ListValue* args) {
-  std::string callback_id;
-  std::string printer_id;
-  std::string printer_name;
   CHECK_EQ(3U, args->GetList().size());
-  CHECK(args->GetString(0, &callback_id));
-  CHECK(args->GetString(1, &printer_id));
-  CHECK(args->GetString(2, &printer_name));
+  const std::string& callback_id = args->GetList()[0].GetString();
+  const std::string& printer_id = args->GetList()[1].GetString();
+  const std::string& printer_name = args->GetList()[2].GetString();
 
   Printer printer(printer_id);
   printer.set_display_name(printer_name);
@@ -432,10 +425,8 @@ void CupsPrintersHandler::HandleUpdateCupsPrinter(const base::ListValue* args) {
 
 void CupsPrintersHandler::HandleRemoveCupsPrinter(const base::ListValue* args) {
   PRINTER_LOG(USER) << "Removing printer";
-  std::string printer_id;
-  std::string printer_name;
-  CHECK(args->GetString(0, &printer_id));
-  CHECK(args->GetString(1, &printer_name));
+  // Printer name also expected in 2nd parameter.
+  const std::string& printer_id = args->GetList()[0].GetString();
   auto printer = printers_manager_->GetPrinter(printer_id);
   if (!printer)
     return;
@@ -456,11 +447,11 @@ void CupsPrintersHandler::HandleRemoveCupsPrinter(const base::ListValue* args) {
 
 void CupsPrintersHandler::HandleGetPrinterInfo(const base::ListValue* args) {
   DCHECK(args);
-  std::string callback_id;
-  if (!args->GetString(0, &callback_id)) {
+  if (args->GetList().empty() || !args->GetList()[0].is_string()) {
     NOTREACHED() << "Expected request for a promise";
     return;
   }
+  const std::string& callback_id = args->GetList()[0].GetString();
 
   const base::DictionaryValue* printer_dict = nullptr;
   if (!args->GetDictionary(1, &printer_dict)) {
@@ -839,9 +830,8 @@ void CupsPrintersHandler::OnAddOrEditPrinterError(
 void CupsPrintersHandler::HandleGetCupsPrinterManufacturers(
     const base::ListValue* args) {
   AllowJavascript();
-  std::string callback_id;
   CHECK_EQ(1U, args->GetList().size());
-  CHECK(args->GetString(0, &callback_id));
+  const std::string& callback_id = args->GetList()[0].GetString();
   ppd_provider_->ResolveManufacturers(
       base::BindOnce(&CupsPrintersHandler::ResolveManufacturersDone,
                      weak_factory_.GetWeakPtr(), callback_id));
@@ -850,11 +840,9 @@ void CupsPrintersHandler::HandleGetCupsPrinterManufacturers(
 void CupsPrintersHandler::HandleGetCupsPrinterModels(
     const base::ListValue* args) {
   AllowJavascript();
-  std::string callback_id;
-  std::string manufacturer;
   CHECK_EQ(2U, args->GetList().size());
-  CHECK(args->GetString(0, &callback_id));
-  CHECK(args->GetString(1, &manufacturer));
+  const std::string& callback_id = args->GetList()[0].GetString();
+  const std::string& manufacturer = args->GetList()[1].GetString();
 
   // Empty manufacturer queries may be triggered as a part of the ui
   // initialization, and should just return empty results.
@@ -873,12 +861,8 @@ void CupsPrintersHandler::HandleGetCupsPrinterModels(
 }
 
 void CupsPrintersHandler::HandleSelectPPDFile(const base::ListValue* args) {
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
   CHECK_EQ(1U, args->GetList().size());
-  CHECK(args->GetString(0, &webui_callback_id_));
+  webui_callback_id_ = args->GetList()[0].GetString();
 
   base::FilePath downloads_path =
       DownloadPrefs::FromDownloadManager(profile_->GetDownloadManager())
@@ -941,9 +925,7 @@ void CupsPrintersHandler::FileSelected(const base::FilePath& path,
                                        void* params) {
   DCHECK(!webui_callback_id_.empty());
 
-  select_file_dialog_ = nullptr;
-
-  // Load the beginning contents of the file located at |path| and callback into
+  // Load the beggining contents of the file located at |path| and callback into
   // VerifyPpdContents() in order to determine whether the file appears to be a
   // PPD file. The task's priority is USER_BLOCKING because the this task
   // updates the UI as a result of a direct user action.
@@ -952,10 +934,6 @@ void CupsPrintersHandler::FileSelected(const base::FilePath& path,
       base::BindOnce(&ReadFileToStringWithMaxSize, path, kPpdMaxLineLength),
       base::BindOnce(&CupsPrintersHandler::VerifyPpdContents,
                      weak_factory_.GetWeakPtr(), path));
-}
-
-void CupsPrintersHandler::FileSelectionCanceled(void* params) {
-  select_file_dialog_ = nullptr;
 }
 
 void CupsPrintersHandler::VerifyPpdContents(const base::FilePath& path,
@@ -1061,10 +1039,8 @@ void CupsPrintersHandler::HandleAddDiscoveredPrinter(
     const base::ListValue* args) {
   AllowJavascript();
   CHECK_EQ(2U, args->GetList().size());
-  std::string callback_id;
-  std::string printer_id;
-  CHECK(args->GetString(0, &callback_id));
-  CHECK(args->GetString(1, &printer_id));
+  const std::string& callback_id = args->GetList()[0].GetString();
+  const std::string& printer_id = args->GetList()[1].GetString();
 
   PRINTER_LOG(USER) << "Adding discovered printer";
   absl::optional<Printer> printer = printers_manager_->GetPrinter(printer_id);
@@ -1127,10 +1103,8 @@ void CupsPrintersHandler::HandleGetPrinterPpdManufacturerAndModel(
     const base::ListValue* args) {
   AllowJavascript();
   CHECK_EQ(2U, args->GetList().size());
-  std::string callback_id;
-  CHECK(args->GetString(0, &callback_id));
-  std::string printer_id;
-  CHECK(args->GetString(1, &printer_id));
+  const std::string& callback_id = args->GetList()[0].GetString();
+  const std::string& printer_id = args->GetList()[1].GetString();
 
   auto printer = printers_manager_->GetPrinter(printer_id);
   if (!printer) {
@@ -1238,11 +1212,9 @@ void CupsPrintersHandler::OnIpResolved(const std::string& callback_id,
 }
 
 void CupsPrintersHandler::HandleQueryPrintServer(const base::ListValue* args) {
-  std::string callback_id;
-  std::string server_url;
   CHECK_EQ(2U, args->GetList().size());
-  CHECK(args->GetString(0, &callback_id));
-  CHECK(args->GetString(1, &server_url));
+  const std::string& callback_id = args->GetList()[0].GetString();
+  const std::string& server_url = args->GetList()[1].GetString();
 
   absl::optional<GURL> converted_server_url =
       GenerateServerPrinterUrlWithValidScheme(server_url);

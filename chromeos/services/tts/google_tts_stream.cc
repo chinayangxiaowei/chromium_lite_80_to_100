@@ -70,8 +70,7 @@ GoogleTtsStream::GoogleTtsStream(
 }
 
 GoogleTtsStream::~GoogleTtsStream() {
-  if (!is_in_process_teardown_)
-    libchrometts_.GoogleTtsShutdown();
+  libchrometts_.GoogleTtsShutdown();
 }
 
 bool GoogleTtsStream::IsBound() const {

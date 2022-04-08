@@ -34,8 +34,7 @@ DownloadUrlParameters::DownloadUrlParameters(
       traffic_annotation_(traffic_annotation),
       download_source_(DownloadSource::UNKNOWN),
       require_safety_checks_(true),
-      has_user_gesture_(false),
-      update_first_party_url_on_redirect_(true) {}
+      has_user_gesture_(false) {}
 
 DownloadUrlParameters::~DownloadUrlParameters() = default;
 

@@ -15,14 +15,15 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/sequenced_task_runner.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/types/pass_key.h"
 #include "mojo/public/cpp/bindings/interface_endpoint_client.h"
 #include "mojo/public/cpp/bindings/interface_endpoint_controller.h"
 #include "mojo/public/cpp/bindings/lib/may_auto_lock.h"
 #include "mojo/public/cpp/bindings/lib/message_quota_checker.h"
+#include "mojo/public/cpp/bindings/message_header_validator.h"
 #include "mojo/public/cpp/bindings/sequence_local_sync_event_watcher.h"
 
 namespace mojo {
@@ -390,7 +391,14 @@ MultiplexRouter::MultiplexRouter(
   if (quota_checker)
     connector_.SetMessageQuotaChecker(std::move(quota_checker));
 
+  std::unique_ptr<MessageHeaderValidator> header_validator =
+      std::make_unique<MessageHeaderValidator>();
+  header_validator_ = header_validator.get();
+  dispatcher_.SetValidator(std::move(header_validator));
+
   if (primary_interface_name) {
+    header_validator_->SetDescription(base::JoinString(
+        {primary_interface_name, "[primary] MessageHeaderValidator"}, " "));
     control_message_handler_.SetDescription(base::JoinString(
         {primary_interface_name, "[primary] PipeControlMessageHandler"}, " "));
   }

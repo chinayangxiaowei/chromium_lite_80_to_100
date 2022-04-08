@@ -10,7 +10,6 @@
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_DEBUG_ENABLED)
 
 #include <string.h>
-#include <stdlib.h>
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -24,6 +23,10 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+
 
 #include <libxml/xpath.h>
 #include <libxml/tree.h>
@@ -115,7 +118,7 @@ testXPathFile(const char *filename) {
     char expression[5000];
     int len;
 
-    input = fopen(filename, "rb");
+    input = fopen(filename, "r");
     if (input == NULL) {
         xmlGenericError(xmlGenericErrorContext,
 		"Cannot open %s for reading\n", filename);

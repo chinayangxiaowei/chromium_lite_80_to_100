@@ -111,8 +111,7 @@ class BackForwardCacheMetrics
     kCacheControlNoStoreHTTPOnlyCookieModified = 55,
     kNoResponseHead = 56,
     kActivationNavigationsDisallowedForBug1234857 = 57,
-    kErrorDocument = 58,
-    kMaxValue = kErrorDocument,
+    kMaxValue = kActivationNavigationsDisallowedForBug1234857,
   };
 
   using NotRestoredReasons =
@@ -166,6 +165,9 @@ class BackForwardCacheMetrics
       NavigationEntryImpl* currently_committed_entry,
       bool is_main_frame_navigation,
       int64_t document_sequence_number);
+
+  BackForwardCacheMetrics(const BackForwardCacheMetrics&) = delete;
+  BackForwardCacheMetrics& operator=(const BackForwardCacheMetrics&) = delete;
 
   // Records when the page is evicted after the document is restored e.g. when
   // the race condition by JavaScript happens.
@@ -296,8 +298,6 @@ class BackForwardCacheMetrics
   // The reason why the last attempted navigation in the frame used or didn't
   // use a new BrowsingInstance.
   absl::optional<ShouldSwapBrowsingInstance> browsing_instance_swap_result_;
-
-  DISALLOW_COPY_AND_ASSIGN(BackForwardCacheMetrics);
 };
 
 }  // namespace content

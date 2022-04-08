@@ -57,7 +57,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "net/base/features.h"
@@ -502,11 +501,6 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
   CookiePrefix prefix = GetCookiePrefix(parsed_cookie.Name());
   bool is_cookie_prefix_valid = IsCookiePrefixValid(prefix, url, parsed_cookie);
   RecordCookiePrefixMetrics(prefix, is_cookie_prefix_valid);
-
-  if (parsed_cookie.Name() == "") {
-    is_cookie_prefix_valid = !HasHiddenPrefixName(parsed_cookie.Value());
-  }
-
   if (!is_cookie_prefix_valid) {
     DVLOG(net::cookie_util::kVlogSetCookies)
         << "Create() failed because the cookie violated prefix rules.";
@@ -716,11 +710,6 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateSanitizedCookie(
         net::CookieInclusionStatus::EXCLUDE_INVALID_PREFIX);
   }
 
-  if (name == "" && HasHiddenPrefixName(value)) {
-    status->AddExclusionReason(
-        net::CookieInclusionStatus::EXCLUDE_INVALID_PREFIX);
-  }
-
   if (!IsCookieSamePartyValid(same_party, secure, same_site)) {
     status->AddExclusionReason(
         net::CookieInclusionStatus::EXCLUDE_INVALID_SAMEPARTY);
@@ -770,7 +759,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::FromStorage(
       creation, expiration, last_access, secure, httponly, same_site, priority,
       same_party, partition_key, source_scheme, source_port));
 
-  if (cc->IsCanonical()) {
+  if (cc->IsCanonicalForFromStorage()) {
     // This will help capture the number of times a cookie is canonical but does
     // not have a valid name+value size length
     bool valid_cookie_name_value_pair =
@@ -1165,10 +1154,6 @@ CookieAccessResult CanonicalCookie::IsSetPermittedInContext(
     access_result.status.AddExclusionReason(
         CookieInclusionStatus::EXCLUDE_SAMESITE_NONE_INSECURE);
   }
-  // Log whether a SameSite=None cookie is Secure or not.
-  if (SameSite() == CookieSameSite::NO_RESTRICTION) {
-    UMA_HISTOGRAM_BOOLEAN("Cookie.SameSiteNoneIsSecure", IsSecure());
-  }
 
   // For LEGACY cookies we should always return the schemeless context,
   // otherwise let GetContextForCookieInclusion() decide.
@@ -1339,15 +1324,19 @@ bool CanonicalCookie::PartialCompare(const CanonicalCookie& other) const {
 }
 
 bool CanonicalCookie::IsCanonical() const {
-  // Not checking domain or path against ParsedCookie as it may have
-  // come purely from the URL. Also, don't call IsValidCookieNameValuePair()
-  // here because we don't want to enforce the size checks on names or values
-  // that may have been reconstituted from the cookie store.
   // TODO(crbug.com/1244172) Eventually we should check the size of name+value,
   // assuming we collect metrics and determine that a low percentage of cookies
   // would fail this check. Note that we still don't want to enforce length
   // checks on domain or path for the reason stated above.
 
+  return IsCanonicalForFromStorage();
+}
+
+bool CanonicalCookie::IsCanonicalForFromStorage() const {
+  // Not checking domain or path against ParsedCookie as it may have
+  // come purely from the URL. Also, don't call IsValidCookieNameValuePair()
+  // here because we don't want to enforce the size checks on names or values
+  // that may have been reconstituted from the cookie store.
   if (ParsedCookie::ParseTokenString(name_) != name_ ||
       !ParsedCookie::ValueMatchesParsedValue(value_)) {
     return false;
@@ -1396,9 +1385,6 @@ bool CanonicalCookie::IsCanonical() const {
     default:
       break;
   }
-
-  if (name_ == "" && HasHiddenPrefixName(value_))
-    return false;
 
   if (!IsCookieSamePartyValid(same_party_, secure_, same_site_))
     return false;
@@ -1520,40 +1506,6 @@ CookieEffectiveSameSite CanonicalCookie::GetEffectiveSameSite(
     case CookieSameSite::STRICT_MODE:
       return CookieEffectiveSameSite::STRICT_MODE;
   }
-}
-
-// static
-bool CanonicalCookie::HasHiddenPrefixName(
-    const base::StringPiece cookie_value) {
-  // Skip BWS as defined by HTTPSEM as SP or HTAB (0x20 or 0x9).
-  base::StringPiece value_without_BWS =
-      base::TrimString(cookie_value, " \t", base::TRIM_LEADING);
-
-  const base::StringPiece host_prefix = "__Host-";
-
-  // Compare the value to the host_prefix.
-  if (base::StartsWith(value_without_BWS, host_prefix)) {
-    // The prefix matches, now check if the value string contains a subsequent
-    // '='.
-    if (value_without_BWS.find_first_of('=', host_prefix.size()) !=
-        base::StringPiece::npos) {
-      // This value contains a hidden prefix name.
-      return true;
-    }
-    return false;
-  }
-
-  // Do a similar check for the secure prefix
-  const base::StringPiece secure_prefix = "__Secure-";
-
-  if (base::StartsWith(value_without_BWS, secure_prefix)) {
-    if (value_without_BWS.find_first_of('=', secure_prefix.size()) !=
-        base::StringPiece::npos) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 bool CanonicalCookie::IsRecentlyCreated(base::TimeDelta age_threshold) const {

@@ -180,10 +180,6 @@ void PasswordManagerPorter::PresentFileSelector(
 // This method should never be called on Android (as there is no file selector),
 // and the relevant IDS constants are not present for Android.
 #if !defined(OS_ANDROID)
-  // Early return if the select file dialog is already active.
-  if (select_file_dialog_)
-    return;
-
   DCHECK(web_contents);
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
@@ -234,16 +230,12 @@ void PasswordManagerPorter::FileSelected(const base::FilePath& path,
       ExportPasswordsToPath(path);
       break;
   }
-
-  select_file_dialog_.reset();
 }
 
 void PasswordManagerPorter::FileSelectionCanceled(void* params) {
   if (reinterpret_cast<uintptr_t>(params) == PASSWORD_EXPORT) {
     exporter_->Cancel();
   }
-
-  select_file_dialog_.reset();
 }
 
 void PasswordManagerPorter::ImportPasswordsFromPath(

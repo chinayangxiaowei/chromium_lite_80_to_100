@@ -63,7 +63,33 @@ os = struct(
     LINUX_TRUSTY = os_enum("Ubuntu-14.04", os_category.LINUX),
     LINUX_XENIAL = os_enum("Ubuntu-16.04", os_category.LINUX),
     LINUX_BIONIC = os_enum("Ubuntu-18.04", os_category.LINUX),
-    LINUX_DEFAULT = os_enum("Ubuntu-18.04", os_category.LINUX),
+    # xenial -> bionic migration
+    # * If a builder does not already explicitly set an os value, use
+    #   LINUX_BIONIC_REMOVE or LINUX_XENIAL_OR_BIONIC_REMOVE
+    # * If a builder explicitly sets LINUX_DEFAULT, use
+    #   LINUX_BIONIC_SWITCH_TO_DEFAULT or
+    #   LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT
+    #
+    # When the migration is complete, LINUX_DEFAULT can be switched to
+    # Ubunutu-18.04, all instances of LINUX_BIONIC_REMOVE can be removed and all
+    # instances of LINUX_BIONIC_SWITCH_TO_DEFAULT can be replaced with
+    # LINUX_DEFAULT, the only changes to the generated files should be
+    # Ubuntu-16.04|Ubuntu-18.04 -> Ubuntu-18.04
+    LINUX_DEFAULT = os_enum("Ubuntu-16.04", os_category.LINUX),
+    # 100% switch to bionic
+    LINUX_BIONIC_REMOVE = os_enum("Ubuntu-18.04", os_category.LINUX),
+    LINUX_BIONIC_SWITCH_TO_DEFAULT = os_enum("Ubuntu-18.04", os_category.LINUX),
+    # Staged switch to bionic: we can gradually shift the matching capacity
+    # towards bionic and the builder will continue to run on whatever is
+    # available
+    LINUX_XENIAL_OR_BIONIC_REMOVE = os_enum(
+        "Ubuntu-16.04|Ubuntu-18.04",
+        os_category.LINUX,
+    ),
+    LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT = os_enum(
+        "Ubuntu-16.04|Ubuntu-18.04",
+        os_category.LINUX,
+    ),
     MAC_10_12 = os_enum("Mac-10.12", os_category.MAC),
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
@@ -129,22 +155,6 @@ goma = struct(
     ),
 )
 
-reclient = struct(
-    instance = struct(
-        DEFAULT_TRUSTED = "rbe-chromium-trusted",
-        TEST_TRUSTED = "rbe-chromium-trusted-test",
-        DEFAULT_UNTRUSTED = "rbe-chromium-untrusted",
-        TEST_UNTRUSTED = "rbe-chromium-untrusted-test",
-    ),
-    jobs = struct(
-        DEFAULT = 250,
-        LOW_JOBS_FOR_CI = 80,
-        HIGH_JOBS_FOR_CI = 500,
-        LOW_JOBS_FOR_CQ = 80,
-        HIGH_JOBS_FOR_CQ = 500,
-    ),
-)
-
 def _rotation(name):
     return branches.value({branches.MAIN: [name]})
 
@@ -173,25 +183,12 @@ xcode = struct(
     x12d4e = xcode_enum("12d4e"),
     # Xcode 12.5. Requires Mac11+ OS.
     x12e262 = xcode_enum("12e262"),
-    # in use by ios-webkit-tot
-    x12e262wk = xcode_enum("12e262wk"),
     # Default Xcode 13 for chromium iOS (release candidate).
     x13main = xcode_enum("13a233"),
     # Xcode 13.0 latest beta (release candidate).
     x13latestbeta = xcode_enum("13a233"),
-)
-
-# Git revision of the compilator_watcher luciexe sub_build binary for chromium
-# orchestrators to use
-compilator_watcher_git_revision = "d5bee0e7798a40c3c6261c3dbc14becf1fbb693f"
-
-# Free disk space in a machine reserved for build tasks.
-# The values in this enum will be used to populate bot dimension "free_space",
-# and each bot will allocate a corresponding amount of free disk space based on
-# the value of the dimension through "bot_config.py".
-free_space = struct(
-    standard = "standard",
-    high = "high",
+    # in use by ios-webkit-tot
+    x13wk = xcode_enum("13a1030dwk"),
 )
 
 ################################################################################
@@ -278,10 +275,9 @@ def _code_coverage_property(
 def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_service, publish_trace, cache_silo, ensure_verified):
     reclient = {}
     instance = defaults.get_value("reclient_instance", instance)
-    if not instance:
-        return None
-    reclient["instance"] = instance
-    reclient["metrics_project"] = "chromium-reclient-metrics"
+    if instance:
+        reclient["instance"] = instance
+        reclient["metrics_project"] = "chromium-reclient-metrics"
     service = defaults.get_value("reclient_service", service)
     if service:
         reclient["service"] = service
@@ -320,9 +316,6 @@ defaults = args.defaults(
     auto_builder_dimension = args.COMPUTE,
     builder_group = None,
     builderless = args.COMPUTE,
-    free_space = None,
-    configure_kitchen = False,
-    kitchen_emulate_gce = False,
     cores = None,
     cpu = None,
     fully_qualified_builder_dimension = False,
@@ -371,7 +364,6 @@ def builder(
         triggered_by = args.DEFAULT,
         os = args.DEFAULT,
         builderless = args.DEFAULT,
-        free_space = args.DEFAULT,
         auto_builder_dimension = args.DEFAULT,
         fully_qualified_builder_dimension = args.DEFAULT,
         cores = args.DEFAULT,
@@ -387,8 +379,6 @@ def builder(
         xcode = args.DEFAULT,
         console_view_entry = None,
         list_view = args.DEFAULT,
-        configure_kitchen = args.DEFAULT,
-        kitchen_emulate_gce = args.DEFAULT,
         goma_backend = args.DEFAULT,
         goma_debug = args.DEFAULT,
         goma_enable_ats = args.DEFAULT,
@@ -452,10 +442,6 @@ def builder(
         builderless: a boolean indicating whether the builder runs on
             builderless machines. If True, emits a 'builderless:1' dimension. By
             default, considered True iff `os` refers to a linux OS.
-        free_space: an enum that indicates the amount of free disk space reserved
-            in a machine for incoming build tasks. This value is used to create
-            a "free_space" dimension, and this dimension is appended to only
-            builderless builders.
         auto_builder_dimension: a boolean indicating whether the builder runs on
             machines devoted to the builder. If True, a dimension will be
             emitted of the form 'builder:<name>'. By default, considered True
@@ -506,12 +492,6 @@ def builder(
         list_view: A string or a list of strings identifying the ID(s) of the
             list view(s) to add an entry to. Supports a module-level default
             that defaults to no list views.
-        configure_kitchen: a boolean indicating whether to configure kitchen. If
-            True, emits a property to set the 'git_auth' and 'devshell' fields
-            of the '$kitchen' property. By default, considered False.
-        kitchen_emulate_gce: a boolean indicating whether to set 'emulate_gce'
-            of the '$kitchen' property. This is effective only when
-            configure_kitchen is True. By default, considered False.
         goma_backend: a member of the `goma.backend` enum indicating the goma
             backend the builder should use. Will be incorporated into the
             '$build/goma' property. By default, considered None.
@@ -563,23 +543,18 @@ def builder(
             instance for re-client to use.
         reclient_service: a string indicating the RBE service to dial via gRPC.
             By default, this is "remotebuildexecution.googleapis.com:443" (set
-            in the reclient recipe module). Has no effect if reclient_instance
-            is not set.
+            in the reclient recipe module).
         reclient_jobs: an integer indicating the number of concurrent
-            compilations to run when using re-client as the compiler. Has no
-            effect if reclient_instance is not set.
+            compilations to run when using re-client as the compiler.
         reclient_rewrapper_env: a map that sets the rewrapper flags via the
             environment variables. All such vars must start with the "RBE_"
-            prefix. Has no effect if reclient_instance is not set.
+            prefix.
         reclient_profiler_service: a string indicating service name for
-            re-client's cloud profiler. Has no effect if reclient_instance is
-            not set.
-        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace. Has
-            no effect if reclient_instance is not set.
+            re-client's cloud profiler.
+        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace.
         reclient_cache_silo: A string indicating a cache siling key to use for
-            remote caching. Has no effect if reclient_instance is not set.
-        reclient_ensure_verified: If True, it verifies build artifacts. Has no
-            effect if reclient_instance is not set.
+            remote caching.
+        reclient_ensure_verified: If True, it verifies build artifacts.
         **kwargs: Additional keyword arguments to forward on to `luci.builder`.
 
     Returns:
@@ -594,8 +569,8 @@ def builder(
 
     if builder_spec and mirrors:
         fail("Only one of builder_spec or mirrors can be set")
-    if try_settings and not (builder_spec or mirrors):
-        fail("try_settings can only be set if builder_spec or mirrors is set")
+    if try_settings and not mirrors:
+        fail("try_settings can only be set if mirrors is set")
 
     dimensions = {}
 
@@ -603,9 +578,6 @@ def builder(
     if "sheriff_rotations" in properties:
         fail('Setting "sheriff_rotations" property is not supported: ' +
              "use sheriff_rotations instead")
-    if "$kitchen" in properties:
-        fail('Setting "$kitchen" property is not supported: ' +
-             "use configure_kitchen instead")
     if "$build/goma" in properties:
         fail('Setting "$build/goma" property is not supported: ' +
              "use goma_backend, goma_dbug, goma_enable_ats and goma_jobs instead")
@@ -628,12 +600,6 @@ def builder(
         builderless = os != None and os.category in _DEFAULT_BUILDERLESS_OS_CATEGORIES
     if builderless:
         dimensions["builderless"] = "1"
-
-        free_space = defaults.get_value("free_space", free_space)
-        if free_space:
-            dimensions["free_space"] = free_space
-    elif free_space and free_space != args.DEFAULT:
-        fail("\'free_space\' dimension can only be specified for builderless builders")
 
     # bucket might be the args.COMPUTE sentinel value if the caller didn't set
     # bucket in some way, which will result in a weird fully-qualified builder
@@ -682,15 +648,6 @@ def builder(
             ssd = False
     if ssd != None:
         dimensions["ssd"] = str(int(ssd))
-
-    configure_kitchen = defaults.get_value("configure_kitchen", configure_kitchen)
-    if configure_kitchen:
-        properties["$kitchen"] = {
-            "devshell": True,
-            "git_auth": True,
-        }
-        if defaults.get_value("kitchen_emulate_gce", kitchen_emulate_gce):
-            properties["$kitchen"]["emulate_gce"] = True
 
     goma_enable_ats = defaults.get_value("goma_enable_ats", goma_enable_ats)
 
@@ -847,5 +804,4 @@ builders = struct(
     os = os,
     sheriff_rotations = sheriff_rotations,
     xcode = xcode,
-    free_space = free_space,
 )

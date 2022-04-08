@@ -26,7 +26,6 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -42,10 +41,6 @@
 #define UMA_HISTOGRAM_LOCK_TIMES(name, sample)                    \
   UMA_HISTOGRAM_CUSTOM_TIMES(name, sample, base::Milliseconds(1), \
                              base::Seconds(50), 100)
-
-// TODO(b/228873153): Remove after figuring out the root cause of the bug
-#undef ENABLED_VLOG_LEVEL
-#define ENABLED_VLOG_LEVEL 1
 
 namespace ash {
 
@@ -278,12 +273,7 @@ void LockStateController::OnLockFailTimeout() {
   lock_duration_timer_.reset();
   DCHECK(!system_is_locked_);
 
-  // b/228873153: Here we use `LOG(ERROR)` instead of `LOG(FATAL)` because it
-  // seems like certain users are hitting this timeout causing chrome to crash
-  // and be restarted from session manager without `--login-manager`
-  LOG(ERROR) << "Screen lock took too long; Signing out";
-  base::debug::DumpWithoutCrashing();
-  Shell::Get()->session_controller()->RequestSignOut();
+  LOG(FATAL) << "Screen lock took too long; crashing intentionally";
 }
 
 void LockStateController::StartPreShutdownAnimationTimer() {
@@ -446,7 +436,6 @@ void LockStateController::PreLockAnimationFinished(bool request_lock,
     Shell::Get()->session_controller()->LockScreen();
   }
 
-  VLOG(1) << "b/228873153 : Starting lock fail timer";
   lock_fail_timer_.Start(FROM_HERE, kLockFailTimeout, this,
                          &LockStateController::OnLockFailTimeout);
 

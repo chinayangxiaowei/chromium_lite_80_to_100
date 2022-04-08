@@ -14,7 +14,9 @@
 #define IN_LIBXML
 #include "libxml.h"
 
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
 #include <string.h>
 
 #include <libxml/globals.h>
@@ -46,6 +48,20 @@ void xmlInitGlobals(void)
 {
     if (xmlThrDefMutex == NULL)
         xmlThrDefMutex = xmlNewMutex();
+}
+
+/**
+ * xmlCleanupGlobals:
+ *
+ * Additional cleanup for multi-threading
+ */
+void xmlCleanupGlobals(void)
+{
+    if (xmlThrDefMutex != NULL) {
+	xmlFreeMutex(xmlThrDefMutex);
+	xmlThrDefMutex = NULL;
+    }
+    __xmlGlobalInitMutexDestroy();
 }
 
 /************************************************************************
@@ -1106,19 +1122,5 @@ __xmlOutputBufferCreateFilenameValue(void) {
 	return (&xmlGetGlobalState()->xmlOutputBufferCreateFilenameValue);
 }
 
-/**
- * xmlCleanupGlobals:
- *
- * Additional cleanup for multi-threading
- */
-void xmlCleanupGlobals(void)
-{
-    xmlResetError(&xmlLastError);
-
-    if (xmlThrDefMutex != NULL) {
-	xmlFreeMutex(xmlThrDefMutex);
-	xmlThrDefMutex = NULL;
-    }
-    __xmlGlobalInitMutexDestroy();
-}
-
+#define bottom_globals
+#include "elfgcchack.h"

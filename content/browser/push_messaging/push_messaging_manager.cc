@@ -194,7 +194,7 @@ void PushMessagingManager::Subscribe(
     return;
   }
 
-  GURL origin = service_worker_registration->scope().GetOrigin();
+  GURL origin = service_worker_registration->scope().DeprecatedGetOriginAsURL();
 
   if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanAccessDataForOrigin(
           render_process_host_.GetID(), url::Origin::Create(origin))) {
@@ -504,7 +504,7 @@ void PushMessagingManager::Unsubscribe(int64_t service_worker_registration_id,
     return;
   }
 
-  GURL origin = service_worker_registration->scope().GetOrigin();
+  GURL origin = service_worker_registration->scope().DeprecatedGetOriginAsURL();
 
   if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanAccessDataForOrigin(
           render_process_host_.GetID(), url::Origin::Create(origin))) {
@@ -596,7 +596,7 @@ void PushMessagingManager::GetSubscription(
       service_worker_context_->GetLiveRegistration(
           service_worker_registration_id);
   if (registration) {
-    const GURL origin = registration->scope().GetOrigin();
+    const GURL origin = registration->scope().DeprecatedGetOriginAsURL();
 
     if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanAccessDataForOrigin(
             render_process_host_.GetID(), url::Origin::Create(origin))) {
@@ -650,7 +650,7 @@ void PushMessagingManager::DidGetSubscription(
         break;
       }
 
-      const GURL origin = registration->scope().GetOrigin();
+      const GURL origin = registration->scope().DeprecatedGetOriginAsURL();
 
       GetSubscriptionInfo(
           origin, service_worker_registration_id, application_server_key,

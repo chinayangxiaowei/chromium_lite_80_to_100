@@ -326,7 +326,7 @@ bool ChromePasswordManagerClient::PromptUserToSaveOrUpdatePassword(
 
   if (update_password) {
     if (messages::IsUpdatePasswordMessagesUiEnabled()) {
-      save_password_message_delegate_.DisplaySavePasswordPrompt(
+      save_update_password_message_delegate_.DisplaySaveUpdatePasswordPrompt(
           web_contents(), std::move(form_to_save), /*update_password=*/true);
     } else {
       UpdatePasswordInfoBarDelegate::Create(web_contents(),
@@ -334,7 +334,7 @@ bool ChromePasswordManagerClient::PromptUserToSaveOrUpdatePassword(
     }
   } else {
     if (messages::IsPasswordMessagesUiEnabled()) {
-      save_password_message_delegate_.DisplaySavePasswordPrompt(
+      save_update_password_message_delegate_.DisplaySaveUpdatePasswordPrompt(
           web_contents(), std::move(form_to_save), /*update_password=*/false);
     } else {
       SavePasswordInfoBarDelegate::Create(web_contents(),
@@ -456,8 +456,8 @@ void ChromePasswordManagerClient::ShowTouchToFill(
 #if defined(OS_ANDROID)
   GetOrCreateTouchToFillController()->Show(
       credential_cache_
-          .GetCredentialStore(
-              url::Origin::Create(driver->GetLastCommittedURL().GetOrigin()))
+          .GetCredentialStore(url::Origin::Create(
+              driver->GetLastCommittedURL().DeprecatedGetOriginAsURL()))
           .GetCredentials(),
       driver->AsWeakPtr());
 #endif
@@ -609,7 +609,7 @@ void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
   }
 
   if (messages::IsPasswordMessagesUiEnabled()) {
-    save_password_message_delegate_.DismissSavePasswordPrompt();
+    save_update_password_message_delegate_.DismissSaveUpdatePasswordPrompt();
   } else {
     HideSavePasswordInfobar(web_contents());
   }
@@ -975,9 +975,10 @@ bool ChromePasswordManagerClient::IsIsolationForPasswordSitesEnabled() const {
 }
 
 bool ChromePasswordManagerClient::IsNewTabPage() const {
-  auto origin = GetLastCommittedURL().GetOrigin();
-  return origin == GURL(chrome::kChromeUINewTabPageURL).GetOrigin() ||
-         origin == GURL(chrome::kChromeUINewTabURL).GetOrigin();
+  auto origin = GetLastCommittedURL().DeprecatedGetOriginAsURL();
+  return origin ==
+             GURL(chrome::kChromeUINewTabPageURL).DeprecatedGetOriginAsURL() ||
+         origin == GURL(chrome::kChromeUINewTabURL).DeprecatedGetOriginAsURL();
 }
 
 FieldInfoManager* ChromePasswordManagerClient::GetFieldInfoManager() const {
@@ -1341,7 +1342,7 @@ void ChromePasswordManagerClient::WebContentsDestroyed() {
   }
 
 #if defined(OS_ANDROID)
-  save_password_message_delegate_.DismissSavePasswordPrompt();
+  save_update_password_message_delegate_.DismissSaveUpdatePasswordPrompt();
 #endif
 }
 
@@ -1453,7 +1454,7 @@ bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
   }
 
   // The password manager is disabled on Google Password Manager page.
-  if (url.GetOrigin() ==
+  if (url.DeprecatedGetOriginAsURL() ==
       GURL(password_manager::kPasswordManagerAccountDashboardURL)) {
     is_enabled = false;
   }

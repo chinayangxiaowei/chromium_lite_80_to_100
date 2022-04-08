@@ -6,7 +6,6 @@
 #define COMPONENTS_CONTENT_SETTINGS_BROWSER_UI_COOKIE_CONTROLS_CONTROLLER_H_
 
 #include "base/memory/scoped_refptr.h"
-#include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
@@ -25,9 +24,7 @@ class CookieSettings;
 class CookieControlsView;
 
 // Handles the tab specific state for cookie controls.
-class CookieControlsController
-    : content_settings::CookieSettings::Observer,
-      public base::SupportsWeakPtr<CookieControlsController> {
+class CookieControlsController : content_settings::CookieSettings::Observer {
  public:
   CookieControlsController(
       scoped_refptr<content_settings::CookieSettings> cookie_settings,

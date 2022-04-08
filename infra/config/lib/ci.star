@@ -15,7 +15,6 @@ to set the default value. Can also be accessed through `ci.defaults`.
 
 load("./args.star", "args")
 load("./branches.star", "branches")
-load("./builder_config.star", "builder_config")
 load("./builders.star", "builders", "os", "os_category")
 load("//project.star", "settings")
 
@@ -49,7 +48,7 @@ def ci_builder(
       branch_selector: A branch selector value controlling whether the
         builder definition is executed. See branches.star for more
         information.
-      console_view_entry - A `consoles.console_view_entry` struct or a list of
+      console_view_entry: A `consoles.console_view_entry` struct or a list of
         them describing console view entries to create for the builder.
         See `consoles.console_view_entry` for details.
       main_console_view: A string identifying the ID of the main console
@@ -131,11 +130,6 @@ def ci_builder(
         branches.value({branches.STANDARD_BRANCHES: "chrome_browser_release"}),
     )
 
-    experiments = dict(experiments or {})
-
-    # TODO(crbug.com/1135718): Promote out of experiment for all builders.
-    experiments.setdefault("chromium.chromium_tests.use_rdb_results", 100)
-
     goma_enable_ats = defaults.get_value_from_kwargs("goma_enable_ats", kwargs)
     if goma_enable_ats == args.COMPUTE:
         os = defaults.get_value_from_kwargs("os", kwargs)
@@ -208,7 +202,7 @@ def _gpu_linux_builder(*, name, **kwargs):
     groups.
     """
     kwargs.setdefault("cores", 8)
-    kwargs.setdefault("os", os.LINUX_DEFAULT)
+    kwargs.setdefault("os", os.LINUX_BIONIC_SWITCH_TO_DEFAULT)
     return ci.builder(name = name, **kwargs)
 
 def _gpu_mac_builder(*, name, **kwargs):
@@ -259,13 +253,9 @@ def thin_tester(
     Returns:
       The `luci.builder` keyset.
     """
-    builder_spec = kwargs.get("builder_spec")
-    if builder_spec and builder_spec.execution_mode != builder_config.execution_mode.TEST:
-        fail("thin testers with builder specs must have TEST execution mode")
     cores = defaults.get_value("thin_tester_cores", cores)
     kwargs.setdefault("goma_backend", None)
-    kwargs.setdefault("reclient_instance", None)
-    kwargs.setdefault("os", builders.os.LINUX_DEFAULT)
+    kwargs.setdefault("os", builders.os.LINUX_BIONIC_SWITCH_TO_DEFAULT)
     return ci.builder(
         name = name,
         triggered_by = triggered_by,
@@ -296,4 +286,14 @@ ci = struct(
         SERVICE_ACCOUNT = "chromium-ci-gpu-builder@chops-service-accounts.iam.gserviceaccount.com",
         TREE_CLOSING_NOTIFIERS = ["gpu-tree-closer-email"],
     ),
+)
+
+rbe_instance = struct(
+    DEFAULT = "rbe-chromium-trusted",
+    GVISOR_SHADOW = "rbe-chromium-gvisor-shadow",
+)
+
+rbe_jobs = struct(
+    DEFAULT = 250,
+    HIGH_JOBS_FOR_CI = 500,
 )

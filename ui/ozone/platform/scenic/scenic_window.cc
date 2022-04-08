@@ -54,8 +54,7 @@ ScenicWindow::ScenicWindow(ScenicWindowManager* window_manager,
       scenic_session_(manager_->GetScenic()),
       safe_presenter_(&scenic_session_),
       view_(&scenic_session_,
-            fuchsia::ui::views::ViewToken(
-                {zx::eventpair(std::move(properties.view_token))}),
+            std::move(std::move(properties.view_token)),
             std::move(properties.view_ref_pair.control_ref),
             CloneViewRef(),
             "chromium window"),
@@ -156,16 +155,21 @@ void ScenicWindow::PrepareForShutdown() {
 }
 
 void ScenicWindow::SetCapture() {
+  // TODO(crbug.com/1231516): Use Scenic capture APIs.
   NOTIMPLEMENTED_LOG_ONCE();
+  has_capture_ = true;
 }
 
 void ScenicWindow::ReleaseCapture() {
+  // TODO(crbug.com/1231516): Use Scenic capture APIs.
   NOTIMPLEMENTED_LOG_ONCE();
+  has_capture_ = false;
 }
 
 bool ScenicWindow::HasCapture() const {
+  // TODO(crbug.com/1231516): Use Scenic capture APIs.
   NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  return has_capture_;
 }
 
 void ScenicWindow::ToggleFullscreen() {
@@ -298,6 +302,21 @@ void ScenicWindow::OnScenicEvents(
         case fuchsia::ui::gfx::Event::kViewDetachedFromScene: {
           DCHECK(event.gfx().view_detached_from_scene().view_id == view_.id());
           OnViewAttachedChanged(false);
+
+          // Detach the surface view. This is necessary to ensure that the
+          // current content doesn't become visible when the view is attached
+          // again.
+          render_node_.DetachChildren();
+          surface_view_holder_.reset();
+          safe_presenter_.QueuePresent();
+
+          // Destroy and recreate AcceleratedWidget. This will force the
+          // compositor drop the current LayerTreeFrameSink together with the
+          // corresponding ScenicSurface. They will be created again only after
+          // the window becomes visible again.
+          delegate_->OnAcceleratedWidgetDestroyed();
+          delegate_->OnAcceleratedWidgetAvailable(window_id_);
+
           break;
         }
         default:
