@@ -239,7 +239,7 @@ class ReferrerPolicyTest : public InProcessBrowserTest {
     // Watch for all possible outcomes to avoid timeouts if something breaks.
     AddAllPossibleTitles(start_url, &title_watcher);
 
-    ui_test_utils::NavigateToURL(browser(), start_url);
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), start_url));
 
     if (renderer_or_browser_initiated == BROWSER_INITIATED) {
       CHECK(disposition == WindowOpenDisposition::CURRENT_TAB);
@@ -406,7 +406,13 @@ IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, HttpsMiddleClickTargetBlankOrigin) {
 }
 
 // Context menu, from HTTP to HTTP.
-IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, ContextMenuOrigin) {
+// TODO(crbug.com/1269942): Flaky on Lacros.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_ContextMenuOrigin DISABLED_ContextMenuOrigin
+#else
+#define MAYBE_ContextMenuOrigin ContextMenuOrigin
+#endif
+IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, MAYBE_ContextMenuOrigin) {
   ContextMenuNotificationObserver context_menu_observer(
       IDC_CONTENT_CONTEXT_OPENLINKNEWTAB);
   RunReferrerTest(
@@ -530,7 +536,13 @@ IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, ContextMenuRedirect) {
 }
 
 // Context menu, from HTTPS to HTTP via server redirect.
-IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, HttpsContextMenuRedirect) {
+// TODO(crbug.com/1269942): Flaky on Lacros.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_HttpsContextMenuRedirect DISABLED_HttpsContextMenuRedirect
+#else
+#define MAYBE_HttpsContextMenuRedirect HttpsContextMenuRedirect
+#endif
+IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, MAYBE_HttpsContextMenuRedirect) {
   ContextMenuNotificationObserver context_menu_observer(
       IDC_CONTENT_CONTEXT_OPENLINKNEWTAB);
   RunReferrerTest(network::mojom::ReferrerPolicy::kOrigin, START_ON_HTTPS,
@@ -550,8 +562,8 @@ IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, History) {
       blink::WebMouseEvent::Button::kLeft, EXPECT_ORIGIN_AS_REFERRER);
 
   // Navigate to C.
-  ui_test_utils::NavigateToURL(browser(),
-                               embedded_test_server()->GetURL("/title1.html"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/title1.html")));
 
   std::u16string expected_title =
       GetExpectedTitle(start_url, EXPECT_ORIGIN_AS_REFERRER);
@@ -626,9 +638,9 @@ IN_PROC_BROWSER_TEST_F(ReferrerPolicyTest, IFrame) {
       new content::TitleWatcher(tab, expected_title));
 
   // Load a page that loads an iframe.
-  ui_test_utils::NavigateToURL(
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),
-      https_server_.GetURL("/referrer_policy/referrer-policy-iframe.html"));
+      https_server_.GetURL("/referrer_policy/referrer-policy-iframe.html")));
   EXPECT_TRUE(content::ExecuteScript(
       tab,
       std::string("var frame = document.createElement('iframe');frame.src ='") +
@@ -888,7 +900,7 @@ class ReferrerOverrideTest
     std::u16string expected_title(u"loaded");
     std::unique_ptr<content::TitleWatcher> title_watcher(
         new content::TitleWatcher(tab, expected_title));
-    ui_test_utils::NavigateToURL(browser(), start_url);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), start_url));
 
     // Wait for the page to load; during the load, since check_on_requests_ is
     // nonempty, OnServerIncomingRequest will validate the referrers.

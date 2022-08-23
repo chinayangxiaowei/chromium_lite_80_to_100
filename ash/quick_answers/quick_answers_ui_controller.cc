@@ -4,7 +4,7 @@
 
 #include "ash/quick_answers/quick_answers_ui_controller.h"
 
-#include "ash/constants/ash_features.h"
+#include "ash/components/quick_answers/quick_answers_model.h"
 #include "ash/public/cpp/assistant/controller/assistant_interaction_controller.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/quick_answers/quick_answers_controller_impl.h"
@@ -15,7 +15,6 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "base/bind.h"
 #include "base/strings/stringprintf.h"
-#include "chromeos/components/quick_answers/quick_answers_model.h"
 #include "chromeos/services/assistant/public/cpp/assistant_service.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/escape.h"
@@ -24,12 +23,12 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/widget/widget.h"
 
-using chromeos::quick_answers::QuickAnswer;
-using chromeos::quick_answers::QuickAnswersExitPoint;
-
 namespace ash {
 
 namespace {
+
+using quick_answers::QuickAnswer;
+using quick_answers::QuickAnswersExitPoint;
 
 constexpr char kGoogleSearchUrlPrefix[] = "https://www.google.com/search?q=";
 
@@ -42,9 +41,7 @@ QuickAnswersUiController::QuickAnswersUiController(
     : controller_(controller) {}
 
 QuickAnswersUiController::~QuickAnswersUiController() {
-  quick_answers_view_ = nullptr;
   user_notice_view_ = nullptr;
-  user_consent_view_ = nullptr;
 }
 
 void QuickAnswersUiController::CreateQuickAnswersView(const gfx::Rect& bounds,
@@ -54,39 +51,36 @@ void QuickAnswersUiController::CreateQuickAnswersView(const gfx::Rect& bounds,
   // Currently there are timing issues that causes the quick answers view is not
   // dismissed. TODO(updowndota): Remove the special handling after the root
   // cause is found.
-  if (quick_answers_view_) {
+  if (IsShowingQuickAnswersView()) {
     LOG(ERROR) << "Quick answers view not dismissed.";
     CloseQuickAnswersView();
   }
 
   DCHECK(!user_notice_view_);
-  DCHECK(!user_consent_view_);
+  DCHECK(!IsShowingUserConsentView());
   SetActiveQuery(query);
-  quick_answers_view_ = new QuickAnswersView(bounds, title, is_internal, this);
-  quick_answers_view_->GetWidget()->ShowInactive();
+
+  // Owned by view hierarchy.
+  auto* const quick_answers_view = new QuickAnswersView(
+      bounds, title, is_internal, weak_factory_.GetWeakPtr());
+  quick_answers_view_tracker_.SetView(quick_answers_view);
+  quick_answers_view->GetWidget()->ShowInactive();
 }
 
 void QuickAnswersUiController::OnQuickAnswersViewPressed() {
   // Route dismissal through |controller_| for logging impressions.
   controller_->DismissQuickAnswers(QuickAnswersExitPoint::kQuickAnswersClick);
 
-  if (chromeos::features::IsQuickAnswersV2Enabled()) {
-    NewWindowDelegate::GetInstance()->NewTabWithUrl(
-        GURL(kGoogleSearchUrlPrefix +
-             net::EscapeUrlEncodedData(query_, /*use_plus=*/true)),
-        /*from_user_interaction=*/true);
-  } else {
-    ash::AssistantInteractionController::Get()->StartTextInteraction(
-        query_, /*allow_tts=*/false,
-        chromeos::assistant::AssistantQuerySource::kQuickAnswers);
-  }
+  NewWindowDelegate::GetInstance()->OpenUrl(
+      GURL(kGoogleSearchUrlPrefix +
+           net::EscapeUrlEncodedData(query_, /*use_plus=*/true)),
+      /*from_user_interaction=*/true);
   controller_->OnQuickAnswerClick();
 }
 
 bool QuickAnswersUiController::CloseQuickAnswersView() {
-  if (quick_answers_view_) {
-    quick_answers_view_->GetWidget()->Close();
-    quick_answers_view_ = nullptr;
+  if (IsShowingQuickAnswersView()) {
+    quick_answers_view()->GetWidget()->Close();
     return true;
   }
   return false;
@@ -99,12 +93,12 @@ void QuickAnswersUiController::OnRetryLabelPressed() {
 void QuickAnswersUiController::RenderQuickAnswersViewWithResult(
     const gfx::Rect& anchor_bounds,
     const QuickAnswer& quick_answer) {
-  if (!quick_answers_view_)
+  if (!IsShowingQuickAnswersView())
     return;
 
   // QuickAnswersView was initiated with a loading page and will be updated
   // when quick answers result from server side is ready.
-  quick_answers_view_->UpdateView(anchor_bounds, quick_answer);
+  quick_answers_view()->UpdateView(anchor_bounds, quick_answer);
 }
 
 void QuickAnswersUiController::SetActiveQuery(const std::string& query) {
@@ -112,28 +106,29 @@ void QuickAnswersUiController::SetActiveQuery(const std::string& query) {
 }
 
 void QuickAnswersUiController::ShowRetry() {
-  if (!quick_answers_view_)
+  if (!IsShowingQuickAnswersView())
     return;
 
-  quick_answers_view_->ShowRetryView();
+  quick_answers_view()->ShowRetryView();
 }
 
 void QuickAnswersUiController::UpdateQuickAnswersBounds(
     const gfx::Rect& anchor_bounds) {
-  if (quick_answers_view_)
-    quick_answers_view_->UpdateAnchorViewBounds(anchor_bounds);
+  if (IsShowingQuickAnswersView())
+    quick_answers_view()->UpdateAnchorViewBounds(anchor_bounds);
 
   if (user_notice_view_)
     user_notice_view_->UpdateAnchorViewBounds(anchor_bounds);
+
+  if (IsShowingUserConsentView())
+    user_consent_view()->UpdateAnchorViewBounds(anchor_bounds);
 }
 
 void QuickAnswersUiController::CreateUserNoticeView(
     const gfx::Rect& anchor_bounds,
     const std::u16string& intent_type,
     const std::u16string& intent_text) {
-  DCHECK(!quick_answers_view_);
   DCHECK(!user_notice_view_);
-  DCHECK(!user_consent_view_);
   user_notice_view_ = new quick_answers::UserNoticeView(
       anchor_bounds, intent_type, intent_text, this);
   user_notice_view_->GetWidget()->ShowInactive();
@@ -150,18 +145,20 @@ void QuickAnswersUiController::CreateUserConsentView(
     const gfx::Rect& anchor_bounds,
     const std::u16string& intent_type,
     const std::u16string& intent_text) {
-  DCHECK(!quick_answers_view_);
   DCHECK(!user_notice_view_);
-  DCHECK(!user_consent_view_);
-  user_consent_view_ = new quick_answers::UserConsentView(
-      anchor_bounds, intent_type, intent_text, this);
-  user_consent_view_->GetWidget()->ShowInactive();
+  DCHECK(!IsShowingQuickAnswersView());
+  DCHECK(!IsShowingUserConsentView());
+
+  // Owned by view hierarchy.
+  auto* const user_consent_view = new quick_answers::UserConsentView(
+      anchor_bounds, intent_type, intent_text, weak_factory_.GetWeakPtr());
+  user_consent_view_tracker_.SetView(user_consent_view);
+  user_consent_view->GetWidget()->ShowInactive();
 }
 
 void QuickAnswersUiController::CloseUserConsentView() {
-  if (user_consent_view_) {
-    user_consent_view_->GetWidget()->Close();
-    user_consent_view_ = nullptr;
+  if (IsShowingUserConsentView()) {
+    user_consent_view()->GetWidget()->Close();
   }
 }
 
@@ -171,20 +168,12 @@ void QuickAnswersUiController::OnAcceptButtonPressed() {
 
   // The Quick-Answer displayed should gain focus if it is created when this
   // button is pressed.
-  if (quick_answers_view_)
-    quick_answers_view_->RequestFocus();
+  if (IsShowingQuickAnswersView())
+    quick_answers_view()->RequestFocus();
 }
 
 void QuickAnswersUiController::OnManageSettingsButtonPressed() {
   controller_->OnNoticeSettingsRequestedByUser();
-}
-
-void QuickAnswersUiController::OnDogfoodButtonPressed() {
-  // Route dismissal through |controller_| for logging impressions.
-  // TODO(b/186904386): cleanup obsolete code after V2 launch.
-  controller_->DismissQuickAnswers(QuickAnswersExitPoint::kUnspecified);
-
-  controller_->OpenQuickAnswersDogfoodLink();
 }
 
 void QuickAnswersUiController::OnSettingsButtonPressed() {
@@ -204,11 +193,21 @@ void QuickAnswersUiController::OnReportQueryButtonPressed() {
 }
 
 void QuickAnswersUiController::OnUserConsentResult(bool consented) {
-  DCHECK(user_consent_view_);
+  DCHECK(IsShowingUserConsentView());
   controller_->OnUserConsentResult(consented);
 
-  if (consented && quick_answers_view_)
-    quick_answers_view_->RequestFocus();
+  if (consented && IsShowingQuickAnswersView())
+    quick_answers_view()->RequestFocus();
+}
+
+bool QuickAnswersUiController::IsShowingUserConsentView() const {
+  return user_consent_view_tracker_.view() &&
+         !user_consent_view_tracker_.view()->GetWidget()->IsClosed();
+}
+
+bool QuickAnswersUiController::IsShowingQuickAnswersView() const {
+  return quick_answers_view_tracker_.view() &&
+         !quick_answers_view_tracker_.view()->GetWidget()->IsClosed();
 }
 
 }  // namespace ash

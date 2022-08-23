@@ -51,9 +51,8 @@ unit tests.
      All files are from the src/test/testdada directory in
      https://code.google.com/p/certificate-transparency/
 
-- cert-manager.com-chain.pem : An OV certificate issued by a public trust
-    anchor valid for the domain ov-validation.cert-manager.com, and which
-    expires on 2022-06-22.
+- thepaverbros.com.pem : A certificate issued by a public trust anchor valid
+    for the domain thepaverbros.com, which expires on 2022-03-26.
 
 - gms.hongleong.com.my-verisign-chain.pem: A certificate chain for
   gms.hongleong.com.my issued by VeriSign Class 3 Public Primary Certification
@@ -102,7 +101,7 @@ unit tests.
      converting a subject/issuer name to their stringized form.
 
 - ocsp-test-root.pem : A root certificate for the code in
-      net/tools/testserver/minica.py
+      net/data/ssl/scripts/minica.py and net::EmbeddedTestServer.
 
 - websocket_cacert.pem : The testing root CA for testing WebSocket client
      certificate authentication.

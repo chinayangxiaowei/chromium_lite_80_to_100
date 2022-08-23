@@ -10,6 +10,7 @@
 
 #include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/app_list/app_list_controller_impl.h"
+#include "ash/constants/ash_features.h"
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
@@ -27,6 +28,7 @@
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/desks/desks_util.h"
+#include "ash/wm/desks/templates/desks_templates_presenter.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_delegate.h"
@@ -141,7 +143,6 @@ class OverviewFocusButton : public views::Button {
 
 OverviewSession::OverviewSession(OverviewDelegate* delegate)
     : delegate_(delegate),
-      active_window_before_overview_(window_util::GetActiveWindow()),
       overview_start_time_(base::Time::Now()),
       highlight_controller_(
           std::make_unique<OverviewHighlightController>(this)),
@@ -172,6 +173,8 @@ void OverviewSession::Init(const WindowList& windows,
 
   hide_overview_windows_ = std::make_unique<ScopedOverviewHideWindows>(
       std::move(hide_windows), /*force_hidden=*/false);
+
+  active_window_before_overview_ = window_util::GetActiveWindow();
   if (active_window_before_overview_)
     active_window_before_overview_->AddObserver(this);
 
@@ -261,6 +264,10 @@ void OverviewSession::Shutdown() {
 
   Shell::Get()->RemovePreTargetHandler(this);
   Shell::Get()->RemoveShellObserver(this);
+
+  // Stop the presenter from receiving any events that may update the model or
+  // UI.
+  desks_templates_presenter_.reset();
 
   // Stop observing screen metrics changes first to avoid auto-positioning
   // windows in response to work area changes from window activation.
@@ -692,6 +699,14 @@ void OverviewSession::OnStartingAnimationComplete(bool canceled,
   if (canceled)
     return;
 
+  // Create this after the desks bar widget. This will try to update the desks
+  // templates button on the desks bar views during construction.
+  if (features::AreDesksTemplatesEnabled()) {
+    DCHECK(!desks_templates_presenter_);
+    desks_templates_presenter_ =
+        std::make_unique<DesksTemplatesPresenter>(this);
+  }
+
   if (overview_focus_widget_) {
     if (should_focus_overview) {
       overview_focus_widget_->Show();
@@ -929,6 +944,12 @@ bool OverviewSession::IsWindowActiveWindowBeforeOverview(
   return window == active_window_before_overview_;
 }
 
+void OverviewSession::ShowDesksTemplatesGrids() {
+  for (auto& grid : grid_list_)
+    grid->ShowDesksTemplatesGrid();
+  UpdateNoWindowsWidget();
+}
+
 void OverviewSession::OnDisplayAdded(const display::Display& display) {
   if (EndOverview(OverviewEndAction::kDisplayAdded))
     return;
@@ -938,7 +959,8 @@ void OverviewSession::OnDisplayAdded(const display::Display& display) {
 
 void OverviewSession::OnDisplayMetricsChanged(const display::Display& display,
                                               uint32_t metrics) {
-  if (window_drag_controller_)
+  // End the current drag if the display changes.
+  if (window_drag_controller_ && window_drag_controller_->item())
     ResetDraggedWindowGesture();
   GetGridWithRootWindow(Shell::GetRootWindowForDisplayId(display.id()))
       ->OnDisplayMetricsChanged();
@@ -1198,8 +1220,17 @@ void OverviewSession::UpdateNoWindowsWidget() {
   if (is_shutting_down_)
     return;
 
-  // Hide the widget if there is an item in overview.
-  if (!IsEmpty()) {
+  bool desks_templates_grid_visible = false;
+  for (auto& grid : grid_list_) {
+    if (grid->IsShowingDesksTemplatesGrid()) {
+      desks_templates_grid_visible = true;
+      break;
+    }
+  }
+
+  // Hide the widget if there is an item in overview or if the desks templates
+  // grid is visible.
+  if (!IsEmpty() || desks_templates_grid_visible) {
     no_windows_widget_.reset();
     return;
   }

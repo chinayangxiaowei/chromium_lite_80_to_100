@@ -47,6 +47,9 @@ MediaSinkServiceBase* DualMediaSinkService::GetCastMediaSinkServiceImpl() {
 base::CallbackListSubscription DualMediaSinkService::AddSinksDiscoveredCallback(
     const OnSinksDiscoveredProviderCallback& callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  for (const auto& provider_and_sinks : current_sinks_) {
+    callback.Run(provider_and_sinks.first, provider_and_sinks.second);
+  }
   return sinks_discovered_callbacks_.Add(callback);
 }
 
@@ -127,6 +130,13 @@ void DualMediaSinkService::BindLogger(LoggerImpl* logger_impl) {
       base::BindOnce(&CastAppDiscoveryService::BindLogger,
                      base::Unretained(cast_app_discovery_service_.get()),
                      std::move(cast_discovery_pending_remote)));
+}
+
+void DualMediaSinkService::RemoveLogger() {
+  if (!logger_is_bound_)
+    return;
+  logger_is_bound_ = false;
+  cast_media_sink_service_->RemoveLogger();
 }
 
 }  // namespace media_router

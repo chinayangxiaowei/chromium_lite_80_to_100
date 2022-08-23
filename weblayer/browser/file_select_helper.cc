@@ -51,12 +51,14 @@ void FileSelectHelper::RunFileChooser(
     content::RenderFrameHost* render_frame_host,
     scoped_refptr<content::FileSelectListener> listener,
     FileChooserParamsPtr params) {
-  DCHECK(!web_contents());
+  DCHECK(!web_contents_);
   DCHECK(listener);
   DCHECK(!listener_);
+  DCHECK(!select_file_dialog_);
 
   listener_ = std::move(listener);
-  Observe(content::WebContents::FromRenderFrameHost(render_frame_host));
+  web_contents_ = content::WebContents::FromRenderFrameHost(render_frame_host)
+                      ->GetWeakPtr();
 
   select_file_dialog_ = ui::SelectFileDialog::Create(this, nullptr);
 
@@ -83,9 +85,9 @@ void FileSelectHelper::RunFileChooser(
 
   gfx::NativeWindow owning_window;
 #if defined(OS_ANDROID)
-  owning_window = web_contents()->GetNativeView()->GetWindowAndroid();
+  owning_window = web_contents_->GetNativeView()->GetWindowAndroid();
 #else
-  owning_window = web_contents()->GetNativeView()->GetToplevelWindow();
+  owning_window = web_contents_->GetNativeView()->GetToplevelWindow();
 #endif
 
 #if defined(OS_ANDROID)
@@ -116,6 +118,7 @@ void FileSelectHelper::RunFileChooser(
 void FileSelectHelper::RunFileChooserEnd() {
   if (listener_)
     listener_->FileSelectionCanceled();
+  select_file_dialog_.reset();
   Release();
 }
 
@@ -153,8 +156,10 @@ void FileSelectHelper::FileSelectionCanceled(void* params) {
 
 void FileSelectHelper::ConvertToFileChooserFileInfoList(
     const std::vector<ui::SelectedFileInfo>& files) {
-  if (AbortIfWebContentsDestroyed())
+  if (!web_contents_) {
+    RunFileChooserEnd();
     return;
+  }
 
   std::vector<FileChooserFileInfoPtr> chooser_files;
   for (const auto& file : files) {
@@ -170,15 +175,6 @@ void FileSelectHelper::ConvertToFileChooserFileInfoList(
 
   // No members should be accessed from here on.
   RunFileChooserEnd();
-}
-
-bool FileSelectHelper::AbortIfWebContentsDestroyed() {
-  if (web_contents() == nullptr) {
-    RunFileChooserEnd();
-    return true;
-  }
-
-  return false;
 }
 
 }  // namespace weblayer

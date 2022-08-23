@@ -21,6 +21,7 @@
 #include "components/cast_channel/cast_socket.h"
 #include "components/cast_channel/cast_socket_service.h"
 #include "components/cast_channel/cast_test_util.h"
+#include "components/media_router/browser/logger_impl.h"
 #include "components/media_router/common/test/test_helper.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_utils.h"
@@ -310,7 +311,7 @@ TEST_F(CastMediaSinkServiceImplTest, TestOpenChannelRetryOnce) {
   socket.SetErrorState(cast_channel::ChannelError::NONE);
   ExpectOpenSocket(&socket);
   // Wait for 16 seconds.
-  mock_time_task_runner_->FastForwardBy(base::TimeDelta::FromSeconds(16));
+  mock_time_task_runner_->FastForwardBy(base::Seconds(16));
 }
 
 TEST_F(CastMediaSinkServiceImplTest, TestOpenChannelFails) {
@@ -357,7 +358,7 @@ TEST_F(CastMediaSinkServiceImplTest, TestMultipleOpenChannels) {
   socket2.set_id(2);
   socket2.SetErrorState(cast_channel::ChannelError::NONE);
 
-  base::TimeDelta delta = base::TimeDelta::FromSeconds(2);
+  base::TimeDelta delta = base::Seconds(2);
   clock.Advance(delta);
   base::HistogramTester tester;
 
@@ -1325,6 +1326,27 @@ TEST_F(CastMediaSinkServiceImplTest, TestCreateCastSocketOpenParams) {
             open_params.connect_timeout.InSeconds());
   EXPECT_EQ(liveness_timeout_in_seconds,
             open_params.liveness_timeout.InSeconds());
+}
+
+TEST_F(CastMediaSinkServiceImplTest, BindLogger) {
+  std::unique_ptr<LoggerImpl> logger_1 = std::make_unique<LoggerImpl>();
+  mojo::PendingRemote<mojom::Logger> pending_remote_1;
+  logger_1->Bind(pending_remote_1.InitWithNewPipeAndPassReceiver());
+  media_sink_service_impl_.BindLogger(std::move(pending_remote_1));
+
+  // Trying to bind another pending remote no-ops instead of causing
+  // a DCHECK failure from binding to a remote that's already bound.
+  mojo::PendingRemote<mojom::Logger> pending_remote_2;
+  std::unique_ptr<LoggerImpl> logger_2 = std::make_unique<LoggerImpl>();
+  logger_2->Bind(pending_remote_2.InitWithNewPipeAndPassReceiver());
+  media_sink_service_impl_.BindLogger(std::move(pending_remote_2));
+
+  // Trying to bind a disconnected receiver should work.
+  logger_1.reset();
+  std::unique_ptr<LoggerImpl> logger_3 = std::make_unique<LoggerImpl>();
+  mojo::PendingRemote<mojom::Logger> pending_remote_3;
+  logger_3->Bind(pending_remote_3.InitWithNewPipeAndPassReceiver());
+  media_sink_service_impl_.BindLogger(std::move(pending_remote_3));
 }
 
 }  // namespace media_router

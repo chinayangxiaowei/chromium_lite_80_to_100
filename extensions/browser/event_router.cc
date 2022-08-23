@@ -110,9 +110,26 @@ void NotifyEventDispatched(content::BrowserContext* browser_context,
 
 LazyContextId LazyContextIdForBrowserContext(BrowserContext* browser_context,
                                              const EventListener* listener) {
-  if (listener->is_for_service_worker())
+  auto* registry = ExtensionRegistry::Get(browser_context);
+  DCHECK(registry);
+
+  const Extension* extension =
+      registry->enabled_extensions().GetByID(listener->extension_id());
+  const bool is_service_worker_based_extension =
+      extension && BackgroundInfo::IsServiceWorkerBased(extension);
+  // Note: It is possible that the prefs' listener->is_for_service_worker() and
+  // its extension background type do not agree. This happens when one changes
+  // extension's manifest, typically during unpacked extension development.
+  // Fallback to non-Service worker based LazyContextId to avoid surprising
+  // ServiceWorkerTaskQueue (and crashing), see https://crbug.com/1239752 for
+  // details.
+  // TODO(lazyboy): Clean these inconsistencies across different types of event
+  // listener and their corresponding background types.
+  if (is_service_worker_based_extension && listener->is_for_service_worker()) {
     return LazyContextId(browser_context, listener->extension_id(),
                          listener->listener_url());
+  }
+
   return LazyContextId(browser_context, listener->extension_id());
 }
 
@@ -659,7 +676,7 @@ std::set<std::string> EventRouter::GetRegisteredEvents(
     return events;
   }
 
-  for (size_t i = 0; i < events_value->GetSize(); ++i) {
+  for (size_t i = 0; i < events_value->GetList().size(); ++i) {
     std::string event;
     if (events_value->GetString(i, &event))
       events.insert(event);
@@ -897,17 +914,33 @@ void EventRouter::DispatchEventToProcess(
     return;
   }
 
+  std::unique_ptr<base::ListValue> modified_event_args;
+  std::unique_ptr<EventFilteringInfo> modified_event_filter_info;
   if (!event->will_dispatch_callback.is_null() &&
-      !event->will_dispatch_callback.Run(listener_context, target_context,
-                                         extension, event, listener_filter)) {
+      !event->will_dispatch_callback.Run(
+          listener_context, target_context, extension, listener_filter,
+          &modified_event_args, &modified_event_filter_info)) {
     return;
   }
 
+  base::ListValue* event_args_to_use = event->event_args.get();
+  std::unique_ptr<base::ListValue> list_modified_event_args;
+  if (modified_event_args) {
+    // If `will_dispatch_callback` provided modified args, use it.
+    list_modified_event_args = base::ListValue::From(
+        std::make_unique<base::Value>(std::move(*modified_event_args)));
+    event_args_to_use = list_modified_event_args.get();
+  }
+
+  std::unique_ptr<EventFilteringInfo> filter_info =
+      modified_event_filter_info
+          ? std::move(modified_event_filter_info)
+          : std::make_unique<EventFilteringInfo>(event->filter_info);
+
   int event_id = g_extension_event_id.GetNext();
-  DispatchExtensionMessage(process, worker_thread_id, listener_context,
-                           extension_id, event_id, event->event_name,
-                           event->event_args.get(), event->user_gesture,
-                           event->filter_info);
+  DispatchExtensionMessage(
+      process, worker_thread_id, listener_context, extension_id, event_id,
+      event->event_name, event_args_to_use, event->user_gesture, *filter_info);
 
   for (TestObserver& observer : test_observers_)
     observer.OnDidDispatchEventToProcess(*event);

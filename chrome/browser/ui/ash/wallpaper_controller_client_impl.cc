@@ -49,11 +49,11 @@
 #include "components/sync/driver/sync_user_settings.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_manager.h"
+#include "components/value_store/value_store.h"
 #include "extensions/browser/api/storage/backend_task_runner.h"
 #include "extensions/browser/api/storage/storage_frontend.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/value_store/value_store.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -163,7 +163,7 @@ user_manager::User* FindPublicSession(const user_manager::UserList& users) {
 // the daily refresh collection id, or the user does not have daily refresh
 // configured, returns empty string. This must be run on the same sequence
 // that |value_store| came from.
-std::string GetDailyRefreshCollectionId(ValueStore* value_store) {
+std::string GetDailyRefreshCollectionId(value_store::ValueStore* value_store) {
   if (!value_store)
     return std::string();
 
@@ -529,7 +529,7 @@ bool WallpaperControllerClientImpl::IsWallpaperSyncEnabled(
       SyncServiceFactory::GetForProfile(profile);
   if (!sync_service)
     return false;
-  if (chromeos::features::IsSplitSettingsSyncEnabled()) {
+  if (chromeos::features::IsSyncSettingsCategorizationEnabled()) {
     // If in client use profile otherwise use GetUserPrefServiceSyncable.
     return sync_service->GetUserSettings()->IsOsSyncFeatureEnabled() &&
            profile->GetPrefs()->GetBoolean(
@@ -562,7 +562,7 @@ void WallpaperControllerClientImpl::OnVolumeMounted(
 
 void WallpaperControllerClientImpl::MigrateCollectionIdFromValueStoreForTesting(
     const AccountId& account_id,
-    ValueStore* value_store) {
+    value_store::ValueStore* value_store) {
   SetDailyRefreshCollectionId(account_id,
                               GetDailyRefreshCollectionId(value_store));
 }
@@ -709,7 +709,7 @@ WallpaperControllerClientImpl::GetDeviceWallpaperImageFilePath() {
 void WallpaperControllerClientImpl::OnGetWallpaperChromeAppValueStore(
     scoped_refptr<base::SequencedTaskRunner> main_task_runner,
     const AccountId& account_id,
-    ValueStore* value_store) {
+    value_store::ValueStore* value_store) {
   DCHECK(extensions::IsOnBackendSequence());
   std::string collection_id = GetDailyRefreshCollectionId(value_store);
   // Jump back to original task runner.

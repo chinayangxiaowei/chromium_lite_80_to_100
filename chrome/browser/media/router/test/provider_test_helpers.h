@@ -52,6 +52,7 @@ class MockCastMediaSinkService : public CastMediaSinkService {
                void(const OnSinksDiscoveredCallback&, MediaSinkServiceBase*));
   MOCK_METHOD0(OnUserGesture, void());
   MOCK_METHOD1(BindLogger, void(LoggerImpl*));
+  MOCK_METHOD0(RemoveLogger, void());
   MOCK_METHOD0(StartMdnsDiscovery, void());
 };
 
@@ -117,6 +118,10 @@ class TestDialActivityManager : public DialActivityManager {
  public:
   TestDialActivityManager(DialAppDiscoveryService* app_discovery_service,
                           network::TestURLLoaderFactory* factory);
+
+  TestDialActivityManager(const TestDialActivityManager&) = delete;
+  TestDialActivityManager& operator=(const TestDialActivityManager&) = delete;
+
   ~TestDialActivityManager() override;
 
   std::unique_ptr<DialURLFetcher> CreateFetcher(
@@ -135,8 +140,6 @@ class TestDialActivityManager : public DialActivityManager {
   GURL expected_url_;
   std::string expected_method_;
   absl::optional<std::string> expected_post_data_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestDialActivityManager);
 };
 
 // Helper function to create an IP endpoint object.

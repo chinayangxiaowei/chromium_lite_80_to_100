@@ -490,7 +490,8 @@ VolumeManager::VolumeManager(
           std::make_unique<DocumentsProviderRootManager>(
               profile_,
               arc::ArcFileSystemOperationRunner::GetForBrowserContext(
-                  profile_))) {
+                  profile_))),
+      io_task_controller_() {
   DCHECK(disk_mount_manager);
 }
 
@@ -675,7 +676,7 @@ void VolumeManager::RemoveSshfsCrostiniVolume(
   disk_mount_manager_->UnmountPath(
       sshfs_mount_path.value(),
       base::BindOnce(&VolumeManager::OnSshfsCrostiniUnmountCallback,
-                     base::Unretained(this), sshfs_mount_path,
+                     weak_ptr_factory_.GetWeakPtr(), sshfs_mount_path,
                      std::move(callback)));
 }
 

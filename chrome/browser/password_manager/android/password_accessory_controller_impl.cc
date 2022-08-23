@@ -161,9 +161,7 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
 
   if (all_passwords_helper_.available_credentials().has_value() &&
       IsSecureSite() && origin.GetURL().SchemeIsCryptographic() &&
-      all_passwords_helper_.available_credentials().value() > 0 &&
-      base::FeatureList::IsEnabled(
-          password_manager::features::kFillingPasswordsFromAnyOrigin)) {
+      all_passwords_helper_.available_credentials().value() > 0) {
     std::u16string button_title =
         is_password_field
             ? l10n_util::GetStringUTF16(
@@ -503,6 +501,13 @@ void PasswordAccessoryControllerImpl::ShowAllPasswords() {
     return;
   }
 
+  // AllPasswordsBottomSheetController assumes that the focused frame has a live
+  // RenderFrame so that it can use the password manager driver.
+  // TODO(https://crbug.com/1286779): Investigate if focused frame really needs
+  // to return RenderFrameHosts with non-live RenderFrames.
+  if (!web_contents_->GetFocusedFrame()->IsRenderFrameLive())
+    return;
+
   // We can use |base::Unretained| safely because at the time of calling
   // |AllPasswordsSheetDismissed| we are sure that this controller is alive as
   // it owns |AllPasswordsBottomSheetController| from which the method is
@@ -570,4 +575,4 @@ bool PasswordAccessoryControllerImpl::IsSecureSite() const {
   return helper && helper->GetSecurityLevel() == security_state::SECURE;
 }
 
-WEB_CONTENTS_USER_DATA_KEY_IMPL(PasswordAccessoryControllerImpl)
+WEB_CONTENTS_USER_DATA_KEY_IMPL(PasswordAccessoryControllerImpl);

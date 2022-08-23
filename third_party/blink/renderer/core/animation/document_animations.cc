@@ -34,17 +34,20 @@
 #include "third_party/blink/renderer/core/animation/animation_clock.h"
 #include "third_party/blink/renderer/core/animation/animation_timeline.h"
 #include "third_party/blink/renderer/core/animation/css/css_scroll_timeline.h"
-#include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
 #include "third_party/blink/renderer/core/animation/pending_animations.h"
 #include "third_party/blink/renderer/core/animation/worklet_animation_controller.h"
+#include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
+#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
+#include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/bindings/microtask.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 
 namespace blink {
 
@@ -182,40 +185,10 @@ void DocumentAnimations::ValidateTimelines() {
   unvalidated_timelines_.clear();
 }
 
-DocumentAnimations::AllowAnimationUpdatesScope::AllowAnimationUpdatesScope(
-    DocumentAnimations& document_animations,
-    bool value)
-    : allow_(&document_animations.allow_animation_updates_,
-             document_animations.allow_animation_updates_.value_or(true) &&
-                 value) {}
-
-void DocumentAnimations::AddElementWithPendingAnimationUpdate(
-    Element& element) {
-  DCHECK(AnimationUpdatesAllowed());
-  elements_with_pending_updates_.insert(&element);
-}
-
-void DocumentAnimations::ApplyPendingElementUpdates() {
-  HeapHashSet<WeakMember<Element>> pending;
-  std::swap(pending, elements_with_pending_updates_);
-
-  for (auto& element : pending) {
-    ElementAnimations* element_animations = element->GetElementAnimations();
-    if (!element_animations)
-      continue;
-    element_animations->CssAnimations().MaybeApplyPendingUpdate(element.Get());
-  }
-
-  DCHECK(elements_with_pending_updates_.IsEmpty())
-      << "MaybeApplyPendingUpdate must not mark any elements as having a "
-         "pending update";
-}
-
 void DocumentAnimations::Trace(Visitor* visitor) const {
   visitor->Trace(document_);
   visitor->Trace(timelines_);
   visitor->Trace(unvalidated_timelines_);
-  visitor->Trace(elements_with_pending_updates_);
 }
 
 void DocumentAnimations::GetAnimationsTargetingTreeScope(
@@ -286,10 +259,13 @@ void DocumentAnimations::RemoveReplacedAnimations(
 
   // The list of animations for removal is constructed in reverse composite
   // ordering for efficiency. Flip the ordering to ensure that events are
-  // dispatched in composite order.
+  // dispatched in composite order.  Queue as a microtask so that the finished
+  // event is dispatched ahead of the remove event.
   for (auto it = animations_to_remove.rbegin();
        it != animations_to_remove.rend(); it++) {
-    (*it)->RemoveReplacedAnimation();
+    Animation* animation = *it;
+    Microtask::EnqueueMicrotask(WTF::Bind(&Animation::RemoveReplacedAnimation,
+                                          WrapWeakPersistent(animation)));
   }
 }
 

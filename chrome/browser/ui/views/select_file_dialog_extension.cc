@@ -10,8 +10,7 @@
 #include <utility>
 
 #include "ash/constants/ash_features.h"
-#include "base/bind.h"
-#include "base/callback.h"
+#include "ash/public/cpp/tablet_mode.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -20,6 +19,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/ash/file_manager/app_id.h"
@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/extensions/extension_dialog.h"
+#include "chrome/browser/ui/webui/chromeos/system_web_dialog_delegate.h"
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/browser/extension_system.h"
@@ -184,6 +185,57 @@ SelectFileDialogExtension::RoutingID GetRoutingID(
 
 }  // namespace
 
+// A customization of SystemWebDialogDelegate that provides notifications
+// to SelectFileDialogExtension about web dialog closing events. Must be outside
+// anonymous namespace for the friend declaration to work.
+class SystemFilesAppDialogDelegate : public chromeos::SystemWebDialogDelegate {
+ public:
+  SystemFilesAppDialogDelegate(base::WeakPtr<SelectFileDialogExtension> parent,
+                               const std::string& id,
+                               GURL url,
+                               std::u16string title)
+      : chromeos::SystemWebDialogDelegate(url, title),
+        id_(id),
+        parent_(std::move(parent)) {}
+  ~SystemFilesAppDialogDelegate() override = default;
+
+  void SetModal(bool modal) {
+    set_modal_type(modal ? ui::MODAL_TYPE_WINDOW : ui::MODAL_TYPE_NONE);
+  }
+
+  void GetMinimumDialogSize(gfx::Size* size) const override {
+    size->set_width(kFileManagerMinimumWidth);
+    size->set_height(kFileManagerMinimumHeight);
+  }
+
+  void GetDialogSize(gfx::Size* size) const override {
+    *size = SystemWebDialogDelegate::ComputeDialogSizeForInternalScreen(
+        {kFileManagerWidth, kFileManagerHeight});
+  }
+
+  void OnDialogShown(content::WebUI* webui) override {
+    if (parent_) {
+      parent_->OnSystemDialogShown(webui->GetWebContents(), id_);
+    }
+    chromeos::SystemWebDialogDelegate::OnDialogShown(webui);
+  }
+
+  void OnDialogWillClose() override {
+    if (parent_) {
+      parent_->OnSystemDialogWillClose();
+    }
+  }
+
+ private:
+  // The routing ID. We store it so that we can call back into the
+  // SelectFileDialog to inform it about contents::WebContents and
+  // the ID associated with it.
+  const std::string id_;
+
+  // The parent of this delegate.
+  base::WeakPtr<SelectFileDialogExtension> parent_;
+};
+
 /////////////////////////////////////////////////////////////////////////////
 
 SelectFileDialogExtension::Owner::Owner() = default;
@@ -199,7 +251,8 @@ SelectFileDialogExtension* SelectFileDialogExtension::Create(
 SelectFileDialogExtension::SelectFileDialogExtension(
     Listener* listener,
     std::unique_ptr<ui::SelectFilePolicy> policy)
-    : SelectFileDialog(listener, std::move(policy)) {}
+    : SelectFileDialog(listener, std::move(policy)),
+      system_files_app_web_contents_(nullptr) {}
 
 SelectFileDialogExtension::~SelectFileDialogExtension() {
   if (extension_dialog_.get())
@@ -223,6 +276,7 @@ void SelectFileDialogExtension::ExtensionDialogClosing(
   owner_window_ = nullptr;
   // Release our reference to the underlying dialog to allow it to close.
   extension_dialog_ = nullptr;
+  system_files_app_web_contents_ = nullptr;
   PendingDialog::GetInstance()->Remove(routing_id_);
   // Actually invoke the appropriate callback on our listener.
   NotifyListener();
@@ -230,30 +284,20 @@ void SelectFileDialogExtension::ExtensionDialogClosing(
 
 void SelectFileDialogExtension::ExtensionTerminated(
     ExtensionDialog* dialog) {
-  // The extension would have been unloaded because of the termination,
-  // reload it.
-  std::string extension_id = dialog->host()->extension()->id();
-  // Reload the extension after a bit; the extension may not have been unloaded
-  // yet. We don't want to try to reload the extension only to have the Unload
-  // code execute after us and re-unload the extension.
-  //
-  // TODO(rkc): This is ugly. The ideal solution is that we shouldn't need to
-  // reload the extension at all - when we try to open the extension the next
-  // time, the extension subsystem would automatically reload it for us. At
-  // this time though this is broken because of some faulty wiring in
-  // extensions::ProcessManager::CreateViewHost. Once that is fixed, remove
-  // this.
-  if (profile_) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            &extensions::ExtensionService::ReloadExtension,
-            base::Unretained(extensions::ExtensionSystem::Get(profile_)
-                                 ->extension_service()),
-            extension_id));
-  }
-
+  // The extension crashed (or the process was killed). Close the dialog.
   dialog->GetWidget()->Close();
+}
+
+void SelectFileDialogExtension::OnSystemDialogShown(
+    content::WebContents* web_contents,
+    const std::string& id) {
+  system_files_app_web_contents_ = web_contents;
+  SelectFileDialogExtensionUserData::SetRoutingIdForWebContents(web_contents,
+                                                                id);
+}
+
+void SelectFileDialogExtension::OnSystemDialogWillClose() {
+  ExtensionDialogClosing(nullptr);
 }
 
 // static
@@ -298,7 +342,64 @@ void SelectFileDialogExtension::OnFileSelectionCanceled(RoutingID routing_id) {
 content::RenderFrameHost* SelectFileDialogExtension::GetMainFrame() {
   if (extension_dialog_)
     return extension_dialog_->host()->main_frame_host();
+  else if (system_files_app_web_contents_)
+    return system_files_app_web_contents_->GetMainFrame();
   return nullptr;
+}
+
+GURL SelectFileDialogExtension::MakeDialogURL(
+    Type type,
+    const std::u16string& title,
+    const base::FilePath& default_path,
+    const FileTypeInfo* file_types,
+    int file_type_index,
+    const std::string& search_query,
+    bool show_android_picker_apps,
+    Profile* profile) {
+  base::FilePath download_default_path(
+      DownloadPrefs::FromBrowserContext(profile)->DownloadPath());
+  base::FilePath selection_path =
+      default_path.IsAbsolute()
+          ? default_path
+          : download_default_path.Append(default_path.BaseName());
+  base::FilePath fallback_path = profile->last_selected_directory().empty()
+                                     ? download_default_path
+                                     : profile->last_selected_directory();
+
+  // Convert the above absolute paths to file system URLs.
+  GURL selection_url;
+  if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
+          profile, selection_path, file_manager::util::GetFileManagerURL(),
+          &selection_url)) {
+    // Due to the current design, an invalid temporal cache file path may passed
+    // as |default_path| (crbug.com/178013 #9-#11). In such a case, we use the
+    // last selected directory as a workaround. Real fix is tracked at
+    // crbug.com/110119.
+    if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
+            profile, fallback_path.Append(default_path.BaseName()),
+            file_manager::util::GetFileManagerURL(), &selection_url)) {
+      DVLOG(1) << "Unable to resolve the selection URL.";
+    }
+  }
+
+  GURL current_directory_url;
+  base::FilePath current_directory_path = selection_path.DirName();
+  if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
+          profile, current_directory_path,
+          file_manager::util::GetFileManagerURL(), &current_directory_url)) {
+    // Fallback if necessary, see the comment above.
+    if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
+            profile, fallback_path, file_manager::util::GetFileManagerURL(),
+            &current_directory_url)) {
+      DVLOG(1) << "Unable to resolve the current directory URL for: "
+               << fallback_path.value();
+    }
+  }
+
+  return file_manager::util::GetFileManagerMainPageUrlWithParams(
+      type, title, current_directory_url, selection_url,
+      default_path.BaseName().value(), file_types, file_type_index,
+      search_query, show_android_picker_apps);
 }
 
 void SelectFileDialogExtension::SelectFileWithFileManagerParams(
@@ -342,81 +443,57 @@ void SelectFileDialogExtension::SelectFileWithFileManagerParams(
   if (PendingExists(routing_id))
     return;
 
-  base::FilePath download_default_path(
-      DownloadPrefs::FromBrowserContext(profile_)->DownloadPath());
-
-  base::FilePath selection_path = default_path.IsAbsolute() ?
-      default_path : download_default_path.Append(default_path.BaseName());
-
-  base::FilePath fallback_path = profile_->last_selected_directory().empty() ?
-      download_default_path : profile_->last_selected_directory();
-
-  // Convert the above absolute paths to file system URLs.
-  GURL selection_url;
-  if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
-          profile_, selection_path, file_manager::util::GetFileManagerURL(),
-          &selection_url)) {
-    // Due to the current design, an invalid temporal cache file path may passed
-    // as |default_path| (crbug.com/178013 #9-#11). In such a case, we use the
-    // last selected directory as a workaround. Real fix is tracked at
-    // crbug.com/110119.
-    if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
-            profile_, fallback_path.Append(default_path.BaseName()),
-            file_manager::util::GetFileManagerURL(), &selection_url)) {
-      DVLOG(1) << "Unable to resolve the selection URL.";
-    }
-  }
-
-  GURL current_directory_url;
-  base::FilePath current_directory_path = selection_path.DirName();
-  if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
-          profile_, current_directory_path,
-          file_manager::util::GetFileManagerURL(), &current_directory_url)) {
-    // Fallback if necessary, see the comment above.
-    if (!file_manager::util::ConvertAbsoluteFilePathToFileSystemUrl(
-            profile_, fallback_path, file_manager::util::GetFileManagerURL(),
-            &current_directory_url)) {
-      DVLOG(1) << "Unable to resolve the current directory URL for: "
-               << fallback_path.value();
-    }
-  }
+  GURL file_manager_url = SelectFileDialogExtension::MakeDialogURL(
+      type, title, default_path, file_types, file_type_index, search_query,
+      show_android_picker_apps, profile_);
 
   has_multiple_file_type_choices_ =
       !file_types || (file_types->extensions.size() > 1);
 
-  GURL file_manager_url =
-      file_manager::util::GetFileManagerMainPageUrlWithParams(
-          type, title, current_directory_url, selection_url,
-          default_path.BaseName().value(), file_types, file_type_index,
-          search_query, show_android_picker_apps);
-
-  ExtensionDialog::InitParams dialog_params(
-      {kFileManagerWidth, kFileManagerHeight});
-  dialog_params.is_modal = (owner.window != nullptr);
-  dialog_params.min_size = {kFileManagerMinimumWidth,
-                            kFileManagerMinimumHeight};
-  dialog_params.title =
+  std::u16string dialog_title =
       !title.empty() ? title
                      : file_manager::util::GetSelectFileDialogTitle(type);
-  dialog_params.title_color = kFilePickerActiveTitleColor;
-  dialog_params.title_inactive_color = kFilePickerInactiveTitleColor;
+  gfx::NativeWindow parent_window =
+      base_window ? base_window->GetNativeWindow() : owner.window;
 
-  ExtensionDialog* dialog = ExtensionDialog::Show(
-      file_manager_url,
-      base_window ? base_window->GetNativeWindow() : owner.window, profile_,
-      web_contents, this /* ExtensionDialog::Observer */, dialog_params);
-  if (!dialog) {
-    LOG(ERROR) << "Unable to create extension dialog";
-    return;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  can_resize_ = !ash::TabletMode::IsInTabletMode();
+#endif
+
+  if (ash::features::IsFileManagerSwaEnabled()) {
+    auto* dialog_delegate = new SystemFilesAppDialogDelegate(
+        weak_factory_.GetWeakPtr(), routing_id, file_manager_url, dialog_title);
+    dialog_delegate->SetModal(owner.window != nullptr);
+    dialog_delegate->set_can_resize(can_resize_);
+    dialog_delegate->ShowSystemDialog(parent_window);
+  } else {
+    ExtensionDialog::InitParams dialog_params(
+        {kFileManagerWidth, kFileManagerHeight});
+    dialog_params.is_modal = (owner.window != nullptr);
+    dialog_params.min_size = {kFileManagerMinimumWidth,
+                              kFileManagerMinimumHeight};
+    dialog_params.title = dialog_title;
+    dialog_params.title_color = kFilePickerActiveTitleColor;
+    dialog_params.title_inactive_color = kFilePickerInactiveTitleColor;
+
+    ExtensionDialog* dialog = ExtensionDialog::Show(
+        file_manager_url, parent_window, profile_, web_contents,
+        /*ExtensionDialogObserver=*/this, dialog_params);
+    if (!dialog) {
+      LOG(ERROR) << "Unable to create extension dialog";
+      return;
+    }
+
+    dialog->SetCanResize(can_resize_);
+    SelectFileDialogExtensionUserData::SetRoutingIdForWebContents(
+        dialog->host()->host_contents(), routing_id);
+
+    extension_dialog_ = dialog;
   }
-
-  SelectFileDialogExtensionUserData::SetRoutingIdForWebContents(
-      dialog->host()->host_contents(), routing_id);
 
   // Connect our listener to FileDialogFunction's per-tab callbacks.
   AddPending(routing_id);
 
-  extension_dialog_ = dialog;
   params_ = params;
   routing_id_ = routing_id;
   owner_window_ = owner.window;
@@ -445,8 +522,7 @@ bool SelectFileDialogExtension::HasMultipleFileTypeChoicesImpl() {
 }
 
 bool SelectFileDialogExtension::IsResizeable() const {
-  DCHECK(extension_dialog_.get());
-  return extension_dialog_->CanResize();
+  return can_resize_;
 }
 
 void SelectFileDialogExtension::NotifyListener() {

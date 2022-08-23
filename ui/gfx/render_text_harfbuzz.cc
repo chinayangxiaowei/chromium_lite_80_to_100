@@ -200,7 +200,7 @@ GraphemeProperties RetrieveGraphemeProperties(const base::StringPiece16& text,
         properties.block = ublock_getCode(codepoint);
     }
 
-    if (codepoint == '\n' || codepoint == ' ')
+    if (codepoint == '\n' || codepoint == '\r' || codepoint == ' ')
       properties.has_control = true;
     if (IsBracket(codepoint))
       properties.has_bracket = true;
@@ -428,6 +428,9 @@ class HarfBuzzLineBreaker {
         available_width_(max_width_) {
     AdvanceLine();
   }
+
+  HarfBuzzLineBreaker(const HarfBuzzLineBreaker&) = delete;
+  HarfBuzzLineBreaker& operator=(const HarfBuzzLineBreaker&) = delete;
 
   // Constructs a single line for |text_| using |run_list_|.
   void ConstructSingleLine() {
@@ -760,8 +763,6 @@ class HarfBuzzLineBreaker {
 
   // The current RTL run segments, to be applied by |UpdateRTLSegmentRanges()|.
   std::vector<SegmentHandle> rtl_segments_;
-
-  DISALLOW_COPY_AND_ASSIGN(HarfBuzzLineBreaker);
 };
 
 // Applies a forced text rendering direction if specified by a command-line
@@ -1970,7 +1971,7 @@ void RenderTextHarfBuzz::ShapeRuns(
       run->shape.glyphs.resize(run->shape.glyph_count);
       run->shape.glyph_to_char.resize(run->shape.glyph_count);
       run->shape.positions.resize(run->shape.glyph_count);
-      run->shape.width = glyph_width_for_test_;
+      // Keep width as zero since newline character doesn't have a width.
     } else {
       // This run needs shaping.
       need_shaping_runs.push_back(run);

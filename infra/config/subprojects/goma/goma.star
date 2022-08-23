@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-load("//lib/builders.star", "builder", "cpu", "defaults", "goma", "os", "xcode")
+load("//lib/builders.star", "builder", "builders", "cpu", "defaults", "goma", "os", "xcode")
 
 luci.bucket(
     name = "goma",
@@ -17,7 +17,7 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "google/luci-task-force@google.com",
+            groups = "project-chromium-admins",
         ),
     ],
 )
@@ -31,6 +31,7 @@ defaults.executable.set("recipe:chromium")
 defaults.execution_timeout.set(3 * time.hour)
 defaults.os.set(os.LINUX_DEFAULT)
 defaults.pool.set("luci.chromium.ci")
+defaults.free_space.set(builders.free_space.standard)
 defaults.service_account.set(
     "goma-release-testing@chops-service-accounts.iam.gserviceaccount.com",
 )
@@ -51,7 +52,7 @@ def fyi_goma_rbe_canary_builder(
         *,
         name,
         goma_backend = goma.backend.RBE_PROD,
-        os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+        os = os.LINUX_DEFAULT,
         **kwargs):
     return builder(
         name = name,
@@ -98,8 +99,8 @@ fyi_goma_rbe_canary_builder(
 fyi_goma_rbe_canary_builder(
     name = "ios-device-goma-rbe-canary-clobber",
     cores = None,
-    os = os.MAC_10_15,
-    xcode = xcode.x12d4e,
+    os = os.MAC_11,
+    xcode = xcode.x13main,
 )
 
 fyi_goma_rbe_canary_builder(
@@ -152,7 +153,7 @@ def fyi_goma_rbe_latest_client_builder(
         *,
         name,
         goma_backend = goma.backend.RBE_PROD,
-        os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+        os = os.LINUX_DEFAULT,
         **kwargs):
     return builder(
         name = name,
@@ -215,8 +216,8 @@ fyi_goma_rbe_latest_client_builder(
 fyi_goma_rbe_latest_client_builder(
     name = "ios-device-goma-rbe-latest-clobber",
     cores = None,
-    os = os.MAC_10_15,
-    xcode = xcode.x12d4e,
+    os = os.MAC_11,
+    xcode = xcode.x13main,
 )
 
 fyi_goma_rbe_latest_client_builder(
@@ -239,7 +240,7 @@ def goma_builder(
         *,
         name,
         builderless = False,
-        os = os.LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT,
+        os = os.LINUX_DEFAULT,
         **kwargs):
     return builder(
         name = name,
@@ -329,8 +330,8 @@ def goma_mac_builder(
 goma_mac_builder(
     name = "Chromium iOS Goma RBE ToT",
     goma_backend = goma.backend.RBE_TOT,
-    os = os.MAC_10_15,
-    xcode = xcode.x12d4e,
+    os = os.MAC_11,
+    xcode = xcode.x13main,
 )
 
 goma_mac_builder(

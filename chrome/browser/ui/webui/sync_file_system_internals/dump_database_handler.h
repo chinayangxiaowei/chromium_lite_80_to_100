@@ -7,6 +7,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "content/public/browser/web_ui_message_handler.h"
 
 class Profile;
@@ -16,6 +17,10 @@ namespace syncfs_internals {
 class DumpDatabaseHandler : public content::WebUIMessageHandler {
  public:
   explicit DumpDatabaseHandler(Profile* profile);
+
+  DumpDatabaseHandler(const DumpDatabaseHandler&) = delete;
+  DumpDatabaseHandler& operator=(const DumpDatabaseHandler&) = delete;
+
   ~DumpDatabaseHandler() override;
 
   // WebUIMessageHandler implementation.
@@ -27,7 +32,7 @@ class DumpDatabaseHandler : public content::WebUIMessageHandler {
 
   Profile* profile_;
 
-  DISALLOW_COPY_AND_ASSIGN(DumpDatabaseHandler);
+  base::WeakPtrFactory<DumpDatabaseHandler> weak_factory_{this};
 };
 
 }  // namespace syncfs_internals

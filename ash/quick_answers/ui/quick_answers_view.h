@@ -9,18 +9,9 @@
 
 #include "ash/ash_export.h"
 #include "ash/quick_answers/ui/quick_answers_focus_search.h"
+#include "base/memory/weak_ptr.h"
 #include "ui/events/event_handler.h"
 #include "ui/views/focus/focus_manager.h"
-
-namespace ash {
-class AssistantWebView;
-}  // namespace ash
-
-namespace chromeos {
-namespace quick_answers {
-struct QuickAnswer;
-}  // namespace quick_answers
-}  // namespace chromeos
 
 namespace views {
 class ImageButton;
@@ -30,8 +21,13 @@ class LabelButton;
 
 namespace ash {
 
+class AssistantWebView;
 class QuickAnswersUiController;
 class QuickAnswersPreTargetHandler;
+
+namespace quick_answers {
+struct QuickAnswer;
+}  // namespace quick_answers
 
 // A bubble style view to show QuickAnswer.
 class ASH_EXPORT QuickAnswersView : public views::View {
@@ -39,7 +35,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   QuickAnswersView(const gfx::Rect& anchor_view_bounds,
                    const std::string& title,
                    bool is_internal,
-                   QuickAnswersUiController* controller);
+                   base::WeakPtr<QuickAnswersUiController> controller);
 
   QuickAnswersView(const QuickAnswersView&) = delete;
   QuickAnswersView& operator=(const QuickAnswersView&) = delete;
@@ -59,7 +55,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
 
   // Update the quick answers view with quick answers result.
   void UpdateView(const gfx::Rect& anchor_view_bounds,
-                  const chromeos::quick_answers::QuickAnswer& quick_answer);
+                  const quick_answers::QuickAnswer& quick_answer);
 
   void ShowRetryView();
 
@@ -67,15 +63,13 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   void InitLayout();
   void InitWidget();
   void AddContentView();
-  void AddDogfoodButton();
   void AddSettingsButton();
   void AddPhoneticsAudioButton(const GURL& phonetics_audio, View* container);
   void AddAssistantIcon();
   void AddGoogleIcon();
   void ResetContentView();
   void UpdateBounds();
-  void UpdateQuickAnswerResult(
-      const chromeos::quick_answers::QuickAnswer& quick_answer);
+  void UpdateQuickAnswerResult(const quick_answers::QuickAnswer& quick_answer);
 
   // QuickAnswersFocusSearch::GetFocusableViewsCallback to poll currently
   // focusable views.
@@ -85,7 +79,7 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   void OnPhoneticsAudioButtonPressed(const GURL& phonetics_audio);
 
   gfx::Rect anchor_view_bounds_;
-  QuickAnswersUiController* const controller_;
+  base::WeakPtr<QuickAnswersUiController> controller_;
   bool has_second_row_answer_ = false;
   std::string title_;
   bool is_internal_ = false;
@@ -96,7 +90,6 @@ class ASH_EXPORT QuickAnswersView : public views::View {
   views::View* report_query_view_ = nullptr;
   views::Label* first_answer_label_ = nullptr;
   views::LabelButton* retry_label_ = nullptr;
-  views::ImageButton* dogfood_button_ = nullptr;
   views::ImageButton* settings_button_ = nullptr;
   views::ImageButton* phonetics_audio_button_ = nullptr;
 

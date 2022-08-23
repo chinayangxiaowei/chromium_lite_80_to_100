@@ -432,7 +432,7 @@ class TestOptimizationGuideStore : public OptimizationGuideStore {
 class TestPredictionManager : public PredictionManager {
  public:
   TestPredictionManager(
-      OptimizationGuideStore* model_and_features_store,
+      base::WeakPtr<OptimizationGuideStore> model_and_features_store,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       PrefService* pref_service,
       Profile* profile)
@@ -508,7 +508,7 @@ class PredictionManagerTestBase : public ProtoDatabaseProviderTestBase {
 
     model_and_features_store_ = CreateModelAndHostModelFeaturesStore();
     prediction_manager_ = std::make_unique<TestPredictionManager>(
-        model_and_features_store_.get(), url_loader_factory_,
+        model_and_features_store_->AsWeakPtr(), url_loader_factory_,
         pref_service_.get(), &testing_profile_);
     prediction_manager_->SetClockForTesting(task_environment_.GetMockClock());
   }
@@ -566,7 +566,7 @@ class PredictionManagerTestBase : public ProtoDatabaseProviderTestBase {
         load_models, load_host_model_features, have_models_in_store);
     RunUntilIdle();
     // Move clock forward for any short delays added for the fetcher.
-    MoveClockForwardBy(base::TimeDelta::FromSeconds(2));
+    MoveClockForwardBy(base::Seconds(2));
   }
 
   void MoveClockForwardBy(base::TimeDelta time_delta) {
@@ -586,8 +586,10 @@ class PredictionManagerTestBase : public ProtoDatabaseProviderTestBase {
   }
 
   TestOptimizationGuideStore* models_and_features_store() const {
-    return static_cast<TestOptimizationGuideStore*>(
-        prediction_manager()->model_and_features_store());
+    base::WeakPtr<OptimizationGuideStore> store =
+        prediction_manager()->model_and_features_store();
+    DCHECK(store);
+    return static_cast<TestOptimizationGuideStore*>(store.get());
   }
 
   base::FilePath temp_dir() const { return temp_dir_.GetPath(); }
@@ -778,8 +780,7 @@ TEST_F(PredictionManagerTest, AddObserverForOptimizationTargetModel) {
     prediction_model_fetcher()->SetCheckExpectedVersion();
     prediction_model_fetcher()->SetExpectedVersionForOptimizationTarget(
         proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, 1);
-    MoveClockForwardBy(
-        base::TimeDelta::FromSeconds(kUpdateFetchModelAndFeaturesTimeSecs));
+    MoveClockForwardBy(base::Seconds(kUpdateFetchModelAndFeaturesTimeSecs));
     EXPECT_TRUE(prediction_model_fetcher()->models_fetched());
     histogram_tester2.ExpectTotalCount(
         "OptimizationGuide.PredictionModelUpdateVersion.PainfulPageLoad", 0);
@@ -1176,7 +1177,8 @@ TEST_F(PredictionManagerTest, UpdateModelWithDownloadUrl) {
       "DownloadServiceAvailabilityBlockedFetch",
       false, 1);
   histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.PredictionManager.IsDownloadUrlValid", true, 1);
+      "OptimizationGuide.PredictionManager.IsDownloadUrlValid.PainfulPageLoad",
+      true, 1);
 
   EXPECT_EQ(prediction_model_download_manager()->last_requested_download(),
             GURL("https://example.com/model"));
@@ -1485,14 +1487,14 @@ TEST_F(PredictionManagerTest, ModelFetcherTimerRetryDelay) {
   SetStoreInitialized();
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
 
-  MoveClockForwardBy(base::TimeDelta::FromSeconds(kTestFetchRetryDelaySecs));
+  MoveClockForwardBy(base::Seconds(kTestFetchRetryDelaySecs));
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
 
   prediction_manager()->SetPredictionModelFetcherForTesting(
       BuildTestPredictionModelFetcher(
           PredictionModelFetcherEndState::kFetchSuccessWithModels));
 
-  MoveClockForwardBy(base::TimeDelta::FromSeconds(kTestFetchRetryDelaySecs));
+  MoveClockForwardBy(base::Seconds(kTestFetchRetryDelaySecs));
   EXPECT_TRUE(prediction_model_fetcher()->models_fetched());
 }
 
@@ -1512,7 +1514,7 @@ TEST_F(PredictionManagerTest, ModelFetcherTimerFetchSucceeds) {
 
   SetStoreInitialized();
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
-  MoveClockForwardBy(base::TimeDelta::FromSeconds(kTestFetchRetryDelaySecs));
+  MoveClockForwardBy(base::Seconds(kTestFetchRetryDelaySecs));
   EXPECT_TRUE(prediction_model_fetcher()->models_fetched());
   EXPECT_EQ("en-US", prediction_model_fetcher()->locale_requested());
 
@@ -1520,10 +1522,9 @@ TEST_F(PredictionManagerTest, ModelFetcherTimerFetchSucceeds) {
   prediction_manager()->SetPredictionModelFetcherForTesting(
       BuildTestPredictionModelFetcher(
           PredictionModelFetcherEndState::kFetchSuccessWithModels));
-  MoveClockForwardBy(base::TimeDelta::FromSeconds(kTestFetchRetryDelaySecs));
+  MoveClockForwardBy(base::Seconds(kTestFetchRetryDelaySecs));
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
-  MoveClockForwardBy(
-      base::TimeDelta::FromSeconds(kUpdateFetchModelAndFeaturesTimeSecs));
+  MoveClockForwardBy(base::Seconds(kUpdateFetchModelAndFeaturesTimeSecs));
   EXPECT_TRUE(prediction_model_fetcher()->models_fetched());
 }
 

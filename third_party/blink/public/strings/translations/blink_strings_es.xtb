@@ -160,6 +160,7 @@
 <translation id="5406322316791861025">cifra</translation>
 <translation id="5425179576310518467">fecha actual</translation>
 <translation id="5453733299334684579">elemento del árbol</translation>
+<translation id="546643433018805598">subíndice</translation>
 <translation id="5466621249238537318">Selecciona uno o varios archivos</translation>
 <translation id="5468998798572797635">salir de pantalla completa</translation>
 <translation id="5516235301412634559">0,75</translation>
@@ -172,6 +173,7 @@
 <translation id="5631759159893697722">resumen</translation>
 <translation id="5643186887447432888">botón</translation>
 <translation id="5677946354068040947">más opciones</translation>
+<translation id="5693537480074347398">superíndice</translation>
 <translation id="576709008726043716">introducción</translation>
 <translation id="57838592816432529">Silenciar</translation>
 <translation id="5786442179789148008">mostrar menú de velocidad de reproducción</translation>
@@ -265,7 +267,7 @@
 <translation id="7852167693871241274">Control deslizante del tono</translation>
 <translation id="7888071071722539607">Incluye un signo "<ph name="ATSIGN" />" en la dirección de correo electrónico. La dirección "<ph name="INVALIDADDRESS" />" no incluye el signo "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">divisor</translation>
-<translation id="795667975304826397">Ningún archivo seleccionado</translation>
+<translation id="795667975304826397">Ninguno archivo selec.</translation>
 <translation id="7962328325860248200">No seleccionado: <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">importante</translation>
 <translation id="8053789581856978548">campo para buscar texto</translation>
@@ -293,7 +295,7 @@
 <translation id="8541249477527128034">control multimedia</translation>
 <translation id="8550857728288566671">símbolo gráfico</translation>
 <translation id="8583702881314752957">lista de definiciones</translation>
-<translation id="8597182159515967513">cabecera</translation>
+<translation id="8597182159515967513">encabezado</translation>
 <translation id="860475260694818407">índice</translation>
 <translation id="8613126697340063924">reproducción de control remoto</translation>
 <translation id="862370744433916922">subtítulo</translation>

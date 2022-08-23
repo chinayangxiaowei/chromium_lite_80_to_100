@@ -8,21 +8,22 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "ash/quick_answers/ui/quick_answers_view.h"
+#include "ash/quick_answers/ui/user_consent_view.h"
+#include "base/memory/weak_ptr.h"
 #include "ui/gfx/geometry/rect.h"
-
-namespace chromeos {
-namespace quick_answers {
-struct QuickAnswer;
-}  // namespace quick_answers
-}  // namespace chromeos
+#include "ui/views/view_tracker.h"
+#include "ui/views/widget/widget.h"
 
 namespace ash {
+
 class QuickAnswersView;
 class QuickAnswersControllerImpl;
 
 namespace quick_answers {
 class UserNoticeView;
 class UserConsentView;
+struct QuickAnswer;
 }  // namespace quick_answers
 
 // A controller to show/hide and handle interactions for quick
@@ -51,7 +52,7 @@ class ASH_EXPORT QuickAnswersUiController {
   // |bounds| is the bound of context menu.
   void RenderQuickAnswersViewWithResult(
       const gfx::Rect& bounds,
-      const chromeos::quick_answers::QuickAnswer& quick_answer);
+      const quick_answers::QuickAnswer& quick_answer);
 
   void SetActiveQuery(const std::string& query);
 
@@ -89,18 +90,6 @@ class ASH_EXPORT QuickAnswersUiController {
     return user_notice_view_ != nullptr;
   }
 
-  // Used by the controller to check if the user consent view is currently
-  // showing instead of QuickAnswers.
-  bool is_showing_user_consent_view() const {
-    return user_consent_view_ != nullptr;
-  }
-
-  // Used by the controller to check if the QuickAnswers view is currently
-  // showing.
-  bool is_showing_quick_answers_view() const {
-    return quick_answers_view_ != nullptr;
-  }
-
   // Invoked when user clicks the Dogfood button on Quick-Answers related views.
   void OnDogfoodButtonPressed();
 
@@ -114,21 +103,37 @@ class ASH_EXPORT QuickAnswersUiController {
   // Handle consent result from user consent view.
   void OnUserConsentResult(bool consented);
 
-  const QuickAnswersView* quick_answers_view_for_testing() const {
-    return quick_answers_view_;
+  // Used by the controller to check if the user consent view is currently
+  // showing instead of QuickAnswers.
+  bool IsShowingUserConsentView() const;
+
+  // Used by the controller to check if the QuickAnswers view is currently
+  // showing.
+  bool IsShowingQuickAnswersView() const;
+
+  QuickAnswersView* quick_answers_view() {
+    return static_cast<QuickAnswersView*>(quick_answers_view_tracker_.view());
   }
   const quick_answers::UserNoticeView* notice_view_for_testing() const {
     return user_notice_view_;
+  }
+  quick_answers::UserConsentView* user_consent_view() {
+    return static_cast<quick_answers::UserConsentView*>(
+        user_consent_view_tracker_.view());
   }
 
  private:
   QuickAnswersControllerImpl* controller_ = nullptr;
 
   // Owned by view hierarchy.
-  QuickAnswersView* quick_answers_view_ = nullptr;
   quick_answers::UserNoticeView* user_notice_view_ = nullptr;
-  quick_answers::UserConsentView* user_consent_view_ = nullptr;
+  // Trackers for quick answers and user consent view.
+  views::ViewTracker quick_answers_view_tracker_;
+  views::ViewTracker user_consent_view_tracker_;
+
   std::string query_;
+
+  base::WeakPtrFactory<QuickAnswersUiController> weak_factory_{this};
 };
 
 }  // namespace ash

@@ -659,6 +659,7 @@ void FileSelectHelper::RunFileChooserOnUIThread(
     const base::FilePath& default_file_path,
     FileChooserParamsPtr params) {
   DCHECK(params);
+  DCHECK(!select_file_dialog_);
   if (AbortIfWebContentsDestroyed())
     return;
 
@@ -730,6 +731,7 @@ void FileSelectHelper::RunFileChooserEnd() {
     listener_->FileSelectionCanceled();
   render_frame_host_ = nullptr;
   web_contents_ = nullptr;
+  select_file_dialog_.reset();
   Release();
 }
 
@@ -768,13 +770,14 @@ void FileSelectHelper::RenderWidgetHostDestroyed(
 void FileSelectHelper::RenderFrameHostChanged(
     content::RenderFrameHost* old_host,
     content::RenderFrameHost* new_host) {
-  if (!render_frame_host_)
-    return;
   // The |old_host| and its children are now pending deletion. Do not give them
   // file access past this point.
-  if (render_frame_host_ == old_host ||
-      render_frame_host_->IsDescendantOf(old_host)) {
-    render_frame_host_ = nullptr;
+  for (content::RenderFrameHost* host = render_frame_host_; host;
+       host = host->GetParentOrOuterDocument()) {
+    if (host == old_host) {
+      render_frame_host_ = nullptr;
+      return;
+    }
   }
 }
 

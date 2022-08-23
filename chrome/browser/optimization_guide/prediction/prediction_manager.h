@@ -59,10 +59,13 @@ using PostModelLoadCallback =
 class PredictionManager : public PredictionModelDownloadObserver {
  public:
   PredictionManager(
-      OptimizationGuideStore* model_and_features_store,
+      base::WeakPtr<OptimizationGuideStore> model_and_features_store,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       PrefService* pref_service,
       Profile* profile);
+
+  PredictionManager(const PredictionManager&) = delete;
+  PredictionManager& operator=(const PredictionManager&) = delete;
 
   ~PredictionManager() override;
 
@@ -118,7 +121,7 @@ class PredictionManager : public PredictionModelDownloadObserver {
     return prediction_model_download_manager_.get();
   }
 
-  OptimizationGuideStore* model_and_features_store() const {
+  base::WeakPtr<OptimizationGuideStore> model_and_features_store() const {
     return model_and_features_store_;
   }
 
@@ -349,9 +352,8 @@ class PredictionManager : public PredictionModelDownloadObserver {
   // TODO(crbug/1183507): Remove host model features store and all relevant
   // code, and deprecate the proto field too.
   // The optimization guide store that contains prediction models and host
-  // model features from the remote Optimization Guide Service. Not owned and
-  // guaranteed to outlive |this|.
-  OptimizationGuideStore* model_and_features_store_ = nullptr;
+  // model features from the remote Optimization Guide Service.
+  base::WeakPtr<OptimizationGuideStore> model_and_features_store_;
 
   // A stored response from a model and host model features fetch used to hold
   // models to be stored once host model features are processed and stored.
@@ -386,8 +388,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
 
   // Used to get |weak_ptr_| to self on the UI thread.
   base::WeakPtrFactory<PredictionManager> ui_weak_ptr_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(PredictionManager);
 };
 
 }  // namespace optimization_guide

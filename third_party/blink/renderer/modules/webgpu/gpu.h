@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
+#include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
 
@@ -24,9 +25,9 @@ class ScriptPromiseResolver;
 class ScriptState;
 class DawnControlClientHolder;
 
-class GPU final : public ScriptWrappable,
-                  public Supplement<NavigatorBase>,
-                  public ExecutionContextLifecycleObserver {
+class MODULES_EXPORT GPU final : public ScriptWrappable,
+                                 public Supplement<NavigatorBase>,
+                                 public ExecutionContextLifecycleObserver {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -36,6 +37,10 @@ class GPU final : public ScriptWrappable,
   static GPU* gpu(NavigatorBase&);
 
   explicit GPU(NavigatorBase&);
+
+  GPU(const GPU&) = delete;
+  GPU& operator=(const GPU&) = delete;
+
   ~GPU() override;
 
   // ScriptWrappable overrides
@@ -55,6 +60,9 @@ class GPU final : public ScriptWrappable,
   // https://chromium.googlesource.com/chromium/src/+/refs/heads/main/third_party/blink/renderer/platform/heap/BlinkGCAPIReference.md#weak-collections
   void TrackMappableBuffer(GPUBuffer* buffer);
 
+  void SetDawnControlClientHolderForTesting(
+      scoped_refptr<DawnControlClientHolder> dawn_control_client);
+
  private:
   void OnRequestAdapterCallback(ScriptState* script_state,
                                 const GPURequestAdapterOptions* options,
@@ -69,8 +77,6 @@ class GPU final : public ScriptWrappable,
 
   scoped_refptr<DawnControlClientHolder> dawn_control_client_;
   HeapHashSet<WeakMember<GPUBuffer>> mappable_buffers_;
-
-  DISALLOW_COPY_AND_ASSIGN(GPU);
 };
 
 }  // namespace blink

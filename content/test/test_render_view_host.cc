@@ -35,7 +35,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/page_state/page_state.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
-#include "third_party/blink/public/mojom/page/drag.mojom.h"
+#include "third_party/blink/public/mojom/drag/drag.mojom.h"
 #include "ui/aura/env.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer_type.h"
@@ -146,7 +146,13 @@ void TestRenderWidgetHostView::RenderProcessGone() {
   delete this;
 }
 
-void TestRenderWidgetHostView::Destroy() { delete this; }
+void TestRenderWidgetHostView::Destroy() {
+  // Call this here in case any observers need access to the `this` before
+  // this derived class runs its destructor.
+  NotifyObserversAboutShutdown();
+
+  delete this;
+}
 
 gfx::Rect TestRenderWidgetHostView::GetViewBounds() {
   return gfx::Rect();
@@ -373,14 +379,14 @@ void TestRenderViewHost::TestOnUpdateStateWithFile(
     const base::FilePath& file_path) {
   auto state = blink::PageState::CreateForTesting(GURL("http://www.google.com"),
                                                   false, "data", &file_path);
-  static_cast<RenderFrameHostImpl*>(GetMainFrame())->UpdateState(state);
+  GetMainRenderFrameHost()->UpdateState(state);
 }
 
 RenderViewHostImplTestHarness::RenderViewHostImplTestHarness()
     : RenderViewHostTestHarness(
           base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
   std::vector<ui::ResourceScaleFactor> scale_factors;
-  scale_factors.push_back(ui::SCALE_FACTOR_100P);
+  scale_factors.push_back(ui::k100Percent);
   scoped_set_supported_scale_factors_ =
       std::make_unique<ui::test::ScopedSetSupportedResourceScaleFactors>(
           scale_factors);

@@ -31,6 +31,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
 class ExtensionServiceTest;
+class ScopedProfileKeepAlive;
 class SkBitmap;
 
 namespace base {
@@ -91,6 +92,9 @@ class CrxInstaller : public SandboxedUnpackerClient {
   // Used to indicate if host permissions should be withheld during
   // installation.
   enum WithholdingBehavior { kWithholdPermissions, kDontWithholdPermissions };
+
+  CrxInstaller(const CrxInstaller&) = delete;
+  CrxInstaller& operator=(const CrxInstaller&) = delete;
 
   // Extensions will be installed into service->install_directory(), then
   // registered with |service|. This does a silent install - see below for
@@ -366,6 +370,9 @@ class CrxInstaller : public SandboxedUnpackerClient {
   // The Profile the extension is being installed in.
   Profile* profile_;
 
+  // Prevent Profile destruction until the CrxInstaller is done.
+  std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive_;
+
   // The extension being installed.
   scoped_refptr<const Extension> extension_;
 
@@ -538,8 +545,6 @@ class CrxInstaller : public SandboxedUnpackerClient {
   // Invoked when the expectations from CRXFileInfo match with the crx file
   // after unpack success.
   ExpectationsVerifiedCallback expectations_verified_callback_;
-
-  DISALLOW_COPY_AND_ASSIGN(CrxInstaller);
 };
 
 }  // namespace extensions

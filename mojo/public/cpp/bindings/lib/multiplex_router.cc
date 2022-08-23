@@ -23,7 +23,6 @@
 #include "mojo/public/cpp/bindings/interface_endpoint_controller.h"
 #include "mojo/public/cpp/bindings/lib/may_auto_lock.h"
 #include "mojo/public/cpp/bindings/lib/message_quota_checker.h"
-#include "mojo/public/cpp/bindings/message_header_validator.h"
 #include "mojo/public/cpp/bindings/sequence_local_sync_event_watcher.h"
 
 namespace mojo {
@@ -44,6 +43,9 @@ class MultiplexRouter::InterfaceEndpoint
         peer_closed_(false),
         handle_created_(false),
         client_(nullptr) {}
+
+  InterfaceEndpoint(const InterfaceEndpoint&) = delete;
+  InterfaceEndpoint& operator=(const InterfaceEndpoint&) = delete;
 
   // ---------------------------------------------------------------------------
   // The following public methods are safe to call from any sequence without
@@ -247,8 +249,6 @@ class MultiplexRouter::InterfaceEndpoint
   // Guarded by the router's lock. Used to synchronously wait on replies.
   std::unique_ptr<SequenceLocalSyncEventWatcher> sync_watcher_;
   base::flat_set<uint64_t> requests_with_external_sync_waiter_;
-
-  DISALLOW_COPY_AND_ASSIGN(InterfaceEndpoint);
 };
 
 // MessageWrapper objects are always destroyed under the router's lock. On
@@ -263,6 +263,9 @@ class MultiplexRouter::MessageWrapper {
 
   MessageWrapper(MessageWrapper&& other)
       : router_(other.router_), value_(std::move(other.value_)) {}
+
+  MessageWrapper(const MessageWrapper&) = delete;
+  MessageWrapper& operator=(const MessageWrapper&) = delete;
 
   ~MessageWrapper() {
     if (!router_ || value_.IsNull())
@@ -300,8 +303,6 @@ class MultiplexRouter::MessageWrapper {
  private:
   MultiplexRouter* router_ = nullptr;
   Message value_;
-
-  DISALLOW_COPY_AND_ASSIGN(MessageWrapper);
 };
 
 struct MultiplexRouter::Task {
@@ -389,14 +390,7 @@ MultiplexRouter::MultiplexRouter(
   if (quota_checker)
     connector_.SetMessageQuotaChecker(std::move(quota_checker));
 
-  std::unique_ptr<MessageHeaderValidator> header_validator =
-      std::make_unique<MessageHeaderValidator>();
-  header_validator_ = header_validator.get();
-  dispatcher_.SetValidator(std::move(header_validator));
-
   if (primary_interface_name) {
-    header_validator_->SetDescription(base::JoinString(
-        {primary_interface_name, "[primary] MessageHeaderValidator"}, " "));
     control_message_handler_.SetDescription(base::JoinString(
         {primary_interface_name, "[primary] PipeControlMessageHandler"}, " "));
   }

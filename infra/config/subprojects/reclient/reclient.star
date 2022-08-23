@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-load("//lib/builders.star", "cpu", "os")
+load("//lib/builders.star", "builders", "cpu", "os")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//console-header.star", "HEADER")
@@ -20,7 +20,7 @@ luci.bucket(
         ),
         acl.entry(
             roles = acl.BUILDBUCKET_OWNER,
-            groups = "google/luci-task-force@google.com",
+            groups = "project-chromium-admins",
         ),
     ],
 )
@@ -43,6 +43,7 @@ ci.defaults.set(
     ),
     swarming_tags = ["vpython:native-python-wrapper"],
     triggered_by = ["chromium-gitiles-trigger"],
+    free_space = builders.free_space.standard,
 )
 
 consoles.console_view(
@@ -67,6 +68,20 @@ def fyi_reclient_staging_builder(
         **kwargs
     )
 
+def fyi_reclient_test_builder(
+        *,
+        name,
+        **kwargs):
+    return fyi_reclient_staging_builder(
+        name = name,
+        reclient_instance = "goma-foundry-experiments",
+        **kwargs
+    )
+
 fyi_reclient_staging_builder(
-    name = "Linux Builder Re-Client Staging",
+    name = "Linux Builder reclient staging",
+)
+
+fyi_reclient_test_builder(
+    name = "Linux Builder reclient test",
 )

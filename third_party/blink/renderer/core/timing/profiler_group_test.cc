@@ -106,9 +106,9 @@ TEST(ProfilerGroupTest, ClampedSamplingIntervalNext) {
   profiler_group->OnProfilingContextAdded(scope.GetExecutionContext());
 
   ProfilerInitOptions* init_options = ProfilerInitOptions::Create();
-  init_options->setSampleInterval((ProfilerGroup::GetBaseSampleInterval() +
-                                   base::TimeDelta::FromMilliseconds(1))
-                                      .InMilliseconds());
+  init_options->setSampleInterval(
+      (ProfilerGroup::GetBaseSampleInterval() + base::Milliseconds(1))
+          .InMilliseconds());
   Profiler* profiler = profiler_group->CreateProfiler(
       scope.GetScriptState(), *init_options, base::TimeTicks(),
       scope.GetExceptionState());
@@ -265,6 +265,31 @@ TEST(ProfilerGroupTest, LeakProfilerWithContext) {
   // a crash doesn't occur.
   profiler = nullptr;
   ThreadState::Current()->CollectAllGarbageForTesting();
+  test::RunPendingTasks();
+}
+
+// Tests that a ProfilerGroup doesn't crash if the ProfilerGroup is destroyed
+// before a Profiler::Dispose is ran.
+TEST(ProfilerGroupTest, Bug1297283) {
+  {
+    V8TestingScope scope;
+    ProfilerGroup* profiler_group = ProfilerGroup::From(scope.GetIsolate());
+    profiler_group->OnProfilingContextAdded(scope.GetExecutionContext());
+
+    ProfilerInitOptions* init_options = ProfilerInitOptions::Create();
+    init_options->setSampleInterval(0);
+    init_options->setMaxBufferSize(0);
+    Profiler* profiler = profiler_group->CreateProfiler(
+        scope.GetScriptState(), *init_options, base::TimeTicks(),
+        scope.GetExceptionState());
+    EXPECT_FALSE(profiler->stopped());
+
+    // Force a collection of the underlying Profiler
+    profiler = nullptr;
+    ThreadState::Current()->CollectAllGarbageForTesting();
+    // Exit Scope deallocating Context triggering ProfilerGroup::WillBeDestroyed
+    // Ensure doesn't crash.
+  }
   test::RunPendingTasks();
 }
 

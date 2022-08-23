@@ -160,6 +160,7 @@
 <translation id="5406322316791861025">figura</translation>
 <translation id="5425179576310518467">fecha actual</translation>
 <translation id="5453733299334684579">elemento de árbol</translation>
+<translation id="546643433018805598">subíndice</translation>
 <translation id="5466621249238537318">Selecciona uno o más archivos.</translation>
 <translation id="5468998798572797635">salir de pantalla completa</translation>
 <translation id="5516235301412634559">0.75</translation>
@@ -172,6 +173,7 @@
 <translation id="5631759159893697722">resumen</translation>
 <translation id="5643186887447432888">botón</translation>
 <translation id="5677946354068040947">más opciones</translation>
+<translation id="5693537480074347398">superíndice</translation>
 <translation id="576709008726043716">introducción</translation>
 <translation id="57838592816432529">Silenciar</translation>
 <translation id="5786442179789148008">mostrar el menú de velocidad de reproducción</translation>
@@ -265,7 +267,7 @@
 <translation id="7852167693871241274">Control deslizante de matiz</translation>
 <translation id="7888071071722539607">Incluye un signo "<ph name="ATSIGN" />" en la dirección de correo electrónico. La dirección "<ph name="INVALIDADDRESS" />" no incluye el signo "<ph name="ATSIGN" />".</translation>
 <translation id="7891486169920085145">separador</translation>
-<translation id="795667975304826397">No se eligió archivo</translation>
+<translation id="795667975304826397">Sin archivos seleccionados</translation>
 <translation id="7962328325860248200">No se seleccionó <ph name="ACCNAME" /></translation>
 <translation id="8034303206267677282">seguro</translation>
 <translation id="8053789581856978548">campo de texto de búsqueda</translation>

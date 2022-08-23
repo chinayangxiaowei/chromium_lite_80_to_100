@@ -8,12 +8,13 @@
 #include <memory>
 
 #include "base/macros.h"
-#include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
-#include "chrome/browser/safe_browsing/incident_reporting/incident_reporting_service.h"
 #include "chrome/browser/safe_browsing/services_delegate.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 
 namespace safe_browsing {
 
+class DownloadProtectionService;
+class IncidentReportingService;
 class SafeBrowsingDatabaseManager;
 struct V4ProtocolConfig;
 
@@ -23,6 +24,10 @@ class ServicesDelegateDesktop : public ServicesDelegate {
  public:
   ServicesDelegateDesktop(SafeBrowsingService* safe_browsing_service,
                           ServicesDelegate::ServicesCreator* services_creator);
+
+  ServicesDelegateDesktop(const ServicesDelegateDesktop&) = delete;
+  ServicesDelegateDesktop& operator=(const ServicesDelegateDesktop&) = delete;
+
   ~ServicesDelegateDesktop() override;
 
  private:
@@ -47,6 +52,8 @@ class ServicesDelegateDesktop : public ServicesDelegate {
       const V4ProtocolConfig& v4_config) override;
   void StopOnIOThread(bool shutdown) override;
 
+  void OnProfileWillBeDestroyed(Profile* profile) override;
+
   // Reports the current extended reporting level. Note that this is an
   // estimation and may not always be correct. It is possible that the
   // estimation finds both Scout and legacy extended reporting to be enabled.
@@ -68,8 +75,6 @@ class ServicesDelegateDesktop : public ServicesDelegate {
 
   // Has the database_manager been set for tests?
   bool database_manager_set_for_tests_ = false;
-
-  DISALLOW_COPY_AND_ASSIGN(ServicesDelegateDesktop);
 };
 
 }  // namespace safe_browsing

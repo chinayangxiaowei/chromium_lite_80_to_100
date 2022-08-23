@@ -55,7 +55,11 @@ const int kDefaultDownloadExpiredTimeInDays = 90;
 const int kDefaultOverwrittenDownloadExpiredTimeInDays = 90;
 
 // Default buffer size in bytes to write to the download file.
+#if defined(OS_WIN) || defined(OS_MAC) || defined(OS_LINUX)
+const int kDefaultDownloadFileBufferSize = 524288;  // Desktop uses 512 KB.
+#else
 const int kDefaultDownloadFileBufferSize = 4096;
+#endif
 
 #if defined(OS_ANDROID)
 // Default maximum length of a downloaded file name on Android.
@@ -284,8 +288,10 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
     // cross-site URL has been visited before.
     url::Origin origin = url::Origin::Create(params->url());
     request->trusted_params->isolation_info = net::IsolationInfo::Create(
-        net::IsolationInfo::RequestType::kMainFrame, origin, origin,
-        net::SiteForCookies::FromOrigin(origin));
+        params->update_first_party_url_on_redirect()
+            ? net::IsolationInfo::RequestType::kMainFrame
+            : net::IsolationInfo::RequestType::kOther,
+        origin, origin, net::SiteForCookies::FromOrigin(origin));
     request->site_for_cookies = net::SiteForCookies::FromUrl(params->url());
   }
 
@@ -293,7 +299,8 @@ std::unique_ptr<network::ResourceRequest> CreateResourceRequest(
   request->referrer = params->referrer();
   request->referrer_policy = params->referrer_policy();
   request->is_main_frame = true;
-  request->update_first_party_url_on_redirect = true;
+  request->update_first_party_url_on_redirect =
+      params->update_first_party_url_on_redirect();
 
   // Downloads should be treated as navigations from Fetch spec perspective.
   // See also:
@@ -650,7 +657,7 @@ base::TimeDelta GetExpiredDownloadDeleteTime() {
   int expired_days = base::GetFieldTrialParamByFeatureAsInt(
       features::kDeleteExpiredDownloads, kExpiredDownloadDeleteTimeFinchKey,
       kDefaultDownloadExpiredTimeInDays);
-  return base::TimeDelta::FromDays(expired_days);
+  return base::Days(expired_days);
 }
 
 base::TimeDelta GetOverwrittenDownloadDeleteTime() {
@@ -658,7 +665,7 @@ base::TimeDelta GetOverwrittenDownloadDeleteTime() {
       features::kDeleteOverwrittenDownloads,
       kOverwrittenDownloadDeleteTimeFinchKey,
       kDefaultOverwrittenDownloadExpiredTimeInDays);
-  return base::TimeDelta::FromDays(expired_days);
+  return base::Days(expired_days);
 }
 
 int GetDownloadFileBufferSize() {

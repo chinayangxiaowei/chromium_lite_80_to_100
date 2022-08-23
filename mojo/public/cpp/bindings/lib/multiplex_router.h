@@ -38,7 +38,6 @@ class SequencedTaskRunner;
 namespace mojo {
 
 class AsyncFlusher;
-class MessageHeaderValidator;
 class PendingFlush;
 
 namespace internal {
@@ -110,6 +109,9 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) MultiplexRouter
                   bool set_interface_id_namespace_bit,
                   scoped_refptr<base::SequencedTaskRunner> runner,
                   const char* primary_interface_name = "unknown interface");
+
+  MultiplexRouter(const MultiplexRouter&) = delete;
+  MultiplexRouter& operator=(const MultiplexRouter&) = delete;
 
   // Sets a MessageReceiver which can filter a message after validation but
   // before dispatch.
@@ -301,9 +303,6 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) MultiplexRouter
 
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
-  // Owned by |dispatcher_| below.
-  MessageHeaderValidator* header_validator_ = nullptr;
-
   MessageDispatcher dispatcher_;
   Connector connector_;
 
@@ -357,8 +356,6 @@ class COMPONENT_EXPORT(MOJO_CPP_BINDINGS) MultiplexRouter
   bool testing_mode_ = false;
 
   bool being_destructed_ = false;
-
-  DISALLOW_COPY_AND_ASSIGN(MultiplexRouter);
 };
 
 }  // namespace internal

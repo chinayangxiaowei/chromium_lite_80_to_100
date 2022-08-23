@@ -112,6 +112,8 @@ class ASH_EXPORT TouchCalibratorView : public views::View,
  private:
   TouchCalibratorView(const display::Display& target_display,
                       bool is_primary_view);
+  TouchCalibratorView(const TouchCalibratorView&) = delete;
+  TouchCalibratorView& operator=(const TouchCalibratorView&) = delete;
 
   void InitViewContents();
 
@@ -156,8 +158,6 @@ class ASH_EXPORT TouchCalibratorView : public views::View,
   views::View* touch_point_view_ = nullptr;
 
   State state_ = UNKNOWN;
-
-  DISALLOW_COPY_AND_ASSIGN(TouchCalibratorView);
 };
 
 }  // namespace ash

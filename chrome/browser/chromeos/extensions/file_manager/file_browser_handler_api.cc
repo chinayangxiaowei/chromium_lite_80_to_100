@@ -106,6 +106,10 @@ class FileSelectorImpl : public FileSelector,
                          public ui::SelectFileDialog::Listener {
  public:
   FileSelectorImpl();
+
+  FileSelectorImpl(const FileSelectorImpl&) = delete;
+  FileSelectorImpl& operator=(const FileSelectorImpl&) = delete;
+
   ~FileSelectorImpl() override;
 
  protected:
@@ -158,8 +162,6 @@ class FileSelectorImpl : public FileSelector,
 
   // Extension function that uses the selector.
   scoped_refptr<FileBrowserHandlerInternalSelectFileFunction> function_;
-
-  DISALLOW_COPY_AND_ASSIGN(FileSelectorImpl);
 };
 
 FileSelectorImpl::FileSelectorImpl() = default;
@@ -205,6 +207,10 @@ bool FileSelectorImpl::StartSelectFile(
   content::WebContents* web_contents =
       browser->tab_strip_model()->GetActiveWebContents();
   if (!web_contents)
+    return false;
+
+  // Early return if the select file dialog is already active.
+  if (dialog_)
     return false;
 
   dialog_ = ui::SelectFileDialog::Create(
@@ -258,6 +264,10 @@ void FileSelectorImpl::SendResponse(bool success,
 class FileSelectorFactoryImpl : public FileSelectorFactory {
  public:
   FileSelectorFactoryImpl() = default;
+
+  FileSelectorFactoryImpl(const FileSelectorFactoryImpl&) = delete;
+  FileSelectorFactoryImpl& operator=(const FileSelectorFactoryImpl&) = delete;
+
   ~FileSelectorFactoryImpl() override = default;
 
   // FileSelectorFactory implementation.
@@ -265,9 +275,6 @@ class FileSelectorFactoryImpl : public FileSelectorFactory {
   FileSelector* CreateFileSelector() const override {
     return new FileSelectorImpl();
   }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(FileSelectorFactoryImpl);
 };
 
 }  // namespace
@@ -293,7 +300,7 @@ FileBrowserHandlerInternalSelectFileFunction::
 ExtensionFunction::ResponseAction
 FileBrowserHandlerInternalSelectFileFunction::Run() {
   std::unique_ptr<SelectFile::Params> params(
-      SelectFile::Params::Create(*args_));
+      SelectFile::Params::Create(args()));
 
   base::FilePath suggested_name(params->selection_params.suggested_name);
   std::vector<std::string> allowed_extensions;

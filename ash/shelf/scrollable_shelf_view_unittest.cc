@@ -119,7 +119,7 @@ class ScrollableShelfViewTest : public AshTestBase {
     shelf_view_ = scrollable_shelf_view_->shelf_view();
     test_api_ = std::make_unique<ShelfViewTestAPI>(
         scrollable_shelf_view_->shelf_view());
-    test_api_->SetAnimationDuration(base::TimeDelta::FromMilliseconds(1));
+    test_api_->SetAnimationDuration(base::Milliseconds(1));
   }
 
   void TearDown() override {
@@ -525,8 +525,7 @@ TEST_P(ScrollableShelfViewRTLTest, ShowTooltipForArrowButtons) {
 // addition, the dragged icon moves with mouse before mouse release (see
 // https://crbug.com/1031367).
 TEST_P(ScrollableShelfViewRTLTest, DragIconToNewPage) {
-  scrollable_shelf_view_->set_page_flip_time_threshold(
-      base::TimeDelta::FromMilliseconds(10));
+  scrollable_shelf_view_->set_page_flip_time_threshold(base::Milliseconds(10));
 
   AddAppShortcutsUntilOverflow();
   GetEventGenerator()->GestureTapAt(
@@ -1234,6 +1233,34 @@ TEST_P(ScrollableShelfViewRTLTest, ClickAtLastIcon) {
   // Verfies that after left-click, the context menu should be closed.
   GetEventGenerator()->ClickLeftButton();
   EXPECT_FALSE(shelf_view_->IsShowingMenuForView(last_icon));
+}
+
+// Verifies that mouse click at the second last shelf item during the last item
+// removal animation does not lead to crash (see https://crbug.com/1300561).
+TEST_F(ScrollableShelfViewTest, RemoveLastItemWhileClickingSeoncdLastOne) {
+  PopulateAppShortcut(3);
+  ASSERT_EQ(ScrollableShelfView::kNotShowArrowButtons,
+            scrollable_shelf_view_->layout_strategy_for_test());
+
+  const int view_size_before_removal =
+      shelf_view_->view_model_for_test()->view_size();
+  {
+    // Remove the last shelf item with animation enabled.
+    ui::ScopedAnimationDurationScaleMode regular_animations(
+        ui::ScopedAnimationDurationScaleMode::SLOW_DURATION);
+    ShelfModel::Get()->RemoveItemAt(view_size_before_removal - 1);
+    EXPECT_TRUE(shelf_view_->IsAnimating());
+  }
+
+  // Mouse right click at the second last item and wait for the ink drop
+  // animation to complete.
+  ShelfAppButton* second_last_item =
+      ShelfViewTestAPI(shelf_view_).GetButton(view_size_before_removal - 2);
+  GetEventGenerator()->MoveMouseTo(
+      second_last_item->GetBoundsInScreen().CenterPoint());
+  InkDropAnimationWaiter waiter(second_last_item);
+  GetEventGenerator()->ClickRightButton();
+  waiter.Wait();
 }
 
 // Verifies that presentation time for shelf gesture scroll is recorded as

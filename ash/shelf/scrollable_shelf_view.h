@@ -66,6 +66,10 @@ class ASH_EXPORT ScrollableShelfView : public views::AccessiblePaneView,
   };
 
   ScrollableShelfView(ShelfModel* model, Shelf* shelf);
+
+  ScrollableShelfView(const ScrollableShelfView&) = delete;
+  ScrollableShelfView& operator=(const ScrollableShelfView&) = delete;
+
   ~ScrollableShelfView() override;
 
   void Init();
@@ -241,6 +245,7 @@ class ASH_EXPORT ScrollableShelfView : public views::AccessiblePaneView,
   void HandleAccessibleActionScrollToMakeVisible(ShelfButton* button) override;
   std::unique_ptr<ScopedActiveInkDropCount> CreateScopedActiveInkDropCount(
       const ShelfButton* sender) override;
+  void OnButtonWillBeRemoved() override;
 
   // ContextMenuController:
   void ShowContextMenuForViewImpl(views::View* source,
@@ -542,8 +547,6 @@ class ASH_EXPORT ScrollableShelfView : public views::AccessiblePaneView,
   std::unique_ptr<PresentationTimeRecorder> presentation_time_recorder_;
 
   base::ScopedClosureRunner force_show_hotseat_resetter_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScrollableShelfView);
 };
 
 }  // namespace ash

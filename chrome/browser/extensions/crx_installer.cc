@@ -34,6 +34,8 @@
 #include "chrome/browser/extensions/permissions_updater.h"
 #include "chrome/browser/extensions/webstore_installer.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_keep_alive_types.h"
+#include "chrome/browser/profiles/scoped_profile_keep_alive.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -699,13 +701,13 @@ void CrxInstaller::OnInstallChecksComplete(const PreloadCheck::Errors& errors) {
   }
 
   // Check the blocklist state.
-  if (errors.count(PreloadCheck::BLOCKLISTED_ID) ||
-      errors.count(PreloadCheck::BLOCKLISTED_UNKNOWN)) {
+  if (errors.count(PreloadCheck::Error::kBlocklistedId) ||
+      errors.count(PreloadCheck::Error::kBlocklistedUnknown)) {
     if (allow_silent_install_) {
       // NOTE: extension may still be blocklisted, but we're forced to silently
       // install it. In this case, ExtensionService::OnExtensionInstalled needs
       // to deal with it.
-      if (errors.count(PreloadCheck::BLOCKLISTED_ID))
+      if (errors.count(PreloadCheck::Error::kBlocklistedId))
         install_flags_ |= kInstallFlagIsBlocklistedForMalware;
     } else {
       // User tried to install a blocklisted extension. Show an error and
@@ -722,7 +724,7 @@ void CrxInstaller::OnInstallChecksComplete(const PreloadCheck::Errors& errors) {
   }
 
   // Check for policy errors.
-  if (errors.count(PreloadCheck::DISALLOWED_BY_POLICY)) {
+  if (errors.count(PreloadCheck::Error::kDisallowedByPolicy)) {
     // We don't want to show the error infobar for installs from the WebStore,
     // because the WebStore already shows an error dialog itself.
     // Note: |client_| can be NULL in unit_tests!
@@ -1073,6 +1075,9 @@ void CrxInstaller::ReportInstallationStage(InstallationStage stage) {
 }
 
 void CrxInstaller::NotifyCrxInstallBegin() {
+  profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
+      profile_, ProfileKeepAliveOrigin::kCrxInstaller);
+
   InstallTrackerFactory::GetForBrowserContext(profile())
       ->OnBeginCrxInstall(expected_id_);
 }
@@ -1137,6 +1142,8 @@ void CrxInstaller::NotifyCrxInstallComplete(
           FROM_HERE, base::BindOnce(std::move(installer_callback_), error))) {
     NOTREACHED();
   }
+
+  profile_keep_alive_.reset();
 }
 
 void CrxInstaller::CleanupTempFiles() {

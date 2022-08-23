@@ -67,6 +67,10 @@ class DeviceCommandScreenshotJob::Payload
     : public RemoteCommandJob::ResultPayload {
  public:
   explicit Payload(ResultCode result_code);
+
+  Payload(const Payload&) = delete;
+  Payload& operator=(const Payload&) = delete;
+
   ~Payload() override {}
 
   // RemoteCommandJob::ResultPayload:
@@ -74,8 +78,6 @@ class DeviceCommandScreenshotJob::Payload
 
  private:
   std::string payload_;
-
-  DISALLOW_COPY_AND_ASSIGN(Payload);
 };
 
 DeviceCommandScreenshotJob::Payload::Payload(ResultCode result_code) {
@@ -146,7 +148,14 @@ bool DeviceCommandScreenshotJob::ParseCommandPayload(
 void DeviceCommandScreenshotJob::StoreScreenshot(
     size_t screen,
     scoped_refptr<base::RefCountedMemory> png_data) {
-  screenshots_.insert(std::make_pair(screen, png_data));
+  if (png_data) {
+    screenshots_.insert(std::make_pair(screen, png_data));
+  } else {
+    LOG(WARNING) << "not storing empty screenshot";
+  }
+
+  // TODO(https://crbug.com/1271923) replace custom logic with
+  // base::BarrierCallback.
   DCHECK_LT(0, num_pending_screenshots_);
   --num_pending_screenshots_;
 

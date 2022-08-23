@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="it">
 <translation id="1018939186200882850">voce di menu</translation>
-<translation id="10623998915015855">pulsante di attivazione/disattivazione</translation>
+<translation id="10623998915015855">pulsante di attivazione o disattivazione</translation>
 <translation id="1088086359088493902">Secondi</translation>
 <translation id="1142001580032786438">Mostra selettore settimana</translation>
 <translation id="1171774979989969504">Inserisci un indirizzo email.</translation>
@@ -26,7 +26,7 @@
 <translation id="1650423536718072820">citazione</translation>
 <translation id="1681022320378710418">ora attuale</translation>
 <translation id="1727839386348365796">Contagocce</translation>
-<translation id="1727886345390570319">nascondi menu sottotitoli</translation>
+<translation id="1727886345390570319">nascondi menu sottotitoli codificati</translation>
 <translation id="1729654308190250600">Inserisci un indirizzo email valido.</translation>
 <translation id="1758486001363313524">Altro...</translation>
 <translation id="1787192514241997742">tempo totale: <ph name="REMAINING_TIME" /></translation>
@@ -160,6 +160,7 @@
 <translation id="5406322316791861025">figura</translation>
 <translation id="5425179576310518467">data attuale</translation>
 <translation id="5453733299334684579">elemento albero</translation>
+<translation id="546643433018805598">pedice</translation>
 <translation id="5466621249238537318">Seleziona uno o più file.</translation>
 <translation id="5468998798572797635">esci da schermo intero</translation>
 <translation id="5516235301412634559">0,75</translation>
@@ -172,6 +173,7 @@
 <translation id="5631759159893697722">abstract</translation>
 <translation id="5643186887447432888">pulsante</translation>
 <translation id="5677946354068040947">altre opzioni</translation>
+<translation id="5693537480074347398">apice</translation>
 <translation id="576709008726043716">introduzione</translation>
 <translation id="57838592816432529">Disattiva audio</translation>
 <translation id="5786442179789148008">Mostra il menu Velocità di riproduzione</translation>
@@ -200,7 +202,7 @@
 <translation id="6310801910862476708">Esci da Picture in picture</translation>
 <translation id="6398862346408813489">Mostra il riquadro di selezione del mese</translation>
 <translation id="6404546809543547843">dispositivo di scorrimento durata audio</translation>
-<translation id="6443871981718447451">mostra menu sottotitoli</translation>
+<translation id="6443871981718447451">mostra menu sottotitoli codificati</translation>
 <translation id="6453774872122745852">riconoscimenti</translation>
 <translation id="648732519525291180">selettore di ora</translation>
 <translation id="6550675742724504774">Opzioni</translation>

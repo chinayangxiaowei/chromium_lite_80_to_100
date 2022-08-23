@@ -18,6 +18,7 @@
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
 #include "ash/shutdown_reason.h"
+#include "ash/utility/occlusion_tracker_pauser.h"
 #include "ash/wallpaper/wallpaper_controller_impl.h"
 #include "ash/wallpaper/wallpaper_widget_controller.h"
 #include "ash/wm/session_state_animator.h"
@@ -25,6 +26,7 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -37,10 +39,13 @@
 #include "ui/wm/core/compound_event_filter.h"
 #include "ui/wm/core/cursor_manager.h"
 
-#define UMA_HISTOGRAM_LOCK_TIMES(name, sample)                     \
-  UMA_HISTOGRAM_CUSTOM_TIMES(name, sample,                         \
-                             base::TimeDelta::FromMilliseconds(1), \
-                             base::TimeDelta::FromSeconds(50), 100)
+#define UMA_HISTOGRAM_LOCK_TIMES(name, sample)                    \
+  UMA_HISTOGRAM_CUSTOM_TIMES(name, sample, base::Milliseconds(1), \
+                             base::Seconds(50), 100)
+
+// TODO(b/228873153): Remove after figuring out the root cause of the bug
+#undef ENABLED_VLOG_LEVEL
+#define ENABLED_VLOG_LEVEL 1
 
 namespace ash {
 
@@ -62,12 +67,11 @@ constexpr int kMaxShutdownSoundDurationMs = 1500;
 
 // Amount of time to wait for our lock requests to be honored before giving up.
 constexpr base::TimeDelta kLockFailTimeout =
-    base::TimeDelta::FromSeconds(8 * kTimeoutMultiplier);
+    base::Seconds(8 * kTimeoutMultiplier);
 
 // Additional time to wait after starting the fast-close shutdown animation
 // before actually requesting shutdown, to give the animation time to finish.
-constexpr base::TimeDelta kShutdownRequestDelay =
-    base::TimeDelta::FromMilliseconds(50);
+constexpr base::TimeDelta kShutdownRequestDelay = base::Milliseconds(50);
 
 }  // namespace
 
@@ -235,6 +239,9 @@ void LockStateController::OnChromeTerminating() {
 }
 
 void LockStateController::OnLockStateChanged(bool locked) {
+  // Unpause if lock animations didn't start and ends in 3 seconds.
+  constexpr base::TimeDelta kPauseTimeout = base::Seconds(3);
+
   DCHECK((lock_fail_timer_.IsRunning() && lock_duration_timer_ != nullptr) ||
          (!lock_fail_timer_.IsRunning() && lock_duration_timer_ == nullptr));
   VLOG(1) << "OnLockStateChanged called with locked: " << locked
@@ -246,6 +253,9 @@ void LockStateController::OnLockStateChanged(bool locked) {
     return;
 
   system_is_locked_ = locked;
+
+  Shell::Get()->occlusion_tracker_pauser()->PauseUntilAnimationsEnd(
+      kPauseTimeout);
 
   if (locked) {
     StartPostLockAnimation();
@@ -268,7 +278,12 @@ void LockStateController::OnLockFailTimeout() {
   lock_duration_timer_.reset();
   DCHECK(!system_is_locked_);
 
-  LOG(FATAL) << "Screen lock took too long; crashing intentionally";
+  // b/228873153: Here we use `LOG(ERROR)` instead of `LOG(FATAL)` because it
+  // seems like certain users are hitting this timeout causing chrome to crash
+  // and be restarted from session manager without `--login-manager`
+  LOG(ERROR) << "Screen lock took too long; Signing out";
+  base::debug::DumpWithoutCrashing();
+  Shell::Get()->session_controller()->RequestSignOut();
 }
 
 void LockStateController::StartPreShutdownAnimationTimer() {
@@ -300,7 +315,7 @@ void LockStateController::StartRealShutdownTimer(bool with_animation_time) {
   // start real shutdown after a delay of |duration|.
   base::TimeDelta sound_duration =
       std::min(Shell::Get()->accessibility_controller()->PlayShutdownSound(),
-               base::TimeDelta::FromMilliseconds(kMaxShutdownSoundDurationMs));
+               base::Milliseconds(kMaxShutdownSoundDurationMs));
   duration = std::max(duration, sound_duration);
   real_shutdown_timer_.Start(FROM_HERE, duration, this,
                              &LockStateController::OnRealPowerTimeout);
@@ -431,6 +446,7 @@ void LockStateController::PreLockAnimationFinished(bool request_lock,
     Shell::Get()->session_controller()->LockScreen();
   }
 
+  VLOG(1) << "b/228873153 : Starting lock fail timer";
   lock_fail_timer_.Start(FROM_HERE, kLockFailTimeout, this,
                          &LockStateController::OnLockFailTimeout);
 

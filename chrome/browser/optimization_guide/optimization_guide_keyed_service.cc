@@ -27,6 +27,7 @@
 #include "components/optimization_guide/core/optimization_guide_navigation_data.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
 #include "components/optimization_guide/core/optimization_guide_store.h"
+#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/core/tab_url_provider.h"
 #include "components/optimization_guide/core/top_host_provider.h"
@@ -95,8 +96,8 @@ void OptimizationGuideKeyedService::Initialize() {
   // For incognito profiles, we act in "read-only" mode of the original
   // profile's store and do not fetch any new hints or models.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory;
-  optimization_guide::OptimizationGuideStore* hint_store;
-  optimization_guide::OptimizationGuideStore*
+  base::WeakPtr<optimization_guide::OptimizationGuideStore> hint_store;
+  base::WeakPtr<optimization_guide::OptimizationGuideStore>
       prediction_model_and_features_store;
   if (profile->IsOffTheRecord()) {
     OptimizationGuideKeyedService* original_ogks =
@@ -141,7 +142,7 @@ void OptimizationGuideKeyedService::Initialize() {
                   base::ThreadPool::CreateSequencedTaskRunner(
                       {base::MayBlock(), base::TaskPriority::BEST_EFFORT}))
             : nullptr;
-    hint_store = hint_store_.get();
+    hint_store = hint_store_ ? hint_store_->AsWeakPtr() : nullptr;
 
     prediction_model_and_features_store_ =
         std::make_unique<optimization_guide::OptimizationGuideStore>(
@@ -152,7 +153,7 @@ void OptimizationGuideKeyedService::Initialize() {
             base::ThreadPool::CreateSequencedTaskRunner(
                 {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
     prediction_model_and_features_store =
-        prediction_model_and_features_store_.get();
+        prediction_model_and_features_store_->AsWeakPtr();
   }
 
   hints_manager_ = std::make_unique<optimization_guide::ChromeHintsManager>(
@@ -167,6 +168,9 @@ void OptimizationGuideKeyedService::Initialize() {
   // old paths. Remove this code in 04/2022 since it should be assumed that all
   // clients that had the previous path have had their previous stores deleted.
   DeleteOldStorePaths(profile_path);
+  if (optimization_guide::switches::IsDebugLogsEnabled()) {
+    DVLOG(0) << "OptimizationGuide: KeyedService is initalized";
+  }
 }
 
 optimization_guide::ChromeHintsManager*
@@ -230,8 +234,7 @@ OptimizationGuideKeyedService::CanApplyOptimization(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   optimization_guide::OptimizationTypeDecision optimization_type_decision =
-      hints_manager_->CanApplyOptimization(url, /*navigation_id=*/absl::nullopt,
-                                           optimization_type,
+      hints_manager_->CanApplyOptimization(url, optimization_type,
                                            optimization_metadata);
   base::UmaHistogramEnumeration(
       "OptimizationGuide.ApplyDecision." +
@@ -251,8 +254,7 @@ void OptimizationGuideKeyedService::CanApplyOptimizationAsync(
   DCHECK(navigation_handle->IsInMainFrame());
 
   hints_manager_->CanApplyOptimizationAsync(
-      navigation_handle->GetURL(), navigation_handle->GetNavigationId(),
-      optimization_type, std::move(callback));
+      navigation_handle->GetURL(), optimization_type, std::move(callback));
 }
 
 void OptimizationGuideKeyedService::AddHintForTesting(

@@ -19,7 +19,7 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
  public:
   static std::unique_ptr<LinkToTextMenuObserver> Create(
       RenderViewContextMenuProxy* proxy,
-      content::RenderFrameHost* render_frame_host);
+      content::GlobalRenderFrameHostId render_frame_host_id);
 
   LinkToTextMenuObserver(const LinkToTextMenuObserver&) = delete;
   LinkToTextMenuObserver& operator=(const LinkToTextMenuObserver&) = delete;
@@ -36,8 +36,9 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
   void OverrideGeneratedSelectorForTesting(const std::string& selector);
 
  private:
-  explicit LinkToTextMenuObserver(RenderViewContextMenuProxy* proxy,
-                                  content::RenderFrameHost* render_frame_host);
+  explicit LinkToTextMenuObserver(
+      RenderViewContextMenuProxy* proxy,
+      content::GlobalRenderFrameHostId render_frame_host_id);
   // Returns true if the link should be generated from the constructor, vs
   // determined when executed.
   bool ShouldPreemptivelyGenerateLink();
@@ -75,13 +76,16 @@ class LinkToTextMenuObserver : public RenderViewContextMenuObserver {
   RenderViewContextMenuProxy* proxy_;
   GURL url_;
   GURL raw_url_;
-  content::RenderFrameHost* render_frame_host_;
+  content::GlobalRenderFrameHostId render_frame_host_id_;
 
   // True when the context menu was opened with text selected.
   bool link_needs_generation_ = false;
 
   absl::optional<std::string> generated_link_;
   absl::optional<std::string> generated_selector_for_testing_;
+
+  // True when generation is completed.
+  bool is_generation_complete_ = false;
 
   base::WeakPtrFactory<LinkToTextMenuObserver> weak_ptr_factory_{this};
 };

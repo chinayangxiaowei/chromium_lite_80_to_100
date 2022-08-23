@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/gtest_prod_util.h"
+#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "net/base/features.h"
 #include "net/base/net_export.h"
@@ -167,6 +168,12 @@ class NET_EXPORT CanonicalCookie {
       CookieSourceScheme scheme_secure = CookieSourceScheme::kUnset,
       int source_port = url::PORT_UNSPECIFIED);
 
+  bool operator<(const CanonicalCookie& other) const {
+    // Use the cookie properties that uniquely identify a cookie to determine
+    // ordering.
+    return UniqueKey() < other.UniqueKey();
+  }
+
   const std::string& Name() const { return name_; }
   const std::string& Value() const { return value_; }
   // We represent the cookie's host-only-flag as the absence of a leading dot in
@@ -188,24 +195,6 @@ class NET_EXPORT CanonicalCookie {
   const absl::optional<CookiePartitionKey>& PartitionKey() const {
     return partition_key_;
   }
-
-  // Methods for serializing and deserializing a partition key to/from a string.
-  // This will be used for Android, storing persistent partitioned cookies, and
-  // loading partitioned cookies into Java code.
-  //
-  // This function returns if the partition key is not opaque. We do not want
-  // to serialize cookies with opaque origins in their partition key to disk,
-  // because if the browser session ends we will not be able to attach the
-  // saved cookie to any future requests. This is because opaque origins' nonces
-  // are only stored in volatile memory.
-  bool SerializePartitionKey(std::string& out) const WARN_UNUSED_RESULT;
-  // Deserializes the result of the method above.
-  // If the result is abls::nullopt, the resulting cookie is not partitioned.
-  //
-  // Returns if the resulting partition key is valid.
-  static bool DeserializePartitionKey(const std::string& in,
-                                      absl::optional<SchemefulSite>& out)
-      WARN_UNUSED_RESULT;
 
   // Returns an enum indicating the scheme of the origin that
   // set this cookie. This is not part of the cookie spec but is being used to
@@ -245,10 +234,10 @@ class NET_EXPORT CanonicalCookie {
 
   // Returns a key such that two cookies with the same UniqueKey() are
   // guaranteed to be equivalent in the sense of IsEquivalent().
+  // The `partition_key_` field will always be nullopt when partitioned cookies
+  // are not enabled.
   UniqueCookieKey UniqueKey() const {
-    if (base::FeatureList::IsEnabled(features::kPartitionedCookies))
-      return std::make_tuple(partition_key_, name_, domain_, path_);
-    return std::make_tuple(absl::nullopt, name_, domain_, path_);
+    return std::make_tuple(partition_key_, name_, domain_, path_);
   }
 
   // Checks a looser set of equivalency rules than 'IsEquivalent()' in order
@@ -260,6 +249,8 @@ class NET_EXPORT CanonicalCookie {
   // Returns 'true' if this cookie's name matches |secure_cookie|, and this
   // cookie is a domain-match for |secure_cookie| (or vice versa), and
   // |secure_cookie|'s path is "on" this cookie's path (as per 'IsOnPath()').
+  // If partitioned cookies are enabled, it also checks that the cookie has
+  // the same partition key as |secure_cookie|.
   //
   // Note that while the domain-match cuts both ways (e.g. 'example.com'
   // matches 'www.example.com' in either direction), the path-match is
@@ -286,6 +277,19 @@ class NET_EXPORT CanonicalCookie {
   // because the good value is still listed first.
   bool IsEquivalentForSecureCookieMatching(
       const CanonicalCookie& secure_cookie) const;
+
+  // Returns true if the |other| cookie's data members (instance variables)
+  // match, for comparing cookies in colletions.
+  bool HasEquivalentDataMembers(const CanonicalCookie& other) const {
+    return creation_date_ == other.creation_date_ &&
+           last_access_date_ == other.last_access_date_ &&
+           expiry_date_ == other.expiry_date_ && secure_ == other.secure_ &&
+           httponly_ == other.httponly_ && same_site_ == other.same_site_ &&
+           priority_ == other.priority_ && same_party_ == other.same_party_ &&
+           partition_key_ == other.partition_key_ && name_ == other.name_ &&
+           value_ == other.value_ && domain_ == other.domain_ &&
+           path_ == other.path_;
+  }
 
   void SetSourceScheme(CookieSourceScheme source_scheme) {
     source_scheme_ = source_scheme;
@@ -345,6 +349,9 @@ class NET_EXPORT CanonicalCookie {
 
   std::string DebugString() const;
 
+  // Returns the canonical path based on the specified url and path attribute
+  // value. Note that this method does not enforce character set or size
+  // checks on `path_string`.
   static std::string CanonPathWithString(const GURL& url,
                                          const std::string& path_string);
 
@@ -394,6 +401,7 @@ class NET_EXPORT CanonicalCookie {
 
  private:
   FRIEND_TEST_ALL_PREFIXES(CanonicalCookieTest, TestPrefixHistograms);
+  FRIEND_TEST_ALL_PREFIXES(CanonicalCookieTest, TestHasHiddenPrefixName);
 
   // This constructor does not validate or canonicalize their inputs;
   // the resulting CanonicalCookies should not be relied on to be canonical
@@ -456,6 +464,9 @@ class NET_EXPORT CanonicalCookie {
   // SameSite computation yourself.
   CookieEffectiveSameSite GetEffectiveSameSite(
       CookieAccessSemantics access_semantics) const;
+
+  // Checks for values that could be misinterpreted as a cookie name prefix.
+  static bool HasHiddenPrefixName(const base::StringPiece cookie_value);
 
   // Returns whether the cookie was created at most |age_threshold| ago.
   bool IsRecentlyCreated(base::TimeDelta age_threshold) const;

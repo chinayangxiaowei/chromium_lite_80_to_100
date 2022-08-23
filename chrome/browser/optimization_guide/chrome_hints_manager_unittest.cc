@@ -105,7 +105,7 @@ class ChromeHintsManagerFetchingTest
     tab_url_provider_ = std::make_unique<FakeTabUrlProvider>();
 
     hints_manager_ = std::make_unique<ChromeHintsManager>(
-        &testing_profile_, pref_service(), hint_store_.get(),
+        &testing_profile_, pref_service(), hint_store_->AsWeakPtr(),
         /*top_host_provider=*/nullptr, tab_url_provider_.get(),
         url_loader_factory_,
         network::TestNetworkConnectionTracker::GetInstance());
@@ -155,7 +155,8 @@ class ChromeHintsManagerFetchingTest
       content::WebContents* web_contents) {
     auto* observer =
         OptimizationGuideWebContentsObserver::FromWebContents(web_contents);
-    observer->FetchHintsUsingManager(hints_manager());
+    observer->FetchHintsUsingManager(
+        hints_manager(), web_contents->GetPrimaryPage().GetWeakPtr());
   }
 
   ChromeHintsManager* hints_manager() const { return hints_manager_.get(); }

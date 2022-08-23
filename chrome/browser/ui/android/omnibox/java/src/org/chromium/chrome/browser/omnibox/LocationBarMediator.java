@@ -43,6 +43,8 @@ import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarCoordinator.SelectionState;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxTheme;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.voice.AssistantVoiceSearchService;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
@@ -177,6 +179,8 @@ class LocationBarMediator
     private boolean mUrlHasFocus;
     private LensController mLensController;
     private final BooleanSupplier mIsToolbarMicEnabledSupplier;
+    // Tracks if the location bar is laid out in a focused state due to an ntp scroll.
+    private boolean mIsLocationBarFocusedFromNtpScroll;
 
     /*package */ LocationBarMediator(@NonNull Context context,
             @NonNull LocationBarLayout locationBarLayout,
@@ -320,12 +324,20 @@ class LocationBarMediator
         updateButtonVisibility();
     }
 
-    /*package */ void setUrlFocusChangeFraction(float fraction) {
+    /* package */ void setUrlFocusChangeFraction(float fraction) {
         mUrlFocusChangeFraction = fraction;
         if (mIsTablet) {
             mLocationBarDataProvider.getNewTabPageDelegate().setUrlFocusChangeAnimationPercent(
                     fraction);
         } else {
+            // Determine when the focus state changes as a result of ntp scrolling.
+            boolean isLocationBarFocusedFromNtpScroll =
+                    fraction > 0f && !mIsUrlFocusChangeInProgress;
+            if (isLocationBarFocusedFromNtpScroll != mIsLocationBarFocusedFromNtpScroll) {
+                mIsLocationBarFocusedFromNtpScroll = isLocationBarFocusedFromNtpScroll;
+                onUrlFocusedFromNtpScrollChanged();
+            }
+
             if (fraction > 0f) {
                 mLocationBarLayout.setUrlActionContainerVisibility(View.VISIBLE);
             } else if (fraction == 0f && !mIsUrlFocusChangeInProgress) {
@@ -336,8 +348,11 @@ class LocationBarMediator
             }
 
             mStatusCoordinator.setUrlFocusChangePercent(fraction);
-            updateButtonVisibility();
         }
+    }
+
+    /* package */ void onUrlFocusedFromNtpScrollChanged() {
+        updateButtonVisibility();
     }
 
     /*package */ void setUnfocusedWidth(int unfocusedWidth) {
@@ -911,26 +926,27 @@ class LocationBarMediator
     }
 
     /**
-     * Update visuals to use a correct light or dark color scheme depending on the primary color.
+     * Update visuals to use a correct color scheme depending on the primary color.
      */
     @VisibleForTesting
-    /* package */ void updateUseDarkColors() {
+    /* package */ void updateOmniboxTheme() {
         // TODO(crbug.com/1114183): Unify light and dark color logic in chrome and make it clear
         // whether the foreground or background color is dark.
-        final boolean useDarkColors =
+        final boolean useDarkForegroundColors =
                 !ColorUtils.shouldUseLightForegroundOnBackground(getPrimaryBackgroundColor());
+        final @OmniboxTheme int omniboxTheme = OmniboxResourceProvider.getOmniboxTheme(
+                mContext, mLocationBarDataProvider.isIncognito(), getPrimaryBackgroundColor());
 
         mLocationBarLayout.setDeleteButtonTint(
-                ChromeColors.getPrimaryIconTint(mContext, !useDarkColors));
+                ChromeColors.getPrimaryIconTint(mContext, !useDarkForegroundColors));
         // If the URL changed colors and is not focused, update the URL to account for the new
         // color scheme.
-        if (mUrlCoordinator.setUseDarkTextColors(useDarkColors) && !isUrlBarFocused()) {
+        if (mUrlCoordinator.setOmniboxTheme(omniboxTheme) && !isUrlBarFocused()) {
             updateUrl();
         }
-        mStatusCoordinator.setUseDarkColors(useDarkColors);
+        mStatusCoordinator.setUseDarkForegroundColors(useDarkForegroundColors);
         if (mAutocompleteCoordinator != null) {
-            mAutocompleteCoordinator.updateVisualsForState(
-                    useDarkColors, mLocationBarDataProvider.isIncognito());
+            mAutocompleteCoordinator.updateVisualsForState(omniboxTheme);
         }
     }
 
@@ -1009,7 +1025,8 @@ class LocationBarMediator
             boolean deleteButtonVisible = shouldShowDeleteButton();
             boolean canShowMicButton = !mIsTablet || !isToolbarMicEnabled;
             return canShowMicButton && !deleteButtonVisible
-                    && (mUrlHasFocus || mIsUrlFocusChangeInProgress || mUrlFocusChangeFraction > 0f
+                    && (mUrlHasFocus || mIsUrlFocusChangeInProgress
+                            || mIsLocationBarFocusedFromNtpScroll
                             || mShouldShowMicButtonWhenUnfocused);
         }
     }
@@ -1035,8 +1052,8 @@ class LocationBarMediator
         }
 
         return !shouldShowDeleteButton()
-                && (mUrlHasFocus || mIsUrlFocusChangeInProgress || mUrlFocusChangeFraction > 0f
-                        || mShouldShowLensButtonWhenUnfocused)
+                && (mUrlHasFocus || mIsUrlFocusChangeInProgress
+                        || mIsLocationBarFocusedFromNtpScroll || mShouldShowLensButtonWhenUnfocused)
                 && isLensOnOmniboxEnabled();
     }
 
@@ -1157,7 +1174,7 @@ class LocationBarMediator
     public void onPrimaryColorChanged() {
         updateAssistantVoiceSearchDrawableAndColors();
         updateLensButtonColors();
-        updateUseDarkColors();
+        updateOmniboxTheme();
     }
 
     @Override
@@ -1262,6 +1279,11 @@ class LocationBarMediator
     @Override
     public void clearOmniboxFocus() {
         setUrlBarFocus(/*shouldBeFocused=*/false, /*pastedText=*/null, OmniboxFocusReason.UNFOCUS);
+    }
+
+    @Override
+    public void notifyVoiceRecognitionCanceled() {
+        mLocationBarLayout.notifyVoiceRecognitionCanceled();
     }
 
     // AssistantVoiceSearchService.Observer implementation.

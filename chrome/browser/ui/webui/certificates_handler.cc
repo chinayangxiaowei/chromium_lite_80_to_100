@@ -283,74 +283,74 @@ CertificatesHandler::CertificatesHandler()
 CertificatesHandler::~CertificatesHandler() {
   if (select_file_dialog_.get())
     select_file_dialog_->ListenerDestroyed();
-  select_file_dialog_ = nullptr;
+  select_file_dialog_.reset();
 }
 
 void CertificatesHandler::RegisterMessages() {
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "viewCertificate",
       base::BindRepeating(&CertificatesHandler::HandleViewCertificate,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "getCaCertificateTrust",
       base::BindRepeating(&CertificatesHandler::HandleGetCATrust,
                           base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "editCaCertificateTrust",
       base::BindRepeating(&CertificatesHandler::HandleEditCATrust,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "cancelImportExportCertificate",
       base::BindRepeating(&CertificatesHandler::HandleCancelImportExportProcess,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "exportPersonalCertificate",
       base::BindRepeating(&CertificatesHandler::HandleExportPersonal,
                           base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "exportPersonalCertificatePasswordSelected",
       base::BindRepeating(
           &CertificatesHandler::HandleExportPersonalPasswordSelected,
           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "importPersonalCertificate",
       base::BindRepeating(&CertificatesHandler::HandleImportPersonal,
                           base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "importPersonalCertificatePasswordSelected",
       base::BindRepeating(
           &CertificatesHandler::HandleImportPersonalPasswordSelected,
           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "importCaCertificate",
       base::BindRepeating(&CertificatesHandler::HandleImportCA,
                           base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "importCaCertificateTrustSelected",
       base::BindRepeating(&CertificatesHandler::HandleImportCATrustSelected,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "importServerCertificate",
       base::BindRepeating(&CertificatesHandler::HandleImportServer,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "exportCertificate",
       base::BindRepeating(&CertificatesHandler::HandleExportCertificate,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "deleteCertificate",
       base::BindRepeating(&CertificatesHandler::HandleDeleteCertificate,
                           base::Unretained(this)));
 
-  web_ui()->RegisterMessageCallback(
+  web_ui()->RegisterDeprecatedMessageCallback(
       "refreshCertificates",
       base::BindRepeating(&CertificatesHandler::HandleRefreshCertificates,
                           base::Unretained(this)));
@@ -382,6 +382,8 @@ void CertificatesHandler::FileSelected(const base::FilePath& path,
     default:
       NOTREACHED();
   }
+
+  select_file_dialog_.reset();
 }
 
 void CertificatesHandler::FileSelectionCanceled(void* params) {
@@ -410,7 +412,7 @@ void CertificatesHandler::HandleViewCertificate(const base::ListValue* args) {
 }
 
 void CertificatesHandler::AssignWebUICallbackId(const base::ListValue* args) {
-  CHECK_LE(1U, args->GetSize());
+  CHECK_LE(1U, args->GetList().size());
   CHECK(webui_callback_id_.empty());
   CHECK(args->GetString(0, &webui_callback_id_));
 }
@@ -418,7 +420,7 @@ void CertificatesHandler::AssignWebUICallbackId(const base::ListValue* args) {
 void CertificatesHandler::HandleGetCATrust(const base::ListValue* args) {
   AllowJavascript();
 
-  CHECK_EQ(2U, args->GetSize());
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   CertificateManagerModel::CertInfo* cert_info =
@@ -444,7 +446,7 @@ void CertificatesHandler::HandleGetCATrust(const base::ListValue* args) {
 }
 
 void CertificatesHandler::HandleEditCATrust(const base::ListValue* args) {
-  CHECK_EQ(5U, args->GetSize());
+  CHECK_EQ(5U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   CertificateManagerModel::CertInfo* cert_info =
@@ -486,7 +488,11 @@ void CertificatesHandler::HandleEditCATrust(const base::ListValue* args) {
 }
 
 void CertificatesHandler::HandleExportPersonal(const base::ListValue* args) {
-  CHECK_EQ(2U, args->GetSize());
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   CertificateManagerModel::CertInfo* cert_info =
@@ -521,14 +527,14 @@ void CertificatesHandler::ExportPersonalFileSelected(
 
 void CertificatesHandler::HandleExportPersonalPasswordSelected(
     const base::ListValue* args) {
-  CHECK_EQ(2U, args->GetSize());
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
   CHECK(args->GetString(1, &password_));
 
   // Currently, we don't support exporting more than one at a time.  If we do,
   // this would need to either change this to use UnlockSlotsIfNecessary or
   // change UnlockCertSlotIfNecessary to take a CertificateList.
-  DCHECK_EQ(selected_cert_list_.size(), 1U);
+  CHECK_EQ(selected_cert_list_.size(), 1U);
 
   // TODO(mattm): do something smarter about non-extractable keys
   chrome::UnlockCertSlotIfNecessary(
@@ -575,6 +581,10 @@ void CertificatesHandler::ExportPersonalFileWritten(const int* write_errno,
 }
 
 void CertificatesHandler::HandleImportPersonal(const base::ListValue* args) {
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // When policy changes while user on the certificate manager page, the UI
   // doesn't update without page refresh and user can still see and use import
@@ -584,7 +594,7 @@ void CertificatesHandler::HandleImportPersonal(const base::ListValue* args) {
   }
 #endif
 
-  CHECK_EQ(2U, args->GetSize());
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
   CHECK(args->GetBoolean(1, &use_hardware_backed_));
 
@@ -665,7 +675,7 @@ void CertificatesHandler::ImportPersonalFileRead(const int* read_errno,
 
 void CertificatesHandler::HandleImportPersonalPasswordSelected(
     const base::ListValue* args) {
-  CHECK_EQ(2U, args->GetSize());
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
   CHECK(args->GetString(1, &password_));
 
@@ -741,11 +751,15 @@ void CertificatesHandler::ImportExportCleanup() {
   // away so they don't try and call back to us.
   if (select_file_dialog_.get())
     select_file_dialog_->ListenerDestroyed();
-  select_file_dialog_ = nullptr;
+  select_file_dialog_.reset();
 }
 
 void CertificatesHandler::HandleImportServer(const base::ListValue* args) {
-  CHECK_EQ(1U, args->GetSize());
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
+  CHECK_EQ(1U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   select_file_dialog_ = ui::SelectFileDialog::Create(
@@ -812,6 +826,10 @@ void CertificatesHandler::ImportServerFileRead(const int* read_errno,
 }
 
 void CertificatesHandler::HandleImportCA(const base::ListValue* args) {
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // When policy changes while user on the certificate manager page, the UI
   // doesn't update without page refresh and user can still see and use import
@@ -821,7 +839,7 @@ void CertificatesHandler::HandleImportCA(const base::ListValue* args) {
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-  CHECK_EQ(1U, args->GetSize());
+  CHECK_EQ(1U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   select_file_dialog_ = ui::SelectFileDialog::Create(
@@ -879,7 +897,7 @@ void CertificatesHandler::ImportCAFileRead(const int* read_errno,
 
 void CertificatesHandler::HandleImportCATrustSelected(
     const base::ListValue* args) {
-  CHECK_EQ(4U, args->GetSize());
+  CHECK_EQ(4U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   bool trust_ssl = false;
@@ -928,7 +946,7 @@ void CertificatesHandler::HandleExportCertificate(const base::ListValue* args) {
 }
 
 void CertificatesHandler::HandleDeleteCertificate(const base::ListValue* args) {
-  CHECK_EQ(2U, args->GetSize());
+  CHECK_EQ(2U, args->GetList().size());
   AssignWebUICallbackId(args);
 
   CertificateManagerModel::CertInfo* cert_info =
@@ -1224,8 +1242,9 @@ bool CertificatesHandler::CanEditCertificate(
                                  ? CertificateSource::kImported
                                  : CertificateSource::kBuiltIn;
   return IsCACertificateManagementAllowedPolicy(source);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+#else
   return true;
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

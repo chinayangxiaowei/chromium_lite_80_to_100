@@ -7,6 +7,7 @@
 
 #import <Foundation/Foundation.h>
 
+#include "base/test/metrics/histogram_tester.h"
 #include "components/metrics/metrics_service.h"
 #import "components/previous_session_info/previous_session_info.h"
 #import "components/previous_session_info/previous_session_info_private.h"
@@ -20,6 +21,7 @@
 #import "ios/chrome/browser/web_state_list/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_opener.h"
+#include "ios/chrome/common/app_group/app_group_metrics.h"
 #import "ios/chrome/test/ocmock/OCMockObject+BreakpadControllerTesting.h"
 #import "ios/testing/scoped_block_swizzler.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -127,6 +129,43 @@ TEST_F(MetricsMediatorTest, connectionTypeChanged) {
             net::NetworkChangeNotifier::CONNECTION_LAST);
 }
 
+// Tests that histograms logged in a widget are correctly re-emitted by Chrome.
+TEST_F(MetricsMediatorTest, WidgetHistogramMetricsRecorded) {
+  using app_group::HistogramCountKey;
+
+  base::HistogramTester tester;
+  NSString* histogram = @"MyHistogram";
+
+  // Simulate 1 event fired in bucket 0, and 2 events fired in bucket 2.
+  NSString* keyBucket0 = HistogramCountKey(histogram, 0);
+  NSString* keyBucket1 = HistogramCountKey(histogram, 1);
+  NSString* keyBucket2 = HistogramCountKey(histogram, 2);
+
+  NSUserDefaults* sharedDefaults = app_group::GetGroupUserDefaults();
+  [sharedDefaults setInteger:1 forKey:keyBucket0];
+  [sharedDefaults setInteger:2 forKey:keyBucket2];
+
+  const metrics_mediator::HistogramNameCountPair histograms[] = {
+      {
+          histogram,
+          // 3 buckets, to make sure that the first and last buckets are logged.
+          3,
+      },
+  };
+
+  metrics_mediator::RecordWidgetUsage(histograms);
+
+  // Verify that the correct events were emitted.
+  tester.ExpectBucketCount("MyHistogram", 0, 1);
+  tester.ExpectBucketCount("MyHistogram", 1, 0);
+  tester.ExpectBucketCount("MyHistogram", 2, 2);
+
+  // Verify that all entries in NSUserDefaults have been removed.
+  EXPECT_EQ(0, [sharedDefaults integerForKey:keyBucket0]);
+  EXPECT_EQ(0, [sharedDefaults integerForKey:keyBucket1]);
+  EXPECT_EQ(0, [sharedDefaults integerForKey:keyBucket2]);
+}
+
 #pragma mark - logLaunchMetrics tests.
 
 // A block that takes as arguments the caller and the arguments from
@@ -137,7 +176,8 @@ class MetricsMediatorLogLaunchTest : public PlatformTest {
  protected:
   MetricsMediatorLogLaunchTest()
       : num_tabs_has_been_called_(FALSE),
-        num_ntp_tabs_has_been_called_(FALSE) {}
+        num_ntp_tabs_has_been_called_(FALSE),
+        num_live_ntp_tabs_has_been_called_(FALSE) {}
 
   void initiateMetricsMediator(BOOL coldStart, int tabCount) {
     num_tabs_swizzle_block_ = [^(id self, int numTab) {
@@ -149,6 +189,9 @@ class MetricsMediatorLogLaunchTest : public PlatformTest {
       num_ntp_tabs_has_been_called_ = YES;
       // Tests.
       EXPECT_EQ(tabCount, numTab);
+    } copy];
+    num_live_ntp_tabs_swizzle_block_ = [^(id self, int numTab) {
+      num_live_ntp_tabs_has_been_called_ = YES;
     } copy];
     if (coldStart) {
       tabs_uma_histogram_swizzler_.reset(new ScopedBlockSwizzler(
@@ -164,6 +207,9 @@ class MetricsMediatorLogLaunchTest : public PlatformTest {
       ntp_tabs_uma_histogram_swizzler_.reset(new ScopedBlockSwizzler(
           [MetricsMediator class], @selector(recordNumNTPTabAtResume:),
           num_ntp_tabs_swizzle_block_));
+      live_ntp_tabs_uma_histogram_swizzler_.reset(new ScopedBlockSwizzler(
+          [MetricsMediator class], @selector(recordNumLiveNTPTabAtResume:),
+          num_live_ntp_tabs_swizzle_block_));
     }
   }
 
@@ -176,10 +222,13 @@ class MetricsMediatorLogLaunchTest : public PlatformTest {
   NSArray<FakeSceneState*>* connected_scenes_;
   __block BOOL num_tabs_has_been_called_;
   __block BOOL num_ntp_tabs_has_been_called_;
+  __block BOOL num_live_ntp_tabs_has_been_called_;
   LogLaunchMetricsBlock num_tabs_swizzle_block_;
   LogLaunchMetricsBlock num_ntp_tabs_swizzle_block_;
+  LogLaunchMetricsBlock num_live_ntp_tabs_swizzle_block_;
   std::unique_ptr<ScopedBlockSwizzler> tabs_uma_histogram_swizzler_;
   std::unique_ptr<ScopedBlockSwizzler> ntp_tabs_uma_histogram_swizzler_;
+  std::unique_ptr<ScopedBlockSwizzler> live_ntp_tabs_uma_histogram_swizzler_;
   std::set<std::unique_ptr<TestBrowser>> browsers_;
 };
 
@@ -254,6 +303,7 @@ TEST_F(MetricsMediatorLogLaunchTest, logLaunchMetricsNoBackgroundDate) {
                                           connectedScenes:connected_scenes_];
   // Tests.
   verifySwizzleHasBeenCalled();
+  EXPECT_TRUE(num_live_ntp_tabs_has_been_called_);
 }
 
 using MetricsMediatorNoFixtureTest = PlatformTest;

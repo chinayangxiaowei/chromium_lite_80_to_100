@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_drag_drop.h"
 
 #include "base/bind.h"
+#include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
@@ -27,6 +28,7 @@
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/color/color_id.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/font.h"
@@ -162,6 +164,9 @@ constexpr gfx::Size BookmarkDragImageSource::kBookmarkDragImageSize;
 // Owns itself.
 class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
  public:
+  BookmarkDragHelper(const BookmarkDragHelper&) = delete;
+  BookmarkDragHelper& operator=(const BookmarkDragHelper&) = delete;
+
   static base::WeakPtr<BookmarkDragHelper> Create(
       Profile* profile,
       const BookmarkDragParams& params,
@@ -180,7 +185,7 @@ class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
                      DoBookmarkDragCallback do_drag_callback)
       : model_(BookmarkModelFactory::GetForBrowserContext(profile)),
         count_(params.nodes.size()),
-        web_contents_(params.web_contents),
+        web_contents_(params.web_contents->GetWeakPtr()),
         source_(params.source),
         start_point_(params.start_point),
         do_drag_callback_(std::move(do_drag_callback)),
@@ -213,7 +218,7 @@ class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
       icon = ui::ImageModel::FromImage(image);
     } else {
       icon = GetBookmarkFolderIcon(chrome::BookmarkFolderIconType::kNormal,
-                                   ui::NativeTheme::kColorId_MenuIconColor);
+                                   ui::kColorMenuIcon);
     }
 
     OnBookmarkIconLoaded(drag_node, icon);
@@ -221,31 +226,39 @@ class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
 
   void OnBookmarkIconLoaded(const BookmarkNode* drag_node,
                             const ui::ImageModel& icon) {
-    auto* widget =
-        views::Widget::GetWidgetForNativeView(web_contents_->GetNativeView());
-    ui::NativeTheme* native_theme = widget ? widget->GetNativeTheme() : nullptr;
-    gfx::ImageSkia drag_image(
-        std::make_unique<BookmarkDragImageSource>(
-            drag_node->GetTitle(),
-            // It's not clear if the "generator without native theme" case can
-            // occur, but if it can, better to wrongly show the default favicon
-            // than to crash.
-            (icon.IsEmpty() || (icon.IsImageGenerator() && !native_theme))
-                ? *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-                      IDR_DEFAULT_FAVICON)
-                : views::GetImageSkiaFromImageModel(icon, native_theme),
-            count_),
-        BookmarkDragImageSource::kBookmarkDragImageSize);
+    auto weak_this = GetWeakPtr();
+    if (web_contents_) {
+      auto* widget =
+          views::Widget::GetWidgetForNativeView(web_contents_->GetNativeView());
+      const ui::ColorProvider* color_provider =
+          widget ? widget->GetColorProvider() : nullptr;
+      gfx::ImageSkia drag_image(
+          std::make_unique<BookmarkDragImageSource>(
+              drag_node->GetTitle(),
+              // It's not clear if the "generator without color provider" case
+              // can occur, but if it can, better to wrongly show the default
+              // favicon than to crash.
+              (icon.IsEmpty() || (icon.IsImageGenerator() && !color_provider))
+                  ? *ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
+                        IDR_DEFAULT_FAVICON)
+                  : views::GetImageSkiaFromImageModel(icon, color_provider),
+              count_),
+          BookmarkDragImageSource::kBookmarkDragImageSize);
 
-    drag_data_->provider().SetDragImage(
-        drag_image, gfx::Vector2d(BookmarkDragImageSource::kDragImageOffsetX,
-                                  BookmarkDragImageSource::kDragImageOffsetY));
+      drag_data_->provider().SetDragImage(
+          drag_image,
+          gfx::Vector2d(BookmarkDragImageSource::kDragImageOffsetX,
+                        BookmarkDragImageSource::kDragImageOffsetY));
 
-    std::move(do_drag_callback_)
-        .Run(std::move(drag_data_), web_contents_->GetNativeView(), source_,
-             start_point_, operation_);
+      std::move(do_drag_callback_)
+          .Run(std::move(drag_data_), web_contents_->GetNativeView(), source_,
+               start_point_, operation_);
+    }
 
-    delete this;
+    // The Run() call above could have spun a nested message loop resulting in
+    // our deletion.  Be sure to avoid double-free.
+    if (weak_this)
+      delete this;
   }
 
   base::WeakPtr<BookmarkDragHelper> GetWeakPtr() {
@@ -273,7 +286,7 @@ class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
 
   int64_t drag_node_id_ = -1;
   int count_;
-  content::WebContents* web_contents_;
+  base::WeakPtr<content::WebContents> web_contents_;
   ui::mojom::DragEventSource source_;
   const gfx::Point start_point_;
   int operation_;
@@ -287,8 +300,6 @@ class BookmarkDragHelper : public bookmarks::BaseBookmarkModelObserver {
       observation_{this};
 
   base::WeakPtrFactory<BookmarkDragHelper> weak_factory_{this};
-
-  DISALLOW_COPY_AND_ASSIGN(BookmarkDragHelper);
 };
 
 void DoDragImpl(std::unique_ptr<ui::OSExchangeData> drag_data,

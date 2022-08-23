@@ -103,8 +103,7 @@ class BackForwardCacheMetrics
     kBrowsingInstanceNotSwapped = 47,
     kBackForwardCacheDisabledForDelegate = 48,
     kOptInUnloadHeaderNotPresent = 49,
-    // 50: kUnloadHandlerExistsInMainFrame = 50 was removed, such cases would
-    // report kOptInUnloadHeaderNotPresent.
+    kUnloadHandlerExistsInMainFrame = 50,
     kUnloadHandlerExistsInSubFrame = 51,
     kServiceWorkerUnregistration = 52,
     kCacheControlNoStore = 53,
@@ -112,7 +111,8 @@ class BackForwardCacheMetrics
     kCacheControlNoStoreHTTPOnlyCookieModified = 55,
     kNoResponseHead = 56,
     kActivationNavigationsDisallowedForBug1234857 = 57,
-    kMaxValue = kActivationNavigationsDisallowedForBug1234857,
+    kErrorDocument = 58,
+    kMaxValue = kErrorDocument,
   };
 
   using NotRestoredReasons =

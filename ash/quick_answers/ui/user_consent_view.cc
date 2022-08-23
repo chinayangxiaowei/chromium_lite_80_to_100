@@ -131,13 +131,14 @@ class CustomizedLabelButton : public views::MdTextButton {
 // UserConsentView
 // -------------------------------------------------------------
 
-UserConsentView::UserConsentView(const gfx::Rect& anchor_view_bounds,
-                                 const std::u16string& intent_type,
-                                 const std::u16string& intent_text,
-                                 QuickAnswersUiController* ui_controller)
+UserConsentView::UserConsentView(
+    const gfx::Rect& anchor_view_bounds,
+    const std::u16string& intent_type,
+    const std::u16string& intent_text,
+    base::WeakPtr<QuickAnswersUiController> controller)
     : anchor_view_bounds_(anchor_view_bounds),
       event_handler_(this),
-      ui_controller_(ui_controller),
+      controller_(std::move(controller)),
       focus_search_(this,
                     base::BindRepeating(&UserConsentView::GetFocusableViews,
                                         base::Unretained(this))) {
@@ -155,6 +156,7 @@ UserConsentView::UserConsentView(const gfx::Rect& anchor_view_bounds,
 
   // Focus should cycle to each of the buttons the view contains and back to it.
   SetFocusBehavior(FocusBehavior::ALWAYS);
+  set_suppress_default_focus_handling();
   views::FocusRing::Install(this);
 
   // Allow tooltips to be shown despite menu-controller owning capture.
@@ -301,7 +303,7 @@ void UserConsentView::InitButtonBar() {
   // No thanks button.
   auto no_thanks_button = std::make_unique<CustomizedLabelButton>(
       base::BindRepeating(&QuickAnswersUiController::OnUserConsentResult,
-                          base::Unretained(ui_controller_), false),
+                          controller_, false),
       l10n_util::GetStringUTF16(
           IDS_ASH_QUICK_ANSWERS_USER_CONSENT_VIEW_NO_THANKS_BUTTON),
       kSettingsButtonTextColor,
@@ -312,13 +314,14 @@ void UserConsentView::InitButtonBar() {
   auto allow_button = std::make_unique<CustomizedLabelButton>(
       base::BindRepeating(
           [](QuickAnswersPreTargetHandler* handler,
-             QuickAnswersUiController* controller) {
+             base::WeakPtr<QuickAnswersUiController> controller) {
             // When user consent is accepted, QuickAnswersView will be
             // displayed instead of dismissing the menu.
             handler->set_dismiss_anchor_menu_on_view_closed(false);
-            controller->OnUserConsentResult(true);
+            if (controller)
+              controller->OnUserConsentResult(true);
           },
-          &event_handler_, ui_controller_),
+          &event_handler_, controller_),
       l10n_util::GetStringUTF16(
           IDS_ASH_QUICK_ANSWERS_USER_CONSENT_VIEW_ALLOW_BUTTON),
       kAcceptButtonTextColor,

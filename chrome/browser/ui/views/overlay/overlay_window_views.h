@@ -8,6 +8,7 @@
 #include "content/public/browser/overlay_window.h"
 
 #include "base/timer/timer.h"
+#include "build/chromeos_buildflags.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/widget/widget.h"
@@ -38,6 +39,9 @@ class OverlayWindowViews : public content::OverlayWindow,
   static std::unique_ptr<OverlayWindowViews> Create(
       content::PictureInPictureWindowController* controller);
 
+  OverlayWindowViews(const OverlayWindowViews&) = delete;
+  OverlayWindowViews& operator=(const OverlayWindowViews&) = delete;
+
   ~OverlayWindowViews() override;
 
   enum class WindowQuadrant { kBottomLeft, kBottomRight, kTopLeft, kTopRight };
@@ -66,6 +70,7 @@ class OverlayWindowViews : public content::OverlayWindow,
   // views::Widget:
   bool IsActive() const override;
   bool IsVisible() const override;
+  void OnNativeFocus() override;
   void OnNativeBlur() override;
   void OnNativeWidgetDestroyed() override;
   gfx::Size GetMinimumSize() const override;
@@ -214,9 +219,6 @@ class OverlayWindowViews : public content::OverlayWindow,
   gfx::Size min_size_;
   gfx::Size max_size_;
 
-  // Bounds of |video_view_|.
-  gfx::Rect video_bounds_;
-
   // The natural size of the video to show. This is used to compute sizing and
   // ensuring factors such as aspect ratio is maintained.
   gfx::Size natural_size_;
@@ -281,8 +283,6 @@ class OverlayWindowViews : public content::OverlayWindow,
   // and hiding automatically. Only used for testing via
   // ForceControlsVisibleForTesting().
   absl::optional<bool> force_controls_visible_;
-
-  DISALLOW_COPY_AND_ASSIGN(OverlayWindowViews);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OVERLAY_OVERLAY_WINDOW_VIEWS_H_

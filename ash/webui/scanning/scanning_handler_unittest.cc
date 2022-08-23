@@ -71,8 +71,12 @@ class TestSelectFileDialog : public ui::SelectFileDialog {
       return;
     }
 
-    listener_->FileSelected(selected_path_, 0 /* index */,
-                            nullptr /* params */);
+    // Put the selected path on the stack so that it stays valid for the
+    // duration of Listener::FileSelected() despite deleting the
+    // SelectFileDialog immediately. This is in line with the default behavior
+    // of SelectFileDialog.
+    base::FilePath selected_path = std::move(selected_path_);
+    listener_->FileSelected(selected_path, 0 /* index */, nullptr /* params */);
   }
 
   bool IsRunning(gfx::NativeWindow owning_window) const override {
@@ -142,8 +146,10 @@ class FakeScanningAppDelegate : public ScanningAppDelegate {
     file_paths_ = file_paths;
   }
 
-  bool ShowFileInFilesApp(const base::FilePath& path_to_file) override {
-    return kTestFilePath == path_to_file.value();
+  void ShowFileInFilesApp(
+      const base::FilePath& path_to_file,
+      base::OnceCallback<void(const bool)> callback) override {
+    std::move(callback).Run(kTestFilePath == path_to_file.value());
   }
 
   void SaveScanSettingsToPrefs(const std::string& scan_settings) override {
@@ -356,6 +362,7 @@ TEST_F(ScanningHandlerTest, ValidFilePathExists) {
   args.Append(kHandlerFunctionName);
   args.Append(myScanPath.value());
   web_ui_.HandleReceivedMessage("ensureValidFilePath", &args);
+  task_environment_.RunUntilIdle();
 
   const content::TestWebUI::CallData& call_data =
       GetCallData(call_data_count_before_call);
@@ -376,6 +383,7 @@ TEST_F(ScanningHandlerTest, InvalidFilePath) {
   args.Append(kHandlerFunctionName);
   args.Append(invalidFilePath);
   web_ui_.HandleReceivedMessage("ensureValidFilePath", &args);
+  task_environment_.RunUntilIdle();
 
   const content::TestWebUI::CallData& call_data =
       GetCallData(call_data_count_before_call);
@@ -383,6 +391,21 @@ TEST_F(ScanningHandlerTest, InvalidFilePath) {
   EXPECT_TRUE(call_data.arg3()->GetAsDictionary(&selected_path_dict));
   EXPECT_EQ(std::string(), *selected_path_dict->FindStringPath("filePath"));
   EXPECT_EQ(std::string(), *selected_path_dict->FindStringPath("baseName"));
+}
+
+// Validates a request for a plural string with a key missing in the plural
+// string map does return a value.
+TEST_F(ScanningHandlerTest, GetPluralStringBadKey) {
+  base::ListValue args;
+  args.Append(kHandlerFunctionName);
+  args.Append(/*name=*/"incorrectKey");
+  args.Append(/*count=*/2);
+  web_ui_.HandleReceivedMessage("getPluralString", &args);
+  task_environment_.RunUntilIdle();
+
+  const std::vector<std::unique_ptr<content::TestWebUI::CallData>>&
+      call_data_list = web_ui_.call_data();
+  EXPECT_EQ(0u, call_data_list.size());
 }
 
 }  // namespace ash

@@ -435,21 +435,21 @@ void WebNavigationTabObserver::RenderFrameHostPendingDeletion(
   // The |pending_delete_rfh| and its children are now pending deletion.
   // Stop tracking them.
 
-  web_contents()->ForEachFrame(base::BindRepeating(
-      [](content::RenderFrameHost* pending_delete_rfh,
-         WebNavigationTabObserver* observer,
+  pending_delete_rfh->ForEachRenderFrameHost(base::BindRepeating(
+      [](WebNavigationTabObserver* observer,
          content::RenderFrameHost* render_frame_host) {
-        if (render_frame_host == pending_delete_rfh ||
-            render_frame_host->IsDescendantOf(pending_delete_rfh)) {
+        auto* navigation_state =
+            FrameNavigationState::GetForCurrentDocument(render_frame_host);
+        if (navigation_state) {
           observer->RenderFrameDeleted(render_frame_host);
           FrameNavigationState::DeleteForCurrentDocument(render_frame_host);
         }
       },
-      pending_delete_rfh, this));
+      this));
 }
 
 ExtensionFunction::ResponseAction WebNavigationGetFrameFunction::Run() {
-  std::unique_ptr<GetFrame::Params> params(GetFrame::Params::Create(*args_));
+  std::unique_ptr<GetFrame::Params> params(GetFrame::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params.get());
   int tab_id = params->details.tab_id;
   int frame_id = params->details.frame_id;
@@ -492,7 +492,7 @@ ExtensionFunction::ResponseAction WebNavigationGetFrameFunction::Run() {
 
 ExtensionFunction::ResponseAction WebNavigationGetAllFramesFunction::Run() {
   std::unique_ptr<GetAllFrames::Params> params(
-      GetAllFrames::Params::Create(*args_));
+      GetAllFrames::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params.get());
   int tab_id = params->details.tab_id;
 
@@ -510,15 +510,21 @@ ExtensionFunction::ResponseAction WebNavigationGetAllFramesFunction::Run() {
 
   std::vector<GetAllFrames::Results::DetailsType> result_list;
 
-  web_contents->ForEachFrame(base::BindRepeating(
-      [](std::vector<GetAllFrames::Results::DetailsType>& result_list,
+  web_contents->ForEachRenderFrameHost(base::BindRepeating(
+      [](content::WebContents* web_contents,
+         std::vector<GetAllFrames::Results::DetailsType>& result_list,
          content::RenderFrameHost* render_frame_host) {
+        // Don't expose inner WebContents for the getFrames API.
+        if (content::WebContents::FromRenderFrameHost(render_frame_host) !=
+            web_contents) {
+          return content::RenderFrameHost::FrameIterationAction::kSkipChildren;
+        }
         auto* navigation_state =
             FrameNavigationState::GetForCurrentDocument(render_frame_host);
 
         if (!navigation_state ||
             !FrameNavigationState::IsValidUrl(navigation_state->GetUrl())) {
-          return;
+          return content::RenderFrameHost::FrameIterationAction::kContinue;
         }
 
         GetAllFrames::Results::DetailsType frame;
@@ -529,8 +535,9 @@ ExtensionFunction::ResponseAction WebNavigationGetAllFramesFunction::Run() {
         frame.process_id = render_frame_host->GetProcess()->GetID();
         frame.error_occurred = navigation_state->GetErrorOccurredInFrame();
         result_list.push_back(std::move(frame));
+        return content::RenderFrameHost::FrameIterationAction::kContinue;
       },
-      std::ref(result_list)));
+      web_contents, std::ref(result_list)));
 
   return RespondNow(ArgumentList(GetAllFrames::Results::Create(result_list)));
 }
@@ -577,6 +584,6 @@ void WebNavigationAPI::OnListenerAdded(const EventListenerInfo& details) {
   EventRouter::Get(browser_context_)->UnregisterObserver(this);
 }
 
-WEB_CONTENTS_USER_DATA_KEY_IMPL(WebNavigationTabObserver)
+WEB_CONTENTS_USER_DATA_KEY_IMPL(WebNavigationTabObserver);
 
 }  // namespace extensions

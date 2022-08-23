@@ -19,6 +19,7 @@
 #include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/synchronization/lock.h"
 #include "base/task/current_thread.h"
 #include "base/threading/sequence_local_storage_slot.h"
@@ -66,6 +67,10 @@ bool EnableTaskPerMessage() {
 class Connector::ActiveDispatchTracker {
  public:
   explicit ActiveDispatchTracker(const base::WeakPtr<Connector>& connector);
+
+  ActiveDispatchTracker(const ActiveDispatchTracker&) = delete;
+  ActiveDispatchTracker& operator=(const ActiveDispatchTracker&) = delete;
+
   ~ActiveDispatchTracker();
 
   void NotifyBeginNesting();
@@ -75,8 +80,6 @@ class Connector::ActiveDispatchTracker {
   RunLoopNestingObserver* const nesting_observer_;
   ActiveDispatchTracker* outer_tracker_ = nullptr;
   ActiveDispatchTracker* inner_tracker_ = nullptr;
-
-  DISALLOW_COPY_AND_ASSIGN(ActiveDispatchTracker);
 };
 
 // Watches the MessageLoop on the current thread. Notifies the current chain of
@@ -87,6 +90,9 @@ class Connector::RunLoopNestingObserver
   RunLoopNestingObserver() {
     base::RunLoop::AddNestingObserverOnCurrentThread(this);
   }
+
+  RunLoopNestingObserver(const RunLoopNestingObserver&) = delete;
+  RunLoopNestingObserver& operator=(const RunLoopNestingObserver&) = delete;
 
   ~RunLoopNestingObserver() override {
     base::RunLoop::RemoveNestingObserverOnCurrentThread(this);
@@ -113,8 +119,6 @@ class Connector::RunLoopNestingObserver
   friend class ActiveDispatchTracker;
 
   ActiveDispatchTracker* top_tracker_ = nullptr;
-
-  DISALLOW_COPY_AND_ASSIGN(RunLoopNestingObserver);
 };
 
 Connector::ActiveDispatchTracker::ActiveDispatchTracker(
@@ -152,7 +156,11 @@ Connector::Connector(ScopedMessagePipeHandle message_pipe,
       force_immediate_dispatch_(!EnableTaskPerMessage()),
       outgoing_serialization_mode_(g_default_outgoing_serialization_mode),
       incoming_serialization_mode_(g_default_incoming_serialization_mode),
-      interface_name_(interface_name) {
+      interface_name_(interface_name),
+      header_validator_(
+          base::JoinString({interface_name ? interface_name : "Generic",
+                            "MessageHeaderValidator"},
+                           "")) {
   if (config == MULTI_THREADED_SEND)
     lock_.emplace();
 
@@ -492,6 +500,7 @@ MojoResult Connector::ReadMessage(Message* message) {
     return result;
 
   *message = Message::CreateFromMessageHandle(&handle);
+
   if (message->IsNull()) {
     // Even if the read was successful, the Message may still be null if there
     // was a problem extracting handles from it. We treat this essentially as
@@ -504,6 +513,10 @@ MojoResult Connector::ReadMessage(Message* message) {
         handle.get(),
         base::StrCat({interface_name_,
                       " One or more handle attachments were invalid."}));
+    return MOJO_RESULT_ABORTED;
+  }
+
+  if (!header_validator_.Accept(message)) {
     return MOJO_RESULT_ABORTED;
   }
 

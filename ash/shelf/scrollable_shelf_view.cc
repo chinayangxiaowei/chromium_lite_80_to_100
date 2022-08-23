@@ -28,8 +28,8 @@
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
-#include "ui/gfx/transform_util.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/focus/focus_search.h"
@@ -46,28 +46,28 @@ int64_t GetDisplayIdForView(const views::View* view) {
 }
 
 void ReportSmoothness(bool tablet_mode, bool launcher_visible, int smoothness) {
-  base::UmaHistogramPercentageObsoleteDoNotUse(
+  base::UmaHistogramPercentage(
       scrollable_shelf_constants::kAnimationSmoothnessHistogram, smoothness);
   if (tablet_mode) {
     if (launcher_visible) {
-      base::UmaHistogramPercentageObsoleteDoNotUse(
+      base::UmaHistogramPercentage(
           scrollable_shelf_constants::
               kAnimationSmoothnessTabletLauncherVisibleHistogram,
           smoothness);
     } else {
-      base::UmaHistogramPercentageObsoleteDoNotUse(
+      base::UmaHistogramPercentage(
           scrollable_shelf_constants::
               kAnimationSmoothnessTabletLauncherHiddenHistogram,
           smoothness);
     }
   } else {
     if (launcher_visible) {
-      base::UmaHistogramPercentageObsoleteDoNotUse(
+      base::UmaHistogramPercentage(
           scrollable_shelf_constants::
               kAnimationSmoothnessClamshellLauncherVisibleHistogram,
           smoothness);
     } else {
-      base::UmaHistogramPercentageObsoleteDoNotUse(
+      base::UmaHistogramPercentage(
           scrollable_shelf_constants::
               kAnimationSmoothnessClamshellLauncherHiddenHistogram,
           smoothness);
@@ -180,6 +180,11 @@ class ScrollableShelfContainerView : public ShelfContainerView,
         scrollable_shelf_view_(scrollable_shelf_view) {
     SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
   }
+
+  ScrollableShelfContainerView(const ScrollableShelfContainerView&) = delete;
+  ScrollableShelfContainerView& operator=(const ScrollableShelfContainerView&) =
+      delete;
+
   ~ScrollableShelfContainerView() override = default;
 
   // ShelfContainerView:
@@ -194,8 +199,6 @@ class ScrollableShelfContainerView : public ShelfContainerView,
                          const gfx::Rect& rect) const override;
 
   ScrollableShelfView* scrollable_shelf_view_ = nullptr;
-
-  DISALLOW_COPY_AND_ASSIGN(ScrollableShelfContainerView);
 };
 
 void ScrollableShelfContainerView::TranslateShelfView(
@@ -245,6 +248,10 @@ class ScrollableShelfFocusSearch : public views::FocusSearch {
                     /*accessibility_mode=*/true),
         scrollable_shelf_view_(scrollable_shelf_view) {}
 
+  ScrollableShelfFocusSearch(const ScrollableShelfFocusSearch&) = delete;
+  ScrollableShelfFocusSearch& operator=(const ScrollableShelfFocusSearch&) =
+      delete;
+
   ~ScrollableShelfFocusSearch() override = default;
 
   // views::FocusSearch
@@ -290,8 +297,6 @@ class ScrollableShelfFocusSearch : public views::FocusSearch {
 
  private:
   ScrollableShelfView* scrollable_shelf_view_ = nullptr;
-
-  DISALLOW_COPY_AND_ASSIGN(ScrollableShelfFocusSearch);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -421,6 +426,15 @@ bool ScrollableShelfView::NeedUpdateToTargetBounds() const {
 
 gfx::Rect ScrollableShelfView::GetTargetScreenBoundsOfItemIcon(
     const ShelfID& id) const {
+  const int item_index_in_model = shelf_view_->model()->ItemIndexByID(id);
+
+  // Return a dummy value if the item specified by `id` does not exist in the
+  // shelf model.
+  // TODO(https://crbug.com/1270498): it is a quick fixing. We should
+  // investigate the root cause.
+  if (item_index_in_model < 0)
+    return gfx::Rect();
+
   // Calculates the available space for child views based on the target bounds.
   // To ease coding, we use the variables before mirroring in computation.
   const gfx::Insets target_edge_padding_RTL_mirrored =
@@ -436,8 +450,8 @@ gfx::Rect ScrollableShelfView::GetTargetScreenBoundsOfItemIcon(
   const gfx::Insets current_edge_padding_before_RTL_mirror =
       ShouldAdaptToRTL() ? GetMirroredInsets(current_edge_padding_RTL_mirrored)
                          : current_edge_padding_RTL_mirrored;
-  gfx::Rect icon_bounds = shelf_view_->view_model()->ideal_bounds(
-      shelf_view_->model()->ItemIndexByID(id));
+  gfx::Rect icon_bounds =
+      shelf_view_->view_model()->ideal_bounds(item_index_in_model);
   icon_bounds.Offset(target_edge_padding_before_RTL_mirror.left() -
                          current_edge_padding_before_RTL_mirror.left(),
                      0);
@@ -995,6 +1009,26 @@ void ScrollableShelfView::HandleAccessibleActionScrollToMakeVisible(
   // Scrollable shelf can only be hidden in tablet mode.
   GetShelf()->hotseat_widget()->set_manually_extended(true);
   GetShelf()->shelf_widget()->shelf_layout_manager()->UpdateVisibilityState();
+}
+
+void ScrollableShelfView::OnButtonWillBeRemoved() {
+  const int view_size_before_removal = shelf_view_->view_model()->view_size();
+  DCHECK_GT(view_size_before_removal, 0);
+
+  // Ensure `last_tappable_app_index_` to be valid after removal. Normally
+  // `last_tappable_app_index_` updates when the shelf button is removed. But
+  // button removal could be performed at the end of the button fade out
+  // animation, which means that incorrect `last_tappable_app_index_` could be
+  // accessed during the animation. To handle this issue, update
+  // `last_tappable_app_index_` before removal finishes.
+  // The code block also covers the edge case that the only shelf item is going
+  // to be removed, i.e. `view_size_before_removal_` is one. In this case,
+  // both `first_tappable_app_index_` and `last_tappable_app_index_` are reset
+  // to invalid values (see https://crbug.com/1300561).
+  last_tappable_app_index_ =
+      std::min(last_tappable_app_index_, view_size_before_removal - 2);
+  first_tappable_app_index_ =
+      std::min(first_tappable_app_index_, last_tappable_app_index_);
 }
 
 std::unique_ptr<ScrollableShelfView::ScopedActiveInkDropCount>
@@ -2168,8 +2202,11 @@ void ScrollableShelfView::OnActiveInkDropChange(bool increase) {
   // When long pressing icons, sometimes there are more ripple animations
   // pending over others buttons. Only activate rounded corners when at least
   // one button needs them.
+  // NOTE: `last_tappable_app_index_` is used to compute whether a button is
+  // at the corner or not. Meanwhile, `last_tappable_app_index_` could update
+  // before the button fade out animation ends. As a result, in edge cases
+  // `activated_corner_buttons_` could be greater than 2.
   CHECK_GE(activated_corner_buttons_, 0);
-  CHECK_LE(activated_corner_buttons_, 2);
   EnableShelfRoundedCorners(activated_corner_buttons_ > 0);
 }
 

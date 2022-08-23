@@ -198,7 +198,8 @@ void BookmarkContextMenuController::BuildMenu() {
     AddCheckboxItem(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT,
                     IDS_BOOKMARK_BAR_SHOW_APPS_SHORTCUT);
   }
-  if (reading_list::switches::IsReadingListEnabled()) {
+  if (reading_list::switches::IsReadingListEnabled() &&
+      !base::FeatureList::IsEnabled(features::kSidePanel)) {
     AddCheckboxItem(IDC_BOOKMARK_BAR_SHOW_READING_LIST,
                     IDS_BOOKMARK_BAR_SHOW_READING_LIST);
   }
@@ -250,35 +251,8 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
         base::RecordAction(*action);
 
       chrome::OpenAllIfAllowed(browser_, std::move(get_navigator_), selection_,
-                               initial_disposition);
-
-      if (id == IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP) {
-        // This menu item should be disabled in IsCommandIdEnabled() if the
-        // folder or Bookmarks bar was empty.
-        int count = chrome::OpenCount(parent_window_, selection_);
-        DCHECK_GT(count, 0);
-
-        TabStripModel* model = browser_->tab_strip_model();
-        std::vector<int> tab_indicies(count);
-
-        for (auto i = 0; i < count; i++)
-          tab_indicies[i] = model->count() - count + i;
-
-        tab_groups::TabGroupId newGroupId = model->AddToNewGroup(tab_indicies);
-
-        // use the bookmark folder's title as the group's title
-        std::u16string folderTitle = selection_[0]->GetTitledUrlNodeTitle();
-        TabGroup* group = model->group_model()->GetTabGroup(newGroupId);
-        const tab_groups::TabGroupVisualData* current_visual_data =
-            group->visual_data();
-        tab_groups::TabGroupVisualData new_visual_data(
-            folderTitle, current_visual_data->color(),
-            current_visual_data->is_collapsed());
-        group->SetVisualData(new_visual_data);
-
-        model->OpenTabGroupEditor(newGroupId);
-      }
-
+                               initial_disposition,
+                               id == IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP);
       break;
     }
 
@@ -496,19 +470,19 @@ bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {
   switch (command_id) {
     case IDC_BOOKMARK_BAR_OPEN_INCOGNITO:
       return !profile_->IsOffTheRecord() &&
-             incognito_avail != IncognitoModePrefs::DISABLED;
+             incognito_avail != IncognitoModePrefs::Availability::kDisabled;
 
     case IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO:
-      return chrome::HasBookmarkURLsAllowedInIncognitoMode(selection_, profile_)
-             &&
+      return chrome::HasBookmarkURLsAllowedInIncognitoMode(selection_,
+                                                           profile_) &&
              !profile_->IsOffTheRecord() &&
-             incognito_avail != IncognitoModePrefs::DISABLED;
+             incognito_avail != IncognitoModePrefs::Availability::kDisabled;
     case IDC_BOOKMARK_BAR_OPEN_ALL:
     case IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP:
       return chrome::HasBookmarkURLs(selection_);
     case IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW:
       return chrome::HasBookmarkURLs(selection_) &&
-             incognito_avail != IncognitoModePrefs::FORCED;
+             incognito_avail != IncognitoModePrefs::Availability::kForced;
 
     case IDC_BOOKMARK_BAR_RENAME_FOLDER:
     case IDC_BOOKMARK_BAR_EDIT:

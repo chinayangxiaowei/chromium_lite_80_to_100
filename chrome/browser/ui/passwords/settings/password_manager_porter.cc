@@ -70,14 +70,15 @@ class PasswordImportConsumer {
  public:
   explicit PasswordImportConsumer(Profile* profile);
 
+  PasswordImportConsumer(const PasswordImportConsumer&) = delete;
+  PasswordImportConsumer& operator=(const PasswordImportConsumer&) = delete;
+
   void ConsumePassword(password_manager::PasswordImporter::Result result,
                        password_manager::CSVPasswordSequence seq);
 
  private:
   Profile* profile_;
   SEQUENCE_CHECKER(sequence_checker_);
-
-  DISALLOW_COPY_AND_ASSIGN(PasswordImportConsumer);
 };
 
 PasswordImportConsumer::PasswordImportConsumer(Profile* profile)
@@ -96,8 +97,8 @@ void PasswordImportConsumer::ConsumePassword(
     return;
 
   scoped_refptr<password_manager::PasswordStoreInterface> store(
-      PasswordStoreFactory::GetInterfaceForProfile(
-          profile_, ServiceAccessType::EXPLICIT_ACCESS));
+      PasswordStoreFactory::GetForProfile(profile_,
+                                          ServiceAccessType::EXPLICIT_ACCESS));
   for (const auto& pwd : seq) {
     if (store)
       store->AddLogin(pwd.ParseValid());
@@ -179,6 +180,10 @@ void PasswordManagerPorter::PresentFileSelector(
 // This method should never be called on Android (as there is no file selector),
 // and the relevant IDS constants are not present for Android.
 #if !defined(OS_ANDROID)
+  // Early return if the select file dialog is already active.
+  if (select_file_dialog_)
+    return;
+
   DCHECK(web_contents);
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
@@ -229,12 +234,16 @@ void PasswordManagerPorter::FileSelected(const base::FilePath& path,
       ExportPasswordsToPath(path);
       break;
   }
+
+  select_file_dialog_.reset();
 }
 
 void PasswordManagerPorter::FileSelectionCanceled(void* params) {
   if (reinterpret_cast<uintptr_t>(params) == PASSWORD_EXPORT) {
     exporter_->Cancel();
   }
+
+  select_file_dialog_.reset();
 }
 
 void PasswordManagerPorter::ImportPasswordsFromPath(

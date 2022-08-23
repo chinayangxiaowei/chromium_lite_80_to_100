@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/frame/local_frame_mojo_handler.h"
 
+#include "components/power_scheduler/power_mode.h"
+#include "components/power_scheduler/power_mode_arbiter.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/data_decoder/public/mojom/resource_snapshot_for_web_bundle.mojom-blink.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
@@ -211,15 +213,16 @@ v8::MaybeLocal<v8::Value> CallMethodOnFrame(LocalFrame* local_frame,
 
 // A wrapper class used as the callback for JavaScript executed
 // in an isolated world.
-class JavaScriptIsolatedWorldRequest
-    : public GarbageCollected<JavaScriptIsolatedWorldRequest>,
-      public WebScriptExecutionCallback {
+class JavaScriptIsolatedWorldRequest : public PausableScriptExecutor::Executor,
+                                       public WebScriptExecutionCallback {
   using JavaScriptExecuteRequestInIsolatedWorldCallback =
       mojom::blink::LocalFrame::JavaScriptExecuteRequestInIsolatedWorldCallback;
 
  public:
   JavaScriptIsolatedWorldRequest(
       LocalFrame* local_frame,
+      int32_t world_id,
+      const String& script,
       bool wants_result,
       mojom::blink::LocalFrame::JavaScriptExecuteRequestInIsolatedWorldCallback
           callback);
@@ -229,26 +232,52 @@ class JavaScriptIsolatedWorldRequest
       const JavaScriptIsolatedWorldRequest&) = delete;
   ~JavaScriptIsolatedWorldRequest() override;
 
-  // WebScriptExecutionCallback:
-  void Completed(const WebVector<v8::Local<v8::Value>>& result) override;
+  // PausableScriptExecutor::Executor overrides.
+  Vector<v8::Local<v8::Value>> Execute(LocalDOMWindow*) override;
 
-  void Trace(Visitor* visitor) const { visitor->Trace(local_frame_); }
+  void Trace(Visitor* visitor) const override;
+
+  // WebScriptExecutionCallback overrides.
+  void Completed(const WebVector<v8::Local<v8::Value>>& result) override;
 
  private:
   Member<LocalFrame> local_frame_;
+  int32_t world_id_;
+  String script_;
   bool wants_result_;
   JavaScriptExecuteRequestInIsolatedWorldCallback callback_;
 };
 
 JavaScriptIsolatedWorldRequest::JavaScriptIsolatedWorldRequest(
     LocalFrame* local_frame,
+    int32_t world_id,
+    const String& script,
     bool wants_result,
     JavaScriptExecuteRequestInIsolatedWorldCallback callback)
     : local_frame_(local_frame),
+      world_id_(world_id),
+      script_(script),
       wants_result_(wants_result),
-      callback_(std::move(callback)) {}
+      callback_(std::move(callback)) {
+  DCHECK_GT(world_id, DOMWrapperWorld::kMainWorldId);
+}
 
 JavaScriptIsolatedWorldRequest::~JavaScriptIsolatedWorldRequest() = default;
+
+void JavaScriptIsolatedWorldRequest::Trace(Visitor* visitor) const {
+  PausableScriptExecutor::Executor::Trace(visitor);
+  visitor->Trace(local_frame_);
+}
+
+Vector<v8::Local<v8::Value>> JavaScriptIsolatedWorldRequest::Execute(
+    LocalDOMWindow* window) {
+  // Note: An error event in an isolated world will never be dispatched to
+  // a foreign world.
+  ClassicScript* classic_script = ClassicScript::CreateUnspecifiedScript(
+      script_, SanitizeScriptErrors::kDoNotSanitize);
+  return {classic_script->RunScriptInIsolatedWorldAndReturnValue(window,
+                                                                 world_id_)};
+}
 
 void JavaScriptIsolatedWorldRequest::Completed(
     const WebVector<v8::Local<v8::Value>>& result) {
@@ -269,18 +298,15 @@ void JavaScriptIsolatedWorldRequest::Completed(
     if (new_value)
       value = base::Value::FromUniquePtrValue(std::move(new_value));
   }
-
   std::move(callback_).Run(std::move(value));
 }
 
 HitTestResult HitTestResultForRootFramePos(
-    LocalFrame* main_frame,
+    LocalFrame* frame,
     const PhysicalOffset& pos_in_root_frame) {
-  DCHECK(main_frame->IsMainFrame());
-
   HitTestLocation location(
-      main_frame->View()->ConvertFromRootFrame(pos_in_root_frame));
-  HitTestResult result = main_frame->GetEventHandler().HitTestResultAtLocation(
+      frame->View()->ConvertFromRootFrame(pos_in_root_frame));
+  HitTestResult result = frame->GetEventHandler().HitTestResultAtLocation(
       location, HitTestRequest::kReadOnly | HitTestRequest::kActive);
   result.SetToShadowHostIfInRestrictedShadowRoot();
   return result;
@@ -316,7 +342,10 @@ void ActiveURLMessageFilter::DidDispatchOrReject(mojo::Message* message,
 }
 
 LocalFrameMojoHandler::LocalFrameMojoHandler(blink::LocalFrame& frame)
-    : frame_(frame) {
+    : frame_(frame),
+      script_execution_power_mode_voter_(
+          power_scheduler::PowerModeArbiter::GetInstance()->NewVoter(
+              "PowerModeVoter.ScriptExecutionVoter")) {
   frame.GetRemoteNavigationAssociatedInterfaces()->GetInterface(
       back_forward_cache_controller_host_remote_.BindNewEndpointAndPassReceiver(
           frame.GetTaskRunner(TaskType::kInternalDefault)));
@@ -764,7 +793,7 @@ void LocalFrameMojoHandler::ReportContentSecurityPolicyViolation(
       violation->directive, directive_type, violation->console_message,
       violation->blocked_url, violation->report_endpoints,
       violation->use_reporting_api, violation->header, violation->type,
-      ContentSecurityPolicy::ContentSecurityPolicyViolationType::kURLViolation,
+      ContentSecurityPolicyViolationType::kURLViolation,
       std::move(source_location), context_frame,
       violation->after_redirect ? RedirectStatus::kFollowedRedirect
                                 : RedirectStatus::kNoRedirect,
@@ -777,13 +806,6 @@ void LocalFrameMojoHandler::DidUpdateFramePolicy(
   // policy for frames with a remote owner.
   SECURITY_CHECK(IsA<RemoteFrameOwner>(frame_->Owner()));
   To<RemoteFrameOwner>(frame_->Owner())->SetFramePolicy(frame_policy);
-}
-
-void LocalFrameMojoHandler::OnScreensChange() {
-  if (RuntimeEnabledFeatures::WindowPlacementEnabled(DomWindow())) {
-    // Allow fullscreen requests shortly after user-generated screens changes.
-    frame_->transient_allow_fullscreen_.Activate();
-  }
 }
 
 void LocalFrameMojoHandler::OnPostureChanged(
@@ -823,19 +845,21 @@ void LocalFrameMojoHandler::JavaScriptMethodExecuteRequest(
 
   v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
   v8::Local<v8::Value> result;
+  script_execution_power_mode_voter_->VoteFor(
+      power_scheduler::PowerMode::kScriptExecution);
   if (!CallMethodOnFrame(frame_, object_name, method_name, std::move(arguments),
                          converter.get())
            .ToLocal(&result)) {
     std::move(callback).Run({});
-    return;
-  }
-
-  if (wants_result) {
+  } else if (wants_result) {
     std::move(callback).Run(
         GetJavaScriptExecutionResult(result, frame_, converter.get()));
   } else {
     std::move(callback).Run({});
   }
+
+  script_execution_power_mode_voter_->ResetVoteAfterTimeout(
+      power_scheduler::PowerModeVoter::kScriptExecutionTimeout);
 }
 
 void LocalFrameMojoHandler::JavaScriptExecuteRequest(
@@ -844,6 +868,9 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequest(
     JavaScriptExecuteRequestCallback callback) {
   TRACE_EVENT_INSTANT0("test_tracing", "JavaScriptExecuteRequest",
                        TRACE_EVENT_SCOPE_THREAD);
+
+  script_execution_power_mode_voter_->VoteFor(
+      power_scheduler::PowerMode::kScriptExecution);
 
   v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
   v8::Local<v8::Value> result =
@@ -861,6 +888,9 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequest(
   } else {
     std::move(callback).Run({});
   }
+
+  script_execution_power_mode_voter_->ResetVoteAfterTimeout(
+      power_scheduler::PowerModeVoter::kScriptExecutionTimeout);
 }
 
 void LocalFrameMojoHandler::JavaScriptExecuteRequestForTests(
@@ -924,17 +954,26 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestInIsolatedWorld(
     return;
   }
 
+  script_execution_power_mode_voter_->VoteFor(
+      power_scheduler::PowerMode::kScriptExecution);
+
   v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
   scoped_refptr<DOMWrapperWorld> isolated_world =
       DOMWrapperWorld::EnsureIsolatedWorld(ToIsolate(frame_), world_id);
-  ScriptSourceCode source_code = ScriptSourceCode(javascript);
-  HeapVector<ScriptSourceCode> sources;
-  sources.Append(&source_code, 1);
-  auto* executor = MakeGarbageCollected<PausableScriptExecutor>(
-      DomWindow(), std::move(isolated_world), sources, false /* user_gesture */,
+
+  // This member will be traced as the |executor| on the PausableScriptExector.
+  auto* execution_request =
       MakeGarbageCollected<JavaScriptIsolatedWorldRequest>(
-          frame_, wants_result, std::move(callback)));
+          frame_, world_id, javascript, wants_result, std::move(callback));
+
+  auto* executor = MakeGarbageCollected<PausableScriptExecutor>(
+      DomWindow(), ToScriptState(frame_, *isolated_world),
+      /*callback=*/execution_request,
+      /*executor=*/execution_request);
   executor->Run();
+
+  script_execution_power_mode_voter_->ResetVoteAfterTimeout(
+      power_scheduler::PowerModeVoter::kScriptExecutionTimeout);
 }
 
 #if defined(OS_MAC)
@@ -1121,8 +1160,6 @@ void LocalFrameMojoHandler::ClosePage(
 void LocalFrameMojoHandler::PluginActionAt(
     const gfx::Point& location,
     mojom::blink::PluginActionType action) {
-  SECURITY_CHECK(frame_->IsMainFrame());
-
   // TODO(bokan): Location is probably in viewport coordinates
   HitTestResult result =
       HitTestResultForRootFramePos(frame_, PhysicalOffset(IntPoint(location)));
@@ -1164,20 +1201,16 @@ void LocalFrameMojoHandler::ZoomToFindInPageRect(
 }
 
 void LocalFrameMojoHandler::InstallCoopAccessMonitor(
-    network::mojom::blink::CoopAccessReportType report_type,
     const FrameToken& accessed_window,
-    mojo::PendingRemote<network::mojom::blink::CrossOriginOpenerPolicyReporter>
-        reporter,
-    bool endpoint_defined,
-    const WTF::String& reported_window_url) {
+    network::mojom::blink::CrossOriginOpenerPolicyReporterParamsPtr
+        coop_reporter_params) {
   blink::Frame* accessed_frame = Frame::ResolveFrame(accessed_window);
   // The Frame might have been deleted during the cross-process communication.
   if (!accessed_frame)
     return;
 
   accessed_frame->DomWindow()->InstallCoopAccessMonitor(
-      report_type, frame_, std::move(reporter), endpoint_defined,
-      std::move(reported_window_url));
+      frame_, std::move(coop_reporter_params));
 }
 
 void LocalFrameMojoHandler::OnPortalActivated(

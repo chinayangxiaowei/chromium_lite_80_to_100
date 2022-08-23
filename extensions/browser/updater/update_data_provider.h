@@ -43,6 +43,9 @@ class UpdateDataProvider : public base::RefCounted<UpdateDataProvider> {
   // an update for an extension.
   explicit UpdateDataProvider(content::BrowserContext* browser_context);
 
+  UpdateDataProvider(const UpdateDataProvider&) = delete;
+  UpdateDataProvider& operator=(const UpdateDataProvider&) = delete;
+
   // Notify this object that the associated browser context is being shut down
   // the pointer to the context should be dropped and no more work should be
   // done.
@@ -64,9 +67,13 @@ class UpdateDataProvider : public base::RefCounted<UpdateDataProvider> {
                           bool install_immediately,
                           UpdateClientCallback update_client_callback);
 
-  content::BrowserContext* browser_context_;
+  void InstallUpdateCallback(const std::string& extension_id,
+                             const std::string& public_key,
+                             const base::FilePath& unpacked_dir,
+                             bool install_immediately,
+                             UpdateClientCallback update_client_callback);
 
-  DISALLOW_COPY_AND_ASSIGN(UpdateDataProvider);
+  content::BrowserContext* browser_context_;
 };
 
 }  // namespace extensions

@@ -99,6 +99,10 @@ class MockCertVerifyProc : public CertVerifyProc {
  public:
   explicit MockCertVerifyProc(const CertVerifyResult& result)
       : result_(result) {}
+
+  MockCertVerifyProc(const MockCertVerifyProc&) = delete;
+  MockCertVerifyProc& operator=(const MockCertVerifyProc&) = delete;
+
   // CertVerifyProc implementation:
   bool SupportsAdditionalTrustAnchors() const override { return false; }
 
@@ -117,8 +121,6 @@ class MockCertVerifyProc : public CertVerifyProc {
                      const NetLogWithSource& net_log) override;
 
   const CertVerifyResult result_;
-
-  DISALLOW_COPY_AND_ASSIGN(MockCertVerifyProc);
 };
 
 int MockCertVerifyProc::VerifyInternal(
@@ -1517,18 +1519,18 @@ TEST(CertVerifyProcTest, TestHasTooLongValidity) {
 TEST_P(CertVerifyProcInternalTest, TestKnownRoot) {
   base::FilePath certs_dir = GetTestCertsDirectory();
   scoped_refptr<X509Certificate> cert_chain = CreateCertificateChainFromFile(
-      certs_dir, "cert-manager.com-chain.pem", X509Certificate::FORMAT_AUTO);
+      certs_dir, "thepaverbros.com.pem", X509Certificate::FORMAT_AUTO);
   ASSERT_TRUE(cert_chain);
 
   int flags = 0;
   CertVerifyResult verify_result;
   int error =
-      Verify(cert_chain.get(), "ov-validation.cert-manager.com", flags,
+      Verify(cert_chain.get(), "thepaverbros.com", flags,
              CRLSet::BuiltinCRLSet().get(), CertificateList(), &verify_result);
   EXPECT_THAT(error, IsOk()) << "This test relies on a real certificate that "
-                             << "expires on June 2, 2022. If failing on/after "
+                             << "expires on Mar 26, 2023. If failing on/after "
                              << "that date, please disable and file a bug "
-                             << "against rsleevi.";
+                             << "against mattm.";
   EXPECT_TRUE(verify_result.is_issued_by_known_root);
 #if defined(OS_MAC)
   if (verify_proc_type() == CERT_VERIFY_PROC_BUILTIN) {
@@ -1583,7 +1585,7 @@ TEST_P(CertVerifyProcInternalTest, PublicKeyHashes) {
 
   std::vector<std::string> expected_public_key_hashes = {
       // Target
-      "sha256/DZMTp9cNNYkzUG6baDB6T306ekLUYJpeEEtYpaeQpYE=",
+      "sha256/Ru/08Ru275Zlf42sbI6lqi2OUun3r4YgrrK/vJ3+Yzk=",
 
       // Intermediate
       "sha256/D9u0epgvPYlG9YiVp7V+IMT+xhUpB5BhsS/INjDXc4Y=",
@@ -2581,9 +2583,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityDayPlus5MinutesBeforeNotBefore) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() + base::TimeDelta::FromDays(1) +
-                          base::TimeDelta::FromMinutes(5);
-  base::Time not_after = base::Time::Now() + base::TimeDelta::FromDays(30);
+  base::Time not_before = base::Time::Now() + base::Days(1) + base::Minutes(5);
+  base::Time not_after = base::Time::Now() + base::Days(30);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
@@ -2605,8 +2606,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityDayBeforeNotBefore) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() + base::TimeDelta::FromDays(1);
-  base::Time not_after = base::Time::Now() + base::TimeDelta::FromDays(30);
+  base::Time not_before = base::Time::Now() + base::Days(1);
+  base::Time not_after = base::Time::Now() + base::Days(30);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
@@ -2628,8 +2629,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityJustBeforeNotBefore) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() + base::TimeDelta::FromMinutes(5);
-  base::Time not_after = base::Time::Now() + base::TimeDelta::FromDays(30);
+  base::Time not_before = base::Time::Now() + base::Minutes(5);
+  base::Time not_after = base::Time::Now() + base::Days(30);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
@@ -2651,8 +2652,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityJustAfterNotBefore) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() - base::TimeDelta::FromSeconds(1);
-  base::Time not_after = base::Time::Now() + base::TimeDelta::FromDays(30);
+  base::Time not_before = base::Time::Now() - base::Seconds(1);
+  base::Time not_after = base::Time::Now() + base::Days(30);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
@@ -2674,8 +2675,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityJustBeforeNotAfter) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() - base::TimeDelta::FromDays(30);
-  base::Time not_after = base::Time::Now() + base::TimeDelta::FromMinutes(5);
+  base::Time not_before = base::Time::Now() - base::Days(30);
+  base::Time not_after = base::Time::Now() + base::Minutes(5);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
@@ -2697,8 +2698,8 @@ TEST_P(CertVerifyProcInternalTest, ValidityJustAfterNotAfter) {
   std::unique_ptr<CertBuilder> leaf, intermediate, root;
   CertBuilder::CreateSimpleChain(&leaf, &intermediate, &root);
   ASSERT_TRUE(leaf && intermediate && root);
-  base::Time not_before = base::Time::Now() - base::TimeDelta::FromDays(30);
-  base::Time not_after = base::Time::Now() - base::TimeDelta::FromSeconds(1);
+  base::Time not_before = base::Time::Now() - base::Days(30);
+  base::Time not_after = base::Time::Now() - base::Seconds(1);
   leaf->SetValidity(not_before, not_after);
 
   // Trust the root and build a chain to verify that includes the intermediate.
