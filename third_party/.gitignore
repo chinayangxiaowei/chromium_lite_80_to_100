@@ -31,6 +31,10 @@
 /androidx/libs/
 /angle
 /angle_dx11
+/apache-linux/LICENSE
+/apache-linux/bin/*
+/apache-linux/lib/*
+/apache-linux/libexec/*
 /apache-portable-runtime/src
 /apache-win32/bin/*.exe
 /apache-win32/bin/*.dll
@@ -213,6 +217,8 @@
 /requests/src
 /robolectric/lib/
 /robolectric/robolectric
+/rust-src
+/rust-toolchain
 /ruy/src
 /scan-build/src
 /scons-2.0.1

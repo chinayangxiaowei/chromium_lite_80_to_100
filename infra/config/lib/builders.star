@@ -64,40 +64,16 @@ os = struct(
     LINUX_TRUSTY = os_enum("Ubuntu-14.04", os_category.LINUX),
     LINUX_XENIAL = os_enum("Ubuntu-16.04", os_category.LINUX),
     LINUX_BIONIC = os_enum("Ubuntu-18.04", os_category.LINUX),
-    # xenial -> bionic migration
-    # * If a builder does not already explicitly set an os value, use
-    #   LINUX_BIONIC_REMOVE or LINUX_XENIAL_OR_BIONIC_REMOVE
-    # * If a builder explicitly sets LINUX_DEFAULT, use
-    #   LINUX_BIONIC_SWITCH_TO_DEFAULT or
-    #   LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT
-    #
-    # When the migration is complete, LINUX_DEFAULT can be switched to
-    # Ubunutu-18.04, all instances of LINUX_BIONIC_REMOVE can be removed and all
-    # instances of LINUX_BIONIC_SWITCH_TO_DEFAULT can be replaced with
-    # LINUX_DEFAULT, the only changes to the generated files should be
-    # Ubuntu-16.04|Ubuntu-18.04 -> Ubuntu-18.04
-    LINUX_DEFAULT = os_enum("Ubuntu-16.04", os_category.LINUX),
-    # 100% switch to bionic
-    LINUX_BIONIC_REMOVE = os_enum("Ubuntu-18.04", os_category.LINUX),
-    LINUX_BIONIC_SWITCH_TO_DEFAULT = os_enum("Ubuntu-18.04", os_category.LINUX),
-    # Staged switch to bionic: we can gradually shift the matching capacity
-    # towards bionic and the builder will continue to run on whatever is
-    # available
-    LINUX_XENIAL_OR_BIONIC_REMOVE = os_enum(
-        "Ubuntu-16.04|Ubuntu-18.04",
-        os_category.LINUX,
-    ),
-    LINUX_XENIAL_OR_BIONIC_SWITCH_TO_DEFAULT = os_enum(
-        "Ubuntu-16.04|Ubuntu-18.04",
-        os_category.LINUX,
-    ),
+    LINUX_DEFAULT = os_enum("Ubuntu-18.04", os_category.LINUX),
     MAC_10_12 = os_enum("Mac-10.12", os_category.MAC),
     MAC_10_13 = os_enum("Mac-10.13", os_category.MAC),
     MAC_10_14 = os_enum("Mac-10.14", os_category.MAC),
     MAC_10_15 = os_enum("Mac-10.15", os_category.MAC),
     MAC_11 = os_enum("Mac-11", os_category.MAC),
+    MAC_12 = os_enum("Mac-12", os_category.MAC),
     MAC_DEFAULT = os_enum("Mac-11", os_category.MAC),
     MAC_ANY = os_enum("Mac", os_category.MAC),
+    MAC_BETA = os_enum("Mac-12", os_category.MAC),
     WINDOWS_7 = os_enum("Windows-7", os_category.WINDOWS),
     WINDOWS_8_1 = os_enum("Windows-8.1", os_category.WINDOWS),
     WINDOWS_10 = os_enum("Windows-10", os_category.WINDOWS),
@@ -157,6 +133,22 @@ goma = struct(
     ),
 )
 
+reclient = struct(
+    instance = struct(
+        DEFAULT_TRUSTED = "rbe-chromium-trusted",
+        TEST_TRUSTED = "rbe-chromium-trusted-test",
+        DEFAULT_UNTRUSTED = "rbe-chromium-untrusted",
+        TEST_UNTRUSTED = "rbe-chromium-untrusted-test",
+    ),
+    jobs = struct(
+        DEFAULT = 250,
+        LOW_JOBS_FOR_CI = 80,
+        HIGH_JOBS_FOR_CI = 500,
+        LOW_JOBS_FOR_CQ = 80,
+        HIGH_JOBS_FOR_CQ = 500,
+    ),
+)
+
 def _rotation(name):
     return branches.value({branches.MAIN: [name]})
 
@@ -185,12 +177,21 @@ xcode = struct(
     x12d4e = xcode_enum("12d4e"),
     # Xcode 12.5. Requires Mac11+ OS.
     x12e262 = xcode_enum("12e262"),
-    # Default Xcode 13 for chromium iOS (release candidate).
-    x13main = xcode_enum("13a233"),
-    # Xcode 13.0 latest beta (release candidate).
-    x13latestbeta = xcode_enum("13a233"),
+    # Default Xcode 13 for chromium iOS.
+    x13main = xcode_enum("13c100"),
+    # A newer Xcode version used on beta bots.
+    x13betabots = xcode_enum("13c100"),
     # in use by ios-webkit-tot
     x13wk = xcode_enum("13a1030dwk"),
+)
+
+# Free disk space in a machine reserved for build tasks.
+# The values in this enum will be used to populate bot dimension "free_space",
+# and each bot will allocate a corresponding amount of free disk space based on
+# the value of the dimension through "bot_config.py".
+free_space = struct(
+    standard = "standard",
+    high = "high",
 )
 
 ################################################################################
@@ -269,9 +270,10 @@ def _code_coverage_property(
 def _reclient_property(*, instance, service, jobs, rewrapper_env, profiler_service, publish_trace, cache_silo, ensure_verified):
     reclient = {}
     instance = defaults.get_value("reclient_instance", instance)
-    if instance:
-        reclient["instance"] = instance
-        reclient["metrics_project"] = "chromium-reclient-metrics"
+    if not instance:
+        return None
+    reclient["instance"] = instance
+    reclient["metrics_project"] = "chromium-reclient-metrics"
     service = defaults.get_value("reclient_service", service)
     if service:
         reclient["service"] = service
@@ -310,6 +312,7 @@ defaults = args.defaults(
     auto_builder_dimension = args.COMPUTE,
     builder_group = None,
     builderless = args.COMPUTE,
+    free_space = None,
     cores = None,
     cpu = None,
     fully_qualified_builder_dimension = False,
@@ -357,6 +360,7 @@ def builder(
         triggered_by = args.DEFAULT,
         os = args.DEFAULT,
         builderless = args.DEFAULT,
+        free_space = args.DEFAULT,
         builder_cache_name = None,
         override_builder_dimension = None,
         auto_builder_dimension = args.DEFAULT,
@@ -436,6 +440,10 @@ def builder(
         builderless: a boolean indicating whether the builder runs on
             builderless machines. If True, emits a 'builderless:1' dimension. By
             default, considered True iff `os` refers to a linux OS.
+        free_space: an enum that indicates the amount of free disk space reserved
+            in a machine for incoming build tasks. This value is used to create
+            a "free_space" dimension, and this dimension is appended to only
+            builderless builders.
         override_builder_dimension: a string to assign to the "builder"
             dimension. Ignores any other "builder" and "builderless" dimensions
             that would have been assigned.
@@ -536,18 +544,23 @@ def builder(
             instance for re-client to use.
         reclient_service: a string indicating the RBE service to dial via gRPC.
             By default, this is "remotebuildexecution.googleapis.com:443" (set
-            in the reclient recipe module).
+            in the reclient recipe module). Has no effect if reclient_instance
+            is not set.
         reclient_jobs: an integer indicating the number of concurrent
-            compilations to run when using re-client as the compiler.
+            compilations to run when using re-client as the compiler. Has no
+            effect if reclient_instance is not set.
         reclient_rewrapper_env: a map that sets the rewrapper flags via the
             environment variables. All such vars must start with the "RBE_"
-            prefix.
+            prefix. Has no effect if reclient_instance is not set.
         reclient_profiler_service: a string indicating service name for
-            re-client's cloud profiler.
-        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace.
+            re-client's cloud profiler. Has no effect if reclient_instance is
+            not set.
+        reclient_publish_trace: If True, it publish trace by rpl2cloudtrace. Has
+            no effect if reclient_instance is not set.
         reclient_cache_silo: A string indicating a cache siling key to use for
-            remote caching.
-        reclient_ensure_verified: If True, it verifies build artifacts.
+            remote caching. Has no effect if reclient_instance is not set.
+        reclient_ensure_verified: If True, it verifies build artifacts. Has no
+            effect if reclient_instance is not set.
         **kwargs: Additional keyword arguments to forward on to `luci.builder`.
 
     Returns:
@@ -562,8 +575,8 @@ def builder(
 
     if builder_spec and mirrors:
         fail("Only one of builder_spec or mirrors can be set")
-    if try_settings and not mirrors:
-        fail("try_settings can only be set if mirrors is set")
+    if try_settings and not (builder_spec or mirrors):
+        fail("try_settings can only be set if builder_spec or mirrors is set")
 
     dimensions = {}
 
@@ -601,6 +614,12 @@ def builder(
             builderless = os != None and os.category in _DEFAULT_BUILDERLESS_OS_CATEGORIES
         if builderless:
             dimensions["builderless"] = "1"
+
+            free_space = defaults.get_value("free_space", free_space)
+            if free_space:
+                dimensions["free_space"] = free_space
+        elif free_space and free_space != args.DEFAULT:
+            fail("\'free_space\' dimension can only be specified for builderless builders")
 
         auto_builder_dimension = defaults.get_value(
             "auto_builder_dimension",
@@ -807,4 +826,5 @@ builders = struct(
     os = os,
     sheriff_rotations = sheriff_rotations,
     xcode = xcode,
+    free_space = free_space,
 )

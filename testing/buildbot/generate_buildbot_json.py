@@ -85,11 +85,19 @@ class GPUTelemetryTestGenerator(BaseGenerator):
   def generate(self, waterfall, tester_name, tester_config, input_tests):
     isolated_scripts = []
     for test_name, test_config in sorted(input_tests.items()):
-      test = self.bb_gen.generate_gpu_telemetry_test(
-          waterfall, tester_name, tester_config, test_name, test_config,
-          self._is_android_webview)
-      if test:
-        isolated_scripts.append(test)
+      # Variants allow more than one definition for a given test, and is defined
+      # in array format from resolve_variants().
+      if not isinstance(test_config, list):
+        test_config = [test_config]
+
+      for config in test_config:
+        test = self.bb_gen.generate_gpu_telemetry_test(waterfall, tester_name,
+                                                       tester_config, test_name,
+                                                       config,
+                                                       self._is_android_webview)
+        if test:
+          isolated_scripts.append(test)
+
     return isolated_scripts
 
   def sort(self, tests):
@@ -417,6 +425,12 @@ class BBJSONGenerator(object):
   def is_win64(self, tester_config):
     return (tester_config.get('os_type') == 'win' and
         tester_config.get('browser_config') == 'release_x64')
+
+  def add_variant_to_test_name(self, test_name, variant_id):
+    return '{}_{}'.format(test_name, variant_id)
+
+  def remove_variant_from_test_name(self, test_name, variant_id):
+    return test_name.split('_' + variant_id)[0].strip()
 
   def get_exception_for_test(self, test_name, test_config):
     # gtests may have both "test" and "name" fields, and usually, if the "name"
@@ -924,8 +938,15 @@ class BBJSONGenerator(object):
     # (At least, this was true some time ago.) Continue to use this
     # naming convention for the time being to minimize changes.
     step_name = test_config.get('name', test_name)
+    variant_id = test_config.get('variant_id')
+    if variant_id:
+      step_name = self.remove_variant_from_test_name(step_name, variant_id)
     if not (step_name.endswith('test') or step_name.endswith('tests')):
       step_name = '%s_tests' % step_name
+    if variant_id:
+      step_name = self.add_variant_to_test_name(step_name, variant_id)
+      if 'name' in test_config:
+        test_config['name'] = step_name
     result = self.generate_isolated_script_test(
       waterfall, tester_name, tester_config, step_name, test_config)
     if not result:
@@ -1200,8 +1221,15 @@ class BBJSONGenerator(object):
         # The identifier is used to make the name of the test unique.
         # Generators in the recipe uniquely identify a test by it's name, so we
         # don't want to have the same name for each variant.
-        cloned_config['name'] = '{}_{}'.format(test_name,
-                                               cloned_variant['identifier'])
+        cloned_config['name'] = self.add_variant_to_test_name(
+            cloned_config.get('name') or test_name,
+            cloned_variant['identifier'])
+
+        # Attach the variant identifier to the test config so downstream
+        # generators can make modifications based on the original name. This
+        # is mainly used in generate_gpu_telemetry_test().
+        cloned_config['variant_id'] = cloned_variant['identifier']
+
         definitions.append(cloned_config)
       test_suite[test_name] = definitions
     return test_suite
@@ -1314,7 +1342,7 @@ class BBJSONGenerator(object):
         if mixin in remove_mixins:
           continue
         valid_mixin(mixin)
-        test = self.apply_mixin(self.mixins[mixin], test)
+        test = self.apply_mixin(self.mixins[mixin], test, builder)
 
     if 'mixins' in builder:
       must_be_list(builder['mixins'], 'builder', builder_name)
@@ -1322,7 +1350,7 @@ class BBJSONGenerator(object):
         if mixin in remove_mixins:
           continue
         valid_mixin(mixin)
-        test = self.apply_mixin(self.mixins[mixin], test)
+        test = self.apply_mixin(self.mixins[mixin], test, builder)
 
     if not 'mixins' in test:
       return test
@@ -1338,11 +1366,11 @@ class BBJSONGenerator(object):
       # since this is already the lowest level, so if a mixin is added here that
       # we don't want, we can just delete its entry.
       valid_mixin(mixin)
-      test = self.apply_mixin(self.mixins[mixin], test)
+      test = self.apply_mixin(self.mixins[mixin], test, builder)
     del test['mixins']
     return test
 
-  def apply_mixin(self, mixin, test):
+  def apply_mixin(self, mixin, test, builder):
     """Applies a mixin to a test.
 
     Mixins will not override an existing key. This is to ensure exceptions can
@@ -1387,6 +1415,7 @@ class BBJSONGenerator(object):
       # Values specified under $mixin_append should be appended to existing
       # lists, rather than replacing them.
       mixin_append = mixin['$mixin_append']
+      del mixin['$mixin_append']
 
       # Append swarming named cache and delete swarming key, since it's under
       # another layer of dict.
@@ -1408,9 +1437,30 @@ class BBJSONGenerator(object):
           raise BBGenErr(
               'Cannot apply $mixin_append to non-list "' + key + '".')
         new_test[key].extend(mixin_append[key])
+
+      args = new_test.get('args', [])
+      # Array so we can assign to it in a nested scope.
+      args_need_fixup = [False]
       if 'args' in mixin_append:
-        new_test['args'] = self.maybe_fixup_args_array(new_test['args'])
-      del mixin['$mixin_append']
+        args_need_fixup[0] = True
+
+      def add_conditional_args(key, fn):
+        val = new_test.pop(key, [])
+        if val and fn(builder):
+          args.extend(val)
+          args_need_fixup[0] = True
+
+      add_conditional_args('desktop_args', lambda cfg: not self.is_android(cfg))
+      add_conditional_args('lacros_args', self.is_lacros)
+      add_conditional_args('linux_args', self.is_linux)
+      add_conditional_args('android_args', self.is_android)
+      add_conditional_args('chromeos_args', self.is_chromeos)
+      add_conditional_args('mac_args', self.is_mac)
+      add_conditional_args('win_args', self.is_win)
+      add_conditional_args('win64_args', self.is_win64)
+
+      if args_need_fixup[0]:
+        new_test['args'] = self.maybe_fixup_args_array(args)
 
     new_test.update(mixin)
     return new_test
@@ -1560,6 +1610,7 @@ class BBJSONGenerator(object):
         'mac11.0.arm64-blink-rel-dummy',
         'win7-blink-rel-dummy',
         'win10.20h2-blink-rel-dummy',
+        'win11-blink-rel-dummy',
         'WebKit Linux layout_ng_disabled Builder',
         # chromium, due to https://crbug.com/878915
         'win-dbg',
@@ -1602,7 +1653,9 @@ class BBJSONGenerator(object):
           if bot_name in builders_that_dont_exist:
             continue  # pragma: no cover
           if bot_name not in bot_names:
-            if waterfall['name'] in ['client.v8.chromium', 'client.v8.fyi']:
+            if waterfall['name'] in [
+                'client.v8.chromium', 'client.v8.fyi', 'tryserver.v8'
+            ]:
               # TODO(thakis): Remove this once these bots move to luci.
               continue  # pragma: no cover
             if waterfall['name'] in ['tryserver.webrtc',

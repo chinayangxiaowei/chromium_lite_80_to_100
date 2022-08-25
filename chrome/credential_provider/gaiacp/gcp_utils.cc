@@ -843,6 +843,7 @@ HRESULT LookupLocalizedNameForWellKnownSid(WELL_KNOWN_SID_TYPE sid_type,
 }
 
 bool WriteToStartupSentinel() {
+  LOGFN(VERBOSE);
   // Always try to write to the startup sentinel file. If writing or opening
   // fails for any reason (file locked, no access etc) consider this a failure.
   // If no sentinel file path can be found this probably means that we are
@@ -885,6 +886,8 @@ bool WriteToStartupSentinel() {
       return false;
     }
 
+    LOGFN(VERBOSE) << "Writing to sentinel. Current length="
+                   << startup_sentinel.GetLength();
     return startup_sentinel.WriteAtCurrentPos("0", 1) == 1;
   }
 
@@ -896,6 +899,7 @@ void DeleteStartupSentinel() {
 }
 
 void DeleteStartupSentinelForVersion(const std::wstring& version) {
+  LOGFN(VERBOSE) << "Deleting sentinel for version " << version;
   base::FilePath startup_sentinel_path = GetStartupSentinelLocation(version);
   if (base::PathExists(startup_sentinel_path) &&
       !base::DeleteFile(startup_sentinel_path)) {
@@ -1014,7 +1018,7 @@ HRESULT SearchForListInStringDictUTF8(
 
   auto* value = json_obj->FindListPath(base::JoinString(path, "."));
   if (value && value->is_list()) {
-    for (const base::Value& entry : value->GetList()) {
+    for (const base::Value& entry : value->GetListDeprecated()) {
       if (entry.FindKey(list_key) && entry.FindKey(list_key)->is_string()) {
         output->push_back(entry.FindKey(list_key)->GetString());
       } else {

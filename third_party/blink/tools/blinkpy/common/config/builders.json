@@ -59,11 +59,6 @@
         "port_name": "win-win10.20h2",
         "specifiers": ["Win10.20h2", "Release"]
     },
-    "Win7 Tests (dbg)(1)": {
-        "master": "chromium.win",
-        "port_name": "win-win7",
-        "specifiers": ["Win7", "Debug"]
-    },
     "fuchsia_x64": {
         "master": "tryserver.chromium.linux",
         "port_name": "fuchsia",
@@ -143,6 +138,7 @@
         "port_name": "linux-trusty",
         "specifiers": ["Trusty", "Release"],
         "has_webdriver_tests": true,
+        "step_name": "blink_web_tests (with patch)",
         "is_try_builder": true,
         "is_cq_builder":true
     },
@@ -184,7 +180,7 @@
         ],
         "is_try_builder": true
     },
-    "android-web-platform-pie-x86-fyi-rel": {
+    "android-chrome-pie-x86-wpt-fyi-rel": {
         "port_name": "android-android-pie",
         "master": "chromium.android.fyi",
         "specifiers": [

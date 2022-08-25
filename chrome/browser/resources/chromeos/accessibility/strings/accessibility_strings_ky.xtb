@@ -479,7 +479,7 @@
 <translation id="4161104397932142764">{COUNT,plural, =1{секунд}other{секунд}}</translation>
 <translation id="4161663686871496107">ChromeVox айтылуучу жооп пикири даяр</translation>
 <translation id="4176463684765177261">Өчүк</translation>
-<translation id="4187322598335821254">Кийинки же мурунку сапка өтүү үчүн, өйдө же ылдый сүрүңүз</translation>
+<translation id="4187322598335821254">Кийинки же мурунку сапка өтүү үчүн өйдө же ылдый сүрүңүз</translation>
 <translation id="4188530942454211480">Мурунку сүйлөм</translation>
 <translation id="4191918948604314587">Баскыч</translation>
 <translation id="419265409837491189">Мурунку тилкеге өтүү</translation>
@@ -666,6 +666,7 @@
 <translation id="5522423213731659107">Кыска курс бүттү!</translation>
 <translation id="5534303576632885660">hdr</translation>
 <translation id="5539820223028224601">Ач күрөң</translation>
+<translation id="554893713779400387">Үн менен жазууну күйгүзүү же өчүрүү</translation>
 <translation id="5549179427201066174">Үн менен билдирүүнү (добуштар) иштетүү же өчүрүү</translation>
 <translation id="556042886152191864">Баскыч</translation>
 <translation id="5561345396546889625">Кийинки тизме</translation>

@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 load("//lib/branches.star", "branches")
-load("//lib/builders.star", "cpu")
+load("//lib/builders.star", "builders", "cpu")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//project.star", "settings")
@@ -14,6 +14,7 @@ ci.defaults.set(
     build_numbers = True,
     cpu = cpu.X86_64,
     triggered_by = ["chromium-gitiles-trigger"],
+    free_space = builders.free_space.standard,
 )
 
 luci.bucket(
@@ -118,7 +119,9 @@ consoles.console_view(
     ("fuchsia-fyi-astro", "astro", "gpu"),
     ("fuchsia-fyi-sherlock", "sherlock", "gpu"),
     ("fuchsia-builder-perf-fyi", "fyi", "builder-perf"),
+    ("fuchsia-builder-perf-x64", "fyi", "builder-perf-x64"),
     ("fuchsia-perf-fyi", "astro", "perf"),
+    ("fuchsia-perf-atlas-fyi", "atlas", "perf"),
     ("fuchsia-perf-sherlock-fyi", "sherlock", "perf"),
     ("fuchsia-x64", "ci", "x64-chrome"),
 )]

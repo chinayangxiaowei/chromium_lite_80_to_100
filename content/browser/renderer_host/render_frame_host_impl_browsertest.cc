@@ -22,6 +22,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_run_loop_timeout.h"
@@ -96,6 +97,7 @@
 #include "third_party/blink/public/mojom/frame/frame.mojom-test-utils.h"
 #include "url/gurl.h"
 #include "url/origin.h"
+#include "url/url_canon.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/build_info.h"
@@ -2541,6 +2543,113 @@ IN_PROC_BROWSER_TEST_F(
   // Cross site iframes should have an empty site-for-cookies.
   EXPECT_TRUE(
       innermost_iframe->current_frame_host()->ComputeSiteForCookies().IsNull());
+}
+
+// Helper function to fetch the canonical link URL from the provided frame.
+absl::optional<GURL> GetCanonicalUrlFromFrame(RenderFrameHostImpl* frame) {
+  base::RunLoop loop;
+  absl::optional<GURL> canon_url;
+  frame->GetCanonicalUrl(
+      base::BindLambdaForTesting([&](const absl::optional<GURL>& url) {
+        canon_url = url;
+        loop.Quit();
+      }));
+  loop.Run();
+  return canon_url;
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, GetCanonicalUrl_None) {
+  EXPECT_TRUE(NavigateToURL(shell(), GURL(url::kAboutBlankURL)));
+
+  base::HistogramTester histogram_tester;
+  absl::optional<GURL> canon_url =
+      GetCanonicalUrlFromFrame(web_contents()->GetMainFrame());
+  // No canonical link should be returned if the page has none.
+  ASSERT_FALSE(canon_url.has_value());
+  content::FetchHistogramsFromChildProcesses();
+
+#if BUILDFLAG(IS_ANDROID)
+  ASSERT_TRUE(base::TimeTicks::IsHighResolution())
+      << "The Blink.Frame.GetCanonicalUrlRendererTime histogram has "
+         "microseconds precision and requires a high-resolution clock";
+  histogram_tester.ExpectTotalCount("Blink.Frame.GetCanonicalUrlRendererTime",
+                                    1);
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, GetCanonicalUrl_InBody) {
+  EXPECT_TRUE(NavigateToURL(
+      shell(), GetTestUrl("render_frame_host", "canonical_link_in_body.html")));
+
+  base::HistogramTester histogram_tester;
+  absl::optional<GURL> canon_url =
+      GetCanonicalUrlFromFrame(web_contents()->GetMainFrame());
+  // A canonical link in the body should be ignored.
+  ASSERT_FALSE(canon_url.has_value());
+  content::FetchHistogramsFromChildProcesses();
+
+#if BUILDFLAG(IS_ANDROID)
+  ASSERT_TRUE(base::TimeTicks::IsHighResolution())
+      << "The Blink.Frame.GetCanonicalUrlRendererTime histogram has "
+         "microseconds precision and requires a high-resolution clock";
+  histogram_tester.ExpectTotalCount("Blink.Frame.GetCanonicalUrlRendererTime",
+                                    1);
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       GetCanonicalUrl_SingleLink_WithDocumentFragment) {
+  GURL::Replacements replace_fragment;
+  replace_fragment.SetRefStr("fragment");
+  GURL url_with_fragment =
+      GetTestUrl("render_frame_host", "canonical_link.html")
+          .ReplaceComponents(replace_fragment);
+  EXPECT_TRUE(NavigateToURL(shell(), url_with_fragment));
+
+  base::HistogramTester histogram_tester;
+  absl::optional<GURL> canon_url =
+      GetCanonicalUrlFromFrame(web_contents()->GetMainFrame());
+  ASSERT_TRUE(canon_url.has_value());
+  // The canonical link should be returned appended with the fragment from the
+  // loaded document/URL.
+  EXPECT_EQ(GURL("https://example.com/canonical.html#fragment"),
+            canon_url.value());
+  content::FetchHistogramsFromChildProcesses();
+
+#if BUILDFLAG(IS_ANDROID)
+  ASSERT_TRUE(base::TimeTicks::IsHighResolution())
+      << "The Blink.Frame.GetCanonicalUrlRendererTime histogram has "
+         "microseconds precision and requires a high-resolution clock";
+  histogram_tester.ExpectTotalCount("Blink.Frame.GetCanonicalUrlRendererTime",
+                                    1);
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       GetCanonicalUrl_MultipleLinks_WithCanonicalFragment) {
+  GURL::Replacements replace_fragment;
+  replace_fragment.SetRefStr("fragment");
+  GURL url_with_fragment =
+      GetTestUrl("render_frame_host", "canonical_links_with_fragments.html")
+          .ReplaceComponents(replace_fragment);
+  EXPECT_TRUE(NavigateToURL(shell(), url_with_fragment));
+
+  base::HistogramTester histogram_tester;
+  absl::optional<GURL> canon_url =
+      GetCanonicalUrlFromFrame(web_contents()->GetMainFrame());
+  ASSERT_TRUE(canon_url.has_value());
+  // The first canonical link should be returned, and its fragment should
+  // take precedence over the one from the loaded document/URL.
+  EXPECT_EQ(GURL("https://example.com/canonical1.html#a1"), canon_url.value());
+  content::FetchHistogramsFromChildProcesses();
+
+#if BUILDFLAG(IS_ANDROID)
+  ASSERT_TRUE(base::TimeTicks::IsHighResolution())
+      << "The Blink.Frame.GetCanonicalUrlRendererTime histogram has "
+         "microseconds precision and requires a high-resolution clock";
+  histogram_tester.ExpectTotalCount("Blink.Frame.GetCanonicalUrlRendererTime",
+                                    1);
+#endif
 }
 
 // Regression test for https://crbug.com/852350
@@ -5228,22 +5337,27 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
       root_frame_host()->GetWebExposedIsolationLevel());
 }
 
-class RenderFrameHostImplBrowserTestWithDirectSockets
+class RenderFrameHostImplBrowserTestWithRestrictedApis
     : public RenderFrameHostImplBrowserTest {
  public:
-  RenderFrameHostImplBrowserTestWithDirectSockets() {
-    feature_list_.InitAndEnableFeature(features::kDirectSockets);
-  }
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    RenderFrameHostImplBrowserTest::SetUpCommandLine(command_line);
 
- private:
-  base::test::ScopedFeatureList feature_list_;
+    command_line->AppendSwitchASCII(switches::kRestrictedApiOrigins,
+                                    "http://127.0.0.1");
+  }
 };
 
-IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithDirectSockets,
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithRestrictedApis,
                        GetWebExposedIsolationLevel) {
   // Not isolated:
-  EXPECT_TRUE(
-      NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html")));
+  TestNavigationObserver navigation_observer(web_contents());
+  shell()->LoadURL(embedded_test_server()->GetURL("/empty.html"));
+  navigation_observer.Wait();
+
+  EXPECT_FALSE(navigation_observer.last_navigation_succeeded());
+  EXPECT_EQ(net::ERR_BLOCKED_BY_RESPONSE,
+            navigation_observer.last_net_error_code());
   EXPECT_EQ(RenderFrameHost::WebExposedIsolationLevel::kNotIsolated,
             root_frame_host()->GetWebExposedIsolationLevel());
 
@@ -6439,6 +6553,80 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, ErrorDocuments) {
   EXPECT_FALSE(web_contents()->GetMainFrame()->IsErrorDocument());
   EXPECT_FALSE(child_a->IsErrorDocument());
   EXPECT_TRUE(child_b->IsErrorDocument());
+}
+
+// Tests that a popup that is opened by a subframe inherits the subframe's
+// origin, instead of the main frame's origin.
+// Regression test for https://crbug.com/1311820 and https://crbug.com/1291764.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       PopupOpenedBySubframeHasCorrectOrigin) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  // Navigate to a page with a cross-site iframe.
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* root = web_contents()->GetPrimaryFrameTree().root();
+  FrameTreeNode* child = root->child_at(0);
+
+  // Verify that the main frame & subframe origin differs.
+  url::Origin a_origin = url::Origin::Create(main_url);
+  url::Origin b_origin = url::Origin::Create(child->current_url());
+  EXPECT_EQ(a_origin, root->current_frame_host()->GetLastCommittedOrigin());
+  EXPECT_EQ(b_origin, child->current_frame_host()->GetLastCommittedOrigin());
+  EXPECT_NE(a_origin, b_origin);
+
+  {
+    // From the subframe, open a popup that stays on the initial empty
+    // document.
+    WebContentsAddedObserver popup_observer;
+    ASSERT_TRUE(ExecJs(child, "var w = window.open('/nocontent');"));
+    WebContentsImpl* popup =
+        static_cast<WebContentsImpl*>(popup_observer.GetWebContents());
+    FrameTreeNode* popup_frame = popup->GetMainFrame()->frame_tree_node();
+
+    // The popup should inherit the subframe's origin. Before the fix for
+    // https://crbug.com/1311820, the popup used to inherit the main frame's
+    // origin instead.
+    EXPECT_EQ(b_origin,
+              popup_frame->current_frame_host()->GetLastCommittedOrigin());
+    EXPECT_EQ(b_origin.Serialize(), EvalJs(popup_frame, "self.origin"));
+
+    // Try calling document.open() on the popup from itself.
+    // This used to cause a renderer kill as the browser used to notice the
+    // current origin & process lock mismatched when the document.open()
+    // notification IPC arrives.
+    EXPECT_EQ(GURL("about:blank"), EvalJs(popup_frame, "location.href"));
+    EXPECT_TRUE(ExecJs(popup_frame, "document.open()"));
+    EXPECT_EQ(GURL("about:blank"), EvalJs(popup_frame, "location.href"));
+
+    // Try updating the URL of the popup to the opener subframe's URL by
+    // calling document.open() on the popup from the opener subframe.
+    // This used to cause a renderer kill as the browser used to expect that
+    // the popup frame can only update to URLs under `a_origin`, while the
+    // new URL is under `b_origin`. See also https://crbug.com/1291764.
+    EXPECT_TRUE(ExecJs(child, "w.document.open()"));
+    EXPECT_EQ(child->current_url().spec(),
+              EvalJs(popup_frame, "location.href"));
+  }
+
+  {
+    // From the subframe, open a popup that stays on the initial empty
+    // document, and specify 'noopener' to sever the opener relationship.
+    WebContentsAddedObserver popup_observer;
+    ASSERT_TRUE(
+        ExecJs(child, "var w = window.open('/nocontent', '', 'noopener');"));
+    WebContentsImpl* popup =
+        static_cast<WebContentsImpl*>(popup_observer.GetWebContents());
+    FrameTreeNode* popup_frame = popup->GetMainFrame()->frame_tree_node();
+    EXPECT_EQ(nullptr, EvalJs(popup_frame, "window.opener"));
+
+    // The popup should use a new opaque origin, instead of the subframe's
+    // origin.
+    EXPECT_NE(b_origin,
+              popup_frame->current_frame_host()->GetLastCommittedOrigin());
+    EXPECT_TRUE(
+        popup_frame->current_frame_host()->GetLastCommittedOrigin().opaque());
+    EXPECT_EQ("null", EvalJs(popup_frame, "self.origin"));
+  }
 }
 
 class RenderFrameHostImplAvoidUnnecessaryBeforeUnloadBrowserTest

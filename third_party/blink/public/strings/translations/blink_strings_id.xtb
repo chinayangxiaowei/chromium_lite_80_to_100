@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="id">
 <translation id="1088086359088493902">Detik</translation>
-<translation id="1142001580032786438">Tampilkan alat pilih minggu</translation>
+<translation id="1142001580032786438">Tampilkan pemilih minggu</translation>
 <translation id="1171774979989969504">Masukkan alamat email.</translation>
 <translation id="1178581264944972037">Jeda</translation>
 <translation id="1306460908038601864">Nonaktif</translation>
@@ -22,7 +22,7 @@
 <translation id="1832974991323546415">putar di perangkat jarak jauh</translation>
 <translation id="1921819250265091946">hh</translation>
 <translation id="1938124657309484470">Tanggal harus <ph name="MAXIMUM_DATE_OR_TIME" /> atau lebih awal.</translation>
-<translation id="1946271899482435442">Tampilkan alat pilih tanggal</translation>
+<translation id="1946271899482435442">Tampilkan pemilih tanggal</translation>
 <translation id="1993104285338243655">Dialihkan ke pencerminan</translation>
 <translation id="2031987842108996681">Saluran merah</translation>
 <translation id="2060505056492490888">'<ph name="DOT" />' digunakan pada posisi yang salah di '<ph name="INVALIDDOMAIN" />'.</translation>
@@ -84,6 +84,7 @@
 <translation id="5164977714490026579">Nilai harus lebih besar daripada atau sama dengan <ph name="MINIMUM" />.</translation>
 <translation id="5196716972587102051">2</translation>
 <translation id="520299402983819650"><ph name="QUANTITY" /> PB</translation>
+<translation id="5272594226096532950">Tidak dicentang. Di grup, opsi <ph name="INDEX" /> dari <ph name="COUNT" /></translation>
 <translation id="5307600278924710095">Masukkan bagian yang diikuti dengan '<ph name="ATSIGN" />'. '<ph name="INVALIDADDRESS" />' tidak lengkap.</translation>
 <translation id="5334352251556557839">Tidak dapat memutar media.</translation>
 <translation id="537648784377940524">Tanggal Minimal (<ph name="MIN_DATE_OR_TIME" />) harus sebelum tanggal Maksimal (<ph name="MAX_DATE_OR_TIME" />).</translation>
@@ -92,7 +93,7 @@
 <translation id="5466621249238537318">Pilih salah satu atau beberapa file.</translation>
 <translation id="5468998798572797635">keluar dari tampilan layar penuh</translation>
 <translation id="5516235301412634559">0,75</translation>
-<translation id="5537725057119320332">Cast</translation>
+<translation id="5537725057119320332">Transmisikan</translation>
 <translation id="5546461542133609677">suarakan</translation>
 <translation id="5630795885300617244">Ketuk dua kali ke kiri atau kanan untuk melewati 10 detik</translation>
 <translation id="5677946354068040947">opsi lainnya</translation>
@@ -118,10 +119,12 @@
 <translation id="6550675742724504774">Opsi</translation>
 <translation id="6572309429103589720">Tata bahasa tidak valid</translation>
 <translation id="658823671542763450">masuk layar penuh</translation>
+<translation id="6606094904835912297">Warna Sistem</translation>
 <translation id="6643016212128521049">Hapus</translation>
 <translation id="668171684555832681">Lainnya...</translation>
 <translation id="6709093583001123835">Nilai harus <ph name="VALUE" />.</translation>
 <translation id="6709570249143506788">Kualitas pemutaran buruk</translation>
+<translation id="6719914554879143100">Dicentang. Di grup, opsi <ph name="INDEX" /> dari <ph name="COUNT" /></translation>
 <translation id="6790428901817661496">Putar</translation>
 <translation id="6820355525329141109">Tidak dapat memuat plugin.</translation>
 <translation id="6831465880655513317">Palet warna dengan penggeser dua dimensi untuk memilih saturasi dan cahaya</translation>

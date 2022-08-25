@@ -1470,7 +1470,18 @@ void BrowserAccessibilityManager::OnNodeDeleted(ui::AXTree* tree,
 void BrowserAccessibilityManager::OnNodeReparented(ui::AXTree* tree,
                                                    ui::AXNode* node) {
   DCHECK(node);
-  id_wrapper_map_[node->id()] = BrowserAccessibility::Create(this, node);
+  auto iter = id_wrapper_map_.find(node->id());
+  // TODO(crbug.com/1315661): This if statement ideally should never be entered.
+  // Identify why we are entering this code path and fix the root cause.
+  if (iter == id_wrapper_map_.end()) {
+    bool success;
+    std::tie(iter, success) = id_wrapper_map_.insert(
+        {node->id(), BrowserAccessibility::Create(this, node)});
+    DCHECK(success);
+  }
+  DCHECK(iter != id_wrapper_map_.end());
+  BrowserAccessibility* wrapper = iter->second.get();
+  wrapper->SetNode(*node);
 }
 
 void BrowserAccessibilityManager::OnRoleChanged(ui::AXTree* tree,

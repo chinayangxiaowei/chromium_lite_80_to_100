@@ -15,7 +15,7 @@ try_.defaults.set(
     execution_timeout = 15 * time.minute,
     list_view = "presubmit",
     main_list_view = "try",
-    os = os.LINUX_BIONIC_SWITCH_TO_DEFAULT,
+    os = os.LINUX_DEFAULT,
     pool = try_.DEFAULT_POOL,
     # Default priority for buildbucket is 30, see
     # https://chromium.googlesource.com/infra/infra/+/bb68e62b4380ede486f65cd32d9ff3f1bbe288e4/appengine/cr-buildbucket/creation.py#42
@@ -114,15 +114,11 @@ presubmit_builder(
     description_html = "checks that builder configs in properties files match the recipe-side configs",
     executable = "recipe:chromium/builder_config_verifier",
     properties = {
-        "properties_file_globs": [
-            "infra/config/generated/builders/*/*/properties.textpb",
-        ],
+        "builder_config_directory": "infra/config/generated/builders",
     },
-    # TODO(crbug.com/1288604) Add to the CQ once the recipe is ready
-    tryjob = None,
-    # tryjob = try_.job(
-    #     location_regexp = [r".+/[+]infra/config/generated/builders"],
-    # ),
+    tryjob = try_.job(
+        location_regexp = [r".+/[+]/infra/config/generated/builders/.*"],
+    ),
 )
 
 presubmit_builder(

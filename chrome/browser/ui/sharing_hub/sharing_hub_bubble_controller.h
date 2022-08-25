@@ -8,11 +8,15 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/sharesheet/sharesheet_types.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/sharesheet/sharesheet_types.h"
+#include "chromeos/components/sharesheet/constants.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 class Profile;
 
@@ -38,7 +42,8 @@ struct SharingHubAction;
 // Responsible for showing and hiding an owned bubble.
 class SharingHubBubbleController
     : public content::WebContentsObserver,
-      public content::WebContentsUserData<SharingHubBubbleController> {
+      public content::WebContentsUserData<SharingHubBubbleController>,
+      public base::SupportsWeakPtr<SharingHubBubbleController> {
  public:
   SharingHubBubbleController(const SharingHubBubbleController&) = delete;
   SharingHubBubbleController& operator=(const SharingHubBubbleController&) =
@@ -111,10 +116,6 @@ class SharingHubBubbleController
   raw_ptr<SharingHubModel> sharing_hub_model_ = nullptr;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
-
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  base::WeakPtrFactory<SharingHubBubbleController> weak_ptr_factory_{this};
-#endif
 };
 
 }  // namespace sharing_hub

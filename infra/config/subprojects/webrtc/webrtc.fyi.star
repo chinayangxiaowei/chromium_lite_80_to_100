@@ -40,7 +40,7 @@ defaults.build_numbers.set(True)
 defaults.cpu.set(cpu.X86_64)
 defaults.executable.set("recipe:chromium")
 defaults.execution_timeout.set(2 * time.hour)
-defaults.os.set(os.LINUX_XENIAL_OR_BIONIC_REMOVE)
+defaults.os.set(os.LINUX_DEFAULT)
 defaults.pool.set("luci.chromium.webrtc.fyi")
 defaults.service_account.set("chromium-ci-builder@chops-service-accounts.iam.gserviceaccount.com")
 defaults.triggered_by.set(["webrtc-gitiles-trigger"])
@@ -137,16 +137,14 @@ builder(
 
 builder(
     name = "WebRTC Chromium FYI ios-device",
-    executable = "recipe:webrtc/chromium_ios",
     goma_backend = goma.backend.RBE_PROD,
     os = os.MAC_ANY,
-    xcode = xcode.x12d4e,
+    xcode = xcode.x13main,
 )
 
 builder(
     name = "WebRTC Chromium FYI ios-simulator",
-    executable = "recipe:webrtc/chromium_ios",
     goma_backend = goma.backend.RBE_PROD,
     os = os.MAC_ANY,
-    xcode = xcode.x12d4e,
+    xcode = xcode.x13main,
 )

@@ -45,7 +45,7 @@ defaults.builderless.set(None)
 defaults.cpu.set(cpu.X86_64)
 defaults.executable.set("recipe:swarming/staging")
 defaults.execution_timeout.set(3 * time.hour)
-defaults.os.set(os.LINUX_BIONIC_SWITCH_TO_DEFAULT)
+defaults.os.set(os.LINUX_DEFAULT)
 defaults.service_account.set(
     "chromium-ci-builder-dev@chops-service-accounts.iam.gserviceaccount.com",
 )
@@ -104,23 +104,5 @@ ci_builder(
 ci_builder(
     name = "win11-rel-swarming",
     os = os.WINDOWS_11,
-    goma_enable_ats = True,
-)
-
-## builders using swarming staging instance
-
-def ci_builder_staging(**kwargs):
-    return ci_builder(
-        swarming_host = "chromium-swarm-staging.appspot.com",
-        **kwargs
-    )
-
-ci_builder_staging(
-    name = "linux-rel-swarming-staging",
-)
-
-ci_builder_staging(
-    name = "win-rel-swarming-staging",
-    os = os.WINDOWS_DEFAULT,
     goma_enable_ats = True,
 )

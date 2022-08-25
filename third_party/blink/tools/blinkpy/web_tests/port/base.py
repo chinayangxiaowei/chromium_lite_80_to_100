@@ -252,6 +252,8 @@ class Port(object):
                                     self.default_configuration())
         if not hasattr(options, 'target') or not options.target:
             self.set_option_default('target', self._options.configuration)
+        if not hasattr(options, 'no_virtual_tests'):
+            self.set_option_default('no_virtual_tests', False)
         self._test_configuration = None
         self._results_directory = None
         self._virtual_test_suites = None
@@ -919,7 +921,8 @@ class Port(object):
         tests = self.real_tests(paths)
 
         if paths:
-            tests.extend(self._virtual_tests_matching_paths(paths))
+            if not self._options.no_virtual_tests:
+                tests.extend(self._virtual_tests_matching_paths(paths))
             if (any(wpt_path in path for wpt_path in self.WPT_DIRS
                     for path in paths)
                     # TODO(robertma): Remove this special case when external/wpt is moved to wpt.
@@ -937,7 +940,8 @@ class Port(object):
                 dirname = os.path.dirname(test) + '/'
                 tests_by_dir[dirname].append(test)
 
-            tests.extend(self._all_virtual_tests(tests_by_dir))
+            if not self._options.no_virtual_tests:
+                tests.extend(self._all_virtual_tests(tests_by_dir))
             tests.extend(wpt_tests)
         return tests
 
@@ -1475,6 +1479,13 @@ class Port(object):
             [name, value] = string_variable.split('=', 1)
             clean_env[name] = value
 
+        if self.host.platform.is_linux():
+            path_to_libs = self._filesystem.join(self.apache_server_root(), 'lib')
+            if clean_env.get('LD_LIBRARY_PATH'):
+                clean_env['LD_LIBRARY_PATH'] = path_to_libs + ':' + clean_env['LD_LIBRARY_PATH']
+            else:
+                clean_env['LD_LIBRARY_PATH'] = path_to_libs
+
         return clean_env
 
     def show_results_html_file(self, results_filename):
@@ -1862,7 +1873,8 @@ class Port(object):
                                      config_file_name)
 
     def _apache_version(self):
-        config = self._executive.run_command([self.path_to_apache(), '-v'])
+        env = self.setup_environ_for_server()
+        config = self._executive.run_command([self.path_to_apache(), '-v'], env=env)
         # Log version including patch level.
         _log.debug(
             'Found apache version %s',

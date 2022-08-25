@@ -4,6 +4,7 @@
 """Definitions of builders in the chromium.win builder group."""
 
 load("//lib/branches.star", "branches")
+load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "goma", "os", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
@@ -34,6 +35,22 @@ consoles.console_view(
 
 ci.builder(
     name = "WebKit Win10",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "goma_enable_global_file_stat_cache",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "misc",
         short_name = "wbk",
@@ -43,6 +60,22 @@ ci.builder(
 
 ci.builder(
     name = "Win Builder",
+    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "goma_enable_global_file_stat_cache",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "release|builder",
         short_name = "32",
@@ -75,6 +108,22 @@ ci.builder(
 
 ci.thin_tester(
     name = "Win7 (32) Tests",
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "goma_enable_global_file_stat_cache",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "release|tester",
         short_name = "32",
@@ -84,6 +133,23 @@ ci.thin_tester(
 
 ci.builder(
     name = "Win7 Tests (1)",
+    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "goma_enable_global_file_stat_cache",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     builderless = True,
     console_view_entry = consoles.console_view_entry(
         category = "release|tester",
@@ -94,22 +160,25 @@ ci.builder(
 )
 
 ci.builder(
-    name = "Win7 Tests (dbg)(1)",
-    builderless = True,
-    branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
-    console_view_entry = consoles.console_view_entry(
-        category = "debug|tester",
-        short_name = "7",
-    ),
-    cq_mirrors_console_view = "mirrors",
-    os = os.WINDOWS_10,
-    triggered_by = ["ci/Win Builder (dbg)"],
-)
-
-ci.builder(
     name = "Win 7 Tests x64 (1)",
     builderless = True,
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "release|tester",
         short_name = "64",
@@ -122,6 +191,20 @@ ci.builder(
 ci.builder(
     name = "Win Builder (dbg)",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 32,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "debug|builder",
         short_name = "32",
@@ -134,6 +217,24 @@ ci.builder(
 ci.builder(
     name = "Win x64 Builder",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "use_clang_coverage",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "release|builder",
         short_name = "64",
@@ -146,6 +247,25 @@ ci.builder(
 ci.builder(
     name = "Win10 Tests x64",
     branch_selector = branches.DESKTOP_EXTENDED_STABLE_MILESTONE,
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "use_clang_coverage",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.WIN,
+        ),
+        build_gs_bucket = "chromium-win-archive",
+    ),
     console_view_entry = consoles.console_view_entry(
         category = "release|tester",
         short_name = "w10",

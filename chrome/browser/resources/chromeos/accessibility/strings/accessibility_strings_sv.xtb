@@ -93,7 +93,7 @@
 <translation id="151784044608172266">Nästa mening</translation>
 <translation id="1524531499102321782">Punktskrift på nästa rad</translation>
 <translation id="1542513807034338907">Scrolla till föregående sida</translation>
-<translation id="1546370775711804143">Rullningslist</translation>
+<translation id="1546370775711804143">Scrollningslist</translation>
 <translation id="1551572888042734032">Sommar</translation>
 <translation id="1555130319947370107">Blå</translation>
 <translation id="1559739829547075274">Navigera bakåt</translation>
@@ -666,6 +666,7 @@
 <translation id="5522423213731659107">Snabbguiden har slutförts!</translation>
 <translation id="5534303576632885660">rubr</translation>
 <translation id="5539820223028224601">Gainsborogrå</translation>
+<translation id="554893713779400387">Aktivera och inaktivera diktamen</translation>
 <translation id="5549179427201066174">Aktivera eller inaktivera ljudsignaler (ljudikoner)</translation>
 <translation id="556042886152191864">Knapp</translation>
 <translation id="5561345396546889625">Nästa lista</translation>
